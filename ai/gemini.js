@@ -14,6 +14,7 @@ async function main () {
 		model: "gemini-3-flash-preview",
 		contents: prompt,
 		config: {
+			systemInstruction: "Do not include any other text than the JSON array of physicists.",
 			responseMimeType: "application/json",
 			responseJsonSchema: {
 				// See https://ai.google.dev/gemini-api/docs/structured-output?example=recipe#json_schema_support
