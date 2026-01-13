@@ -45,8 +45,13 @@ async function main () {
 	// Stream the response
 	for await (const chunk of stream) {
 		let text = chunk.candidates[0].content.parts[0].text;
-		console.log(text, "\n\n");
+		console.log(text, "\n");
 	}
+
+	// One of possible outputs (in the console):
+	//[{"first_name": "Albert", "last_name": "Einstein"},{"first_name": "Isaac", "last_name": "Newton"},{"first_name": " 
+	//
+	// Richard", "middle_name": "Phillips", "last_name": "Feynman"}] 
 }
 
 await main();
