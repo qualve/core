@@ -1,5 +1,5 @@
 import { loadEnvFile } from "node:process";
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 
 loadEnvFile(".env");
 
@@ -18,18 +18,18 @@ async function main () {
 			responseJsonSchema: {
 				// See https://ai.google.dev/gemini-api/docs/structured-output?example=recipe#json_schema_support
 				title: "Famous Physicists",
-				type: "array",
+				type: Type.ARRAY,
 				items: {
-					type: "object",
+					type: Type.OBJECT,
 					properties: {
 						first_name: {
-							type: "string",
+							type: Type.STRING,
 						},
 						middle_name: {
-							type: "string",
+							type: Type.STRING,
 						},
 						last_name: {
-							type: "string",
+							type: Type.STRING,
 						},
 					},
 					required: ["first_name", "last_name"],
