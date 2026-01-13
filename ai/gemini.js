@@ -37,6 +37,7 @@ async function main () {
 				},
 			},
 			thinkingConfig: {
+				// See https://ai.google.dev/gemini-api/docs/thinking#levels-budgets
 				thinkingLevel: ThinkingLevel.LOW,
 			},
 		},
