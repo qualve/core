@@ -1,6 +1,13 @@
 import { loadEnvFile } from "node:process";
 import path from "node:path";
-import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
+import {
+	createUserContent,
+	createPartFromUri,
+	GoogleGenAI,
+	ThinkingLevel,
+	Type,
+} from "@google/genai";
+import { codebookSchema } from "./util.js";
 
 loadEnvFile(".env");
 
@@ -54,6 +61,7 @@ async function listFiles () {
 	return meta;
 }
 
+// It's an example of how to use the API to generate content.
 async function main () {
 	const prompt = "Provide a list of 3 famous physicists.";
 
@@ -105,7 +113,7 @@ async function main () {
 	// ":"Phillips","last_name":"Feynman"}]
 }
 
-await main();
+// await main();
 
 // let myfile = await uploadFile("files/starting_codes.json");
 // console.log(myfile);
@@ -119,3 +127,36 @@ await main();
 // await deleteFile("files/starting-codes");
 // let files = await listFiles();
 // console.log(files);
+
+async function developCodebook (filename = "files/starting-codes") {
+	const model = "gemini-3-flash-preview"; // TODO: Use the correct model. E.g., gemini-3-pro-preview
+
+	const systemInstruction = `
+Imagine you are a senior qualitative data researcher with a strong background in front-end web development (you know the entirety of MDN by heart),
+web standards, browser ecosystems, and the web platform.
+`;
+
+	const codebookPrompt = `...`;
+
+	const file = await getFile(filename);
+
+	const stream = await ai.models.generateContentStream({
+		model,
+		contents: createUserContent([codebookPrompt, createPartFromUri(file.uri, file.mimeType)]),
+		config: {
+			systemInstruction,
+			responseMimeType: "application/json",
+			responseJsonSchema: codebookSchema.schema,
+			thinkingConfig: {
+				// See https://ai.google.dev/gemini-api/docs/thinking#levels-budgets
+				thinkingLevel: ThinkingLevel.HIGH,
+			},
+		},
+	});
+
+	// Stream the response
+	for await (const chunk of stream) {
+		let text = chunk.candidates[0].content.parts[0].text;
+		// TODO: Save the chunk to a file
+	}
+}
