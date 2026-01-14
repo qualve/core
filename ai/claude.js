@@ -48,17 +48,17 @@ const model = "claude-sonnet-4-20250514";
 const systemPrompt = `Who you are and what you need to do...`;
 const codebookPrompt = `...`;
 
-// await csvToJson("claude/files/starting_codes.csv");
-// await jsonToCsv("claude/files/coded_responses.json");
+// await csvToJson("files/starting_codes.csv");
+// await jsonToCsv("files/coded_responses.json");
 
-// let meta = await uploadFile("claude/files/starting_codes.json");
-// let meta = await uploadFile("claude/files/starting_codes.json");
+// let meta = await uploadFile("files/starting_codes.json");
+// let meta = await uploadFile("files/starting_codes.json");
 //
-// let meta = await uploadFile("claude/files/starting_codes.csv", "text/csv");
+// let meta = await uploadFile("files/starting_codes.csv", "text/csv");
 // deleteFile("file_011CWPnvt6k8gCz2gvPmevKM");
 
 // try {
-// 	let meta = await uploadFile("claude/files/responses.json");
+// 	let meta = await uploadFile("files/responses.json");
 // 	console.log("File ID", meta.id);
 // } catch (e) {
 // 	throw new Error(`Failed to upload file: ${e.message}`);
@@ -68,7 +68,7 @@ const codebookPrompt = `...`;
 // console.log(files);
 
 async function developCodebook() {
-	const response = await this.client.messages.create({
+	const response = await client.messages.create({
 		model,
 		max_tokens: 8000,
 		system: systemPrompt,
