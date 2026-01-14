@@ -44,10 +44,6 @@ const client = new Anthropic({
 	apiKey: process.env["ANTHROPIC_API_KEY"],
 });
 
-const model = "claude-sonnet-4-20250514";
-const systemPrompt = `Who you are and what you need to do...`;
-const codebookPrompt = `...`;
-
 // await csvToJson("files/starting_codes.csv");
 // await jsonToCsv("files/coded_responses.json");
 
@@ -68,9 +64,19 @@ const codebookPrompt = `...`;
 // console.log(files);
 
 async function developCodebook () {
-	const response = await client.messages.create({
+	const model = "claude-sonnet-4-5";
+
+	const systemPrompt = `
+Imagine you are a senior qualitative data researcher with a strong background in front-end web development (you know the entirety of MDN by heart),
+web standards, browser ecosystems, and the web platform.
+`;
+
+	const codebookPrompt = `...`;
+
+	const response = await client.beta.messages.create({
 		model,
 		max_tokens: 8000,
+		betas: ["structured-outputs-2025-11-13"],
 		system: systemPrompt,
 		messages: [
 			{
@@ -81,6 +87,51 @@ async function developCodebook () {
 		output_format: codebookSchema,
 	});
 
-	const yamlText = response.content.find(b => b.type === "text").text;
-	return yaml.load(yamlText);
+	const jsonText = response.content[0].text;
+	return JSON.parse(jsonText);
 }
+
+async function main () {
+	const response = await client.beta.messages.create({
+		model: "claude-sonnet-4-5",
+		system: "Do not include any other text than the JSON array of physicists.",
+		max_tokens: 1024,
+		betas: ["structured-outputs-2025-11-13"],
+		messages: [
+			{
+				role: "user",
+				content: "Provide a list of 3 famous physicists.",
+			},
+		],
+		// See https://platform.claude.com/docs/en/build-with-claude/structured-outputs#json-outputs
+		output_format: {
+			type: "json_schema",
+			schema: {
+				title: "Famous Physicists",
+				type: "array",
+				items: {
+					type: "object",
+					properties: {
+						first_name: {
+							type: "string",
+						},
+						middle_name: {
+							type: "string",
+						},
+						last_name: {
+							type: "string",
+						},
+					},
+					required: ["first_name", "last_name"],
+					additionalProperties: false,
+				},
+			},
+		},
+	});
+
+	console.log(response.content[0].text);
+	// Possible output:
+	// [{"first_name":"Albert","last_name":"Einstein"},{"first_name":"Isaac","last_name":"Newton"},{"first_name":"Marie","last_name":"Curie"}]
+}
+
+await main();
