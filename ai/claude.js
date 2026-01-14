@@ -94,7 +94,7 @@ web standards, browser ecosystems, and the web platform.
 async function main () {
 	const response = await client.beta.messages.create({
 		model: "claude-sonnet-4-5",
-		system: "Do not include any other text than the JSON array of physicists.",
+		system: "You are a helpful assistant that generates a list of famous physicists.",
 		max_tokens: 1024,
 		betas: ["structured-outputs-2025-11-13"],
 		messages: [
