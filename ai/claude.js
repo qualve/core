@@ -8,7 +8,7 @@ import { toFile } from "@anthropic-ai/sdk";
 loadEnvFile(".env");
 
 // Upload files to Anthropic's file storage
-async function uploadFile(filepath, mimeType = "application/json") {
+async function uploadFile (filepath, mimeType = "application/json") {
 	const file = await fs.readFile(filepath);
 	const filename = path.basename(filepath);
 
@@ -22,13 +22,13 @@ async function uploadFile(filepath, mimeType = "application/json") {
 	);
 }
 
-async function deleteFile(fileId) {
+async function deleteFile (fileId) {
 	return client.beta.files.delete(fileId, {
 		betas: ["files-api-2025-04-14"],
 	});
 }
 
-async function listFiles() {
+async function listFiles () {
 	const meta = [];
 
 	for await (const file of client.beta.files.list({
@@ -67,7 +67,7 @@ const codebookPrompt = `...`;
 // let files = await listFiles();
 // console.log(files);
 
-async function developCodebook() {
+async function developCodebook () {
 	const response = await client.messages.create({
 		model,
 		max_tokens: 8000,
@@ -81,6 +81,6 @@ async function developCodebook() {
 		output_format: codebookSchema,
 	});
 
-	const yamlText = response.content.find((b) => b.type === "text").text;
+	const yamlText = response.content.find(b => b.type === "text").text;
 	return yaml.load(yamlText);
 }

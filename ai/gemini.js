@@ -51,9 +51,9 @@ async function main () {
 	}
 
 	// One of possible outputs (in the console):
-	//[{"first_name": "Albert", "last_name": "Einstein"},{"first_name": "Isaac", "last_name": "Newton"},{"first_name": " 
+	//[{"first_name": "Albert", "last_name": "Einstein"},{"first_name": "Isaac", "last_name": "Newton"},{"first_name": "
 	//
-	// Richard", "middle_name": "Phillips", "last_name": "Feynman"}] 
+	// Richard", "middle_name": "Phillips", "last_name": "Feynman"}]
 }
 
 await main();
