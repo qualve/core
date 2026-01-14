@@ -1,4 +1,5 @@
 import { loadEnvFile } from "node:process";
+import path from "node:path";
 import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 
 loadEnvFile(".env");
@@ -6,6 +7,52 @@ loadEnvFile(".env");
 const ai = new GoogleGenAI({
 	apiKey: process.env.GEMINI_API_KEY,
 });
+
+async function uploadFile (filepath, mimeType = "application/json") {
+	const myfile = await ai.files.upload({
+		file: filepath,
+		config: {
+			// Important: File name may only contain lowercase alphanumeric characters or dashes (-) and cannot begin or end with a dash.
+			name: path.parse(filepath).name.replace(/_/g, "-"),
+			displayName: path.basename(filepath),
+			mimeType,
+		},
+	});
+
+	return myfile;
+}
+
+async function getFile (name) {
+	// Returns the file metadata. Example:
+	// {
+	// 	name: 'files/starting-codes',
+	// 	displayName: 'starting_codes.json',
+	// 	mimeType: 'application/json',
+	// 	sizeBytes: '9489',
+	// 	createTime: '2026-01-14T12:38:12.184717Z',
+	// 	updateTime: '2026-01-14T12:38:12.184717Z',
+	// 	expirationTime: '2026-01-16T12:38:11.617341351Z',
+	// 	sha256Hash: 'YjkyNDcwNmMxZWUwN2Q4YTgyMDQzMmQxMWVjNjdlZGU3NGRjZjYyZGM4YTM1Y2U0NmQ4NjRhNThiNTdmN2M0OQ==',
+	// 	uri: 'https://generativelanguage.googleapis.com/v1beta/files/starting-codes',
+	// 	state: 'ACTIVE',
+	// 	source: 'UPLOADED'
+	// }
+	return ai.files.get({ name: name.replace(/_/g, "-") });
+}
+
+async function deleteFile (name) {
+	await ai.files.delete({ name: name.replace(/_/g, "-") });
+}
+
+async function listFiles () {
+	const meta = [];
+	const listResponse = await ai.files.list();
+	for await (const file of listResponse) {
+		meta.push(file);
+	}
+
+	return meta;
+}
 
 async function main () {
 	const prompt = "Provide a list of 3 famous physicists.";
@@ -51,11 +98,24 @@ async function main () {
 	}
 
 	// One of possible outputs (in the console):
-	// 	[{"first_name":"Albert","last_name 
+	// 	[{"first_name":"Albert","last_name
 	//
-	// ":"Einstein"},{"first_name":"Isaac","last_name":"Newton"},{"first_name":"Richard","middle_name 
+	// ":"Einstein"},{"first_name":"Isaac","last_name":"Newton"},{"first_name":"Richard","middle_name
 	//
-	// ":"Phillips","last_name":"Feynman"}] 
+	// ":"Phillips","last_name":"Feynman"}]
 }
 
 await main();
+
+// let myfile = await uploadFile("files/starting_codes.json");
+// console.log(myfile);
+
+// let meta = await getFile("files/starting-codes");
+// console.log(meta);
+
+// let files = await listFiles();
+// console.log(files);
+
+// await deleteFile("files/starting-codes");
+// let files = await listFiles();
+// console.log(files);
