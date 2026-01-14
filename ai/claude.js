@@ -2,7 +2,7 @@ import { loadEnvFile } from "node:process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
-import { codebookSchema, csvToJson, jsonToCsv } from "../util.js";
+import { codebookSchema, csvToJson, jsonToCsv } from "./util.js";
 import { toFile } from "@anthropic-ai/sdk";
 
 loadEnvFile(".env");
