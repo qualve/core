@@ -10,6 +10,50 @@ const client = new OpenAI({
 });
 
 // File operations: https://platform.openai.com/docs/api-reference/files?lang=node.js
+async function uploadFile (filename) {
+	return client.files.create({
+		file: fs.createReadStream(filename),
+		purpose: "user_data",
+	});
+}
+
+async function listFiles () {
+	const meta = [];
+	const list = await client.files.list();
+
+	for await (const file of list) {
+		meta.push(file);
+	}
+
+	return meta;
+}
+
+async function getFile (name) {
+	const list = await listFiles();
+
+	return list.find(file => file.filename === name);
+}
+
+async function deleteFile (name) {
+	const file = await getFile(name);
+	if (file) {
+		return client.files.del(file.id);
+	}
+	return null;
+}
+
+// let myfile = await uploadFile("files/starting_codes.json");
+// console.log(myfile);
+
+// let meta = await getFile("starting_codes.json");
+// console.log(meta);
+
+// let files = await listFiles();
+// console.log(files);
+
+// await deleteFile("starting_codes.json");
+// let files = await listFiles();
+// console.log(files);
 
 // It's an example of how to use the API to generate content.
 async function main () {
@@ -203,10 +247,7 @@ web standards, browser ecosystems, and the web platform.
 
 	const codebookPrompt = `...`;
 
-	const file = await client.files.create({
-		file: fs.createReadStream(filename),
-		purpose: "user_data",
-	});
+	const file = await uploadFile(filename);
 
 	const stream = client.responses
 		.stream({
