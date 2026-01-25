@@ -1,5 +1,7 @@
+import path from "node:path";
 import fs from "node:fs";
 import { loadEnvFile } from "node:process";
+import { writeFile } from "node:fs/promises";
 import OpenAI from "openai";
 import { codebookSchema } from "./schemas.js";
 import { codebookPrompt, systemInstruction } from "./prompts.js";
@@ -32,7 +34,8 @@ async function listFiles () {
 async function getFile (name) {
 	const list = await listFiles();
 
-	return list.find(file => file.filename === name);
+	const basename = path.basename(name);
+	return list.find(file => file.filename === basename);
 }
 
 async function deleteFile (name) {
@@ -237,6 +240,116 @@ async function main () {
 }
 
 // await main();
+
+async function useFileAsSourceTest (filename = "files/films.json") {
+	// Check if the file exists
+	let file = await getFile(filename);
+
+	// If doesn't exist, upload it
+	if (!file) {
+		console.log("Uploading file...");
+		file = await uploadFile(filename);
+	}
+
+	console.log("File metadata:");
+	console.log(file);
+
+	console.log("Creating vector store to work with the uploaded file...");
+	const vectorStore = await client.vectorStores.create({ name: "films-json" });
+	await client.vectorStores.files.createAndPoll(vectorStore.id, { file_id: file.id });
+
+	let res = [],
+		json;
+
+	console.log("Thinking...");
+	const stream = client.responses
+		.stream({
+			model: "gpt-5-nano",
+			reasoning: {
+				effort: "medium",
+			},
+			input: [
+				{
+					type: "message",
+					role: "system",
+					content:
+						"You are a helpful assistant that provides Russian distribution titles for films.",
+				},
+				{
+					type: "message",
+					role: "user",
+					content: [
+						{
+							type: "input_text",
+							text: "For each of the films mentioned in the attached file, find their title in Russian distribution.",
+						},
+					],
+				},
+			],
+			tools: [
+				{
+					type: "file_search",
+					vector_store_ids: [vectorStore.id],
+				},
+			],
+			tool_choice: { type: "file_search" },
+			text: {
+				verbosity: "low",
+				format: {
+					name: "films",
+					type: "json_schema",
+					strict: true,
+					schema: {
+						title: "Films with Russian Titles",
+						type: "object",
+						properties: {
+							films: {
+								type: "array",
+								items: {
+									type: "object",
+									properties: {
+										original_title: {
+											type: "string",
+										},
+										russian_title: {
+											type: "string",
+										},
+									},
+									required: ["original_title", "russian_title"],
+									additionalProperties: false,
+								},
+							},
+						},
+						required: ["films"],
+						additionalProperties: false,
+					},
+				},
+			},
+		})
+		.on("response.output_text.delta", event => {
+			// Stream the response
+			res.push(event.delta);
+		})
+		.on("response.output_text.done", async event => {
+			// We are done
+			json = JSON.parse(res.join("").trim());
+			// Alternatively
+			// json = JSON.parse(event.text.trim());
+
+			console.log("Response:\n", json);
+
+			// Save the response to a file
+			await writeFile(
+				filename.replace(/\.json$/, "") + "-russian-titles-openai.json",
+				JSON.stringify(json, null, 2),
+			);
+		});
+
+	await stream.finalResponse();
+	console.log("Done!");
+}
+
+// await useFileAsSourceTest();
 
 async function developCodebook (filename = "files/starting_codes.json") {
 	const model = "gpt-5.2-pro";
