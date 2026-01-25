@@ -278,12 +278,8 @@ async function useFileAsSourceTest (filename = "files/films.json") {
 				{
 					type: "message",
 					role: "user",
-					content: [
-						{
-							type: "input_text",
-							text: "For each of the films mentioned in the attached file, find their title in Russian distribution.",
-						},
-					],
+					content:
+						"For each of the films mentioned in the attached file, find their title in Russian distribution.",
 				},
 			],
 			tools: [
@@ -338,7 +334,7 @@ async function useFileAsSourceTest (filename = "files/films.json") {
 
 			console.log("Response:\n", json);
 
-			// Save the response to a file
+			console.log("Saving the response to a file...");
 			await writeFile(
 				filename.replace(/\.json$/, "") + "-russian-titles-openai.json",
 				JSON.stringify(json, null, 2),
@@ -354,7 +350,17 @@ async function useFileAsSourceTest (filename = "files/films.json") {
 async function developCodebook (filename = "files/starting_codes.json") {
 	const model = "gpt-5.2-pro";
 
-	const file = await uploadFile(filename);
+	// Check if the file exists
+	let file = await getFile(filename);
+
+	// If doesn't exist, upload it
+	if (!file) {
+		file = await uploadFile(filename);
+	}
+
+	// Creating vector store to work with the uploaded file
+	const vectorStore = await client.vectorStores.create({ name: "codebook-json" });
+	await client.vectorStores.files.createAndPoll(vectorStore.id, { file_id: file.id });
 
 	const stream = client.responses
 		.stream({
@@ -371,19 +377,16 @@ async function developCodebook (filename = "files/starting_codes.json") {
 				{
 					type: "message",
 					role: "user",
-					content: [
-						{
-							type: "text",
-							text: codebookPrompt,
-						},
-						{
-							// https://platform.openai.com/docs/guides/pdf-files#page-top
-							type: "input_file",
-							file_id: file.id,
-						},
-					],
+					content: codebookPrompt,
 				},
 			],
+			tools: [
+				{
+					type: "file_search",
+					vector_store_ids: [vectorStore.id],
+				},
+			],
+			tool_choice: { type: "file_search" },
 			text: {
 				verbosity: "low", // See https://platform.openai.com/docs/guides/latest-model#verbosity
 				format: {
