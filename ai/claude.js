@@ -204,23 +204,50 @@ async function useFileAsSourceTest (filename = "files/films.json") {
 
 // await useFileAsSourceTest();
 
-async function developCodebook () {
+async function developCodebook (filename = "files/starting-codes.json") {
 	const model = "claude-sonnet-4-5";
 
-	const response = await client.beta.messages.create({
-		model,
-		max_tokens: 8000,
-		betas: ["structured-outputs-2025-11-13"],
-		system: systemInstruction,
-		messages: [
-			{
-				role: "user",
-				content: codebookPrompt,
-			},
-		],
-		output_format: codebookSchema,
-	});
+	// Check if the file exists
+	let file = await getFile(filename);
 
-	const jsonText = response.content[0].text;
-	return JSON.parse(jsonText);
+	// If doesn't exist, upload it
+	if (!file) {
+		// Claude can't work with files of types other than PDF and plain text.
+		// So, we need to "trick" it by uploading a JSON file as a plain text file.
+		file = await uploadFile(filename, "text/plain");
+	}
+
+	// See https://platform.claude.com/docs/en/build-with-claude/streaming
+	client.beta.messages
+		.stream({
+			model,
+			max_tokens: 8000,
+			betas: ["structured-outputs-2025-11-13", "files-api-2025-04-14"],
+			system: systemInstruction,
+			messages: [
+				{
+					role: "user",
+					content: [
+						{ type: "text", text: codebookPrompt },
+						{
+							type: "document",
+							source: {
+								type: "file",
+								file_id: file.id,
+							},
+						},
+					],
+				},
+			],
+			output_format: codebookSchema,
+		})
+		.on("text", chunk => {
+			// Handle intermediate text chunks
+		})
+		.on("error", error => {
+			// Handle error
+		})
+		.on("end", () => {
+			// Handle completion
+		});
 }
