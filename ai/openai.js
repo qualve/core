@@ -241,6 +241,69 @@ async function main () {
 
 // await main();
 
+async function getVectorStore (name, fileId) {
+	const vectorStores = await client.vectorStores.list();
+
+	let vectorStore;
+	// First, let's try to find an existing vector store
+	for await (const store of vectorStores) {
+		if (store.name === name) {
+			vectorStore = store;
+			break;
+		}
+	}
+
+	// If not found, create a new one
+	if (!vectorStore) {
+		vectorStore = await client.vectorStores.create({ name });
+	}
+
+	let vectorStoreFile;
+	try {
+		// Check if the file is already ingested
+		const files = await client.vectorStores.files.list(vectorStore.id);
+		for await (const vsFile of files) {
+			if (vsFile.file_id === fileId) {
+				vectorStoreFile = vsFile;
+				break;
+			}
+		}
+
+		// If not, ingest the file
+		if (!vectorStoreFile) {
+			vectorStoreFile = await client.vectorStores.files.createAndPoll(vectorStore.id, {
+				file_id: fileId,
+			});
+		}
+		else if (vectorStoreFile.status !== "completed") {
+			// Poll until the file is ready
+			vectorStoreFile = await client.vectorStores.files.poll(
+				vectorStore.id,
+				vectorStoreFile.id,
+			);
+		}
+	}
+	catch (error) {
+		if (error?.status !== 404) {
+			throw error;
+		}
+		// If the file is not found, start fresh with a new vector store
+		vectorStore = await client.vectorStores.create({ name });
+		vectorStoreFile = await client.vectorStores.files.createAndPoll(vectorStore.id, {
+			file_id: fileId,
+		});
+	}
+
+	if (vectorStoreFile.status !== "completed") {
+		// Something went wrong
+		throw new Error(
+			`Vector store ingest failed: ${vectorStoreFile.last_error?.message || "unknown"}`,
+		);
+	}
+
+	return vectorStore;
+}
+
 async function useFileAsSourceTest (filename = "files/films.json") {
 	// Check if the file exists
 	let file = await getFile(filename);
@@ -254,9 +317,8 @@ async function useFileAsSourceTest (filename = "files/films.json") {
 	console.log("File metadata:");
 	console.log(file);
 
-	console.log("Creating vector store to work with the uploaded file...");
-	const vectorStore = await client.vectorStores.create({ name: "films-json" });
-	await client.vectorStores.files.createAndPoll(vectorStore.id, { file_id: file.id });
+	console.log("Ensuring the uploaded file is ready...");
+	const vectorStore = await getVectorStore("films-json", file.id);
 
 	let res = [],
 		json;
@@ -337,7 +399,7 @@ async function useFileAsSourceTest (filename = "files/films.json") {
 			console.log("Saving the response to a file...");
 			await writeFile(
 				filename.replace(/\.json$/, "") + "-russian-titles-openai.json",
-				JSON.stringify(json, null, 2),
+				JSON.stringify(json.films, null, 2),
 			);
 		});
 
@@ -345,7 +407,7 @@ async function useFileAsSourceTest (filename = "files/films.json") {
 	console.log("Done!");
 }
 
-// await useFileAsSourceTest();
+await useFileAsSourceTest();
 
 async function developCodebook (filename = "files/starting_codes.json") {
 	const model = "gpt-5.2-pro";
@@ -358,9 +420,7 @@ async function developCodebook (filename = "files/starting_codes.json") {
 		file = await uploadFile(filename);
 	}
 
-	// Creating vector store to work with the uploaded file
-	const vectorStore = await client.vectorStores.create({ name: "codebook-json" });
-	await client.vectorStores.files.createAndPoll(vectorStore.id, { file_id: file.id });
+	const vectorStore = await getVectorStore("codebook-json", file.id);
 
 	const stream = client.responses
 		.stream({
