@@ -42,6 +42,12 @@ async function listFiles () {
 	return meta;
 }
 
+async function getFile (name) {
+	const list = await listFiles();
+	const basename = path.basename(name);
+	return list.find(f => f.filename === basename);
+}
+
 const client = new Anthropic({
 	apiKey: process.env["ANTHROPIC_API_KEY"],
 });
@@ -64,6 +70,93 @@ const client = new Anthropic({
 
 // let files = await listFiles();
 // console.log(files);
+
+async function useFileAsSourceTest (filename = "files/films.json") {
+	// Check if the file exists
+	let file = await getFile(filename);
+
+	// If doesn't exist, upload it
+	if (!file) {
+		console.log("Uploading file...");
+
+		// Claude can't work with files of types other than PDF and plain text.
+		// So, we need to "trick" it by uploading a JSON file as a plain text file.
+		file = await uploadFile(filename, "text/plain");
+	}
+
+	console.log("File metadata:");
+	console.log(file);
+
+	let res = [],
+		json;
+
+	console.log("Thinking...");
+	// See https://platform.claude.com/docs/en/build-with-claude/streaming
+	client.beta.messages
+		.stream({
+			model: "claude-sonnet-4-5",
+			system: "You are a helpful assistant that provides Russian distribution titles for films.",
+			max_tokens: 1024,
+			betas: ["structured-outputs-2025-11-13", "files-api-2025-04-14"],
+			messages: [
+				{
+					role: "user",
+					content: [
+						{
+							type: "text",
+							text: "For each of the films mentioned in the attached file, find their title in Russian distribution.",
+						},
+						{
+							type: "document",
+							source: {
+								type: "file",
+								file_id: file.id,
+							},
+						},
+					],
+				},
+			],
+			output_format: {
+				type: "json_schema",
+				schema: {
+					title: "Films with Russian Titles",
+					type: "array",
+					items: {
+						type: "object",
+						properties: {
+							original_title: {
+								type: "string",
+							},
+							russian_title: {
+								type: "string",
+							},
+						},
+						required: ["original_title", "russian_title"],
+						additionalProperties: false,
+					},
+				},
+			},
+		})
+		.on("text", text => {
+			res.push(text);
+		})
+		.on("end", async () => {
+			json = JSON.parse(res.join("").trim());
+
+			console.log("Response:\n");
+			console.log(json);
+
+			console.log("Saving the response to a file...");
+			await fs.writeFile(
+				filename.replace(/\.json$/, "") + "-russian-titles-claude.json",
+				JSON.stringify(json, null, 2),
+			);
+
+			console.log("Done!");
+		});
+}
+
+// await useFileAsSourceTest();
 
 async function developCodebook () {
 	const model = "claude-sonnet-4-5";
