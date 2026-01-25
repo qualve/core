@@ -200,7 +200,15 @@ web standards, browser ecosystems, and the web platform.
 
 	const codebookPrompt = `...`;
 
-	const file = await getFile(filename);
+	let file;
+	try {
+		// Check if the file exists
+		file = await getFile(filename);
+	}
+	catch (e) {
+		// If doesn't exist, upload it
+		file = await uploadFile(filename + ".json");
+	}
 
 	const stream = await ai.models.generateContentStream({
 		model,
