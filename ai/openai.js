@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import { loadEnvFile } from "node:process";
 import OpenAI from "openai";
-import { codebookSchema } from "./util.js";
+import { codebookSchema } from "./schemas.js";
+import { codebookPrompt, systemInstruction, systemInstruction } from "./prompts.js";
 
 loadEnvFile(".env");
 
@@ -240,13 +241,6 @@ async function main () {
 async function developCodebook (filename = "files/starting_codes.json") {
 	const model = "gpt-5.2-pro";
 
-	const systemPrompt = `
-Imagine you are a senior qualitative data researcher with a strong background in front-end web development (you know the entirety of MDN by heart),
-web standards, browser ecosystems, and the web platform.
-`;
-
-	const codebookPrompt = `...`;
-
 	const file = await uploadFile(filename);
 
 	const stream = client.responses
@@ -259,7 +253,7 @@ web standards, browser ecosystems, and the web platform.
 				{
 					type: "message",
 					role: "system",
-					content: systemPrompt,
+					content: systemInstruction,
 				},
 				{
 					type: "message",

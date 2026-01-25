@@ -2,7 +2,9 @@ import { loadEnvFile } from "node:process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
-import { codebookSchema, csvToJson, jsonToCsv } from "./util.js";
+import { csvToJson, jsonToCsv } from "./util.js";
+import { codebookSchema } from "./schemas.js";
+import { codebookPrompt, systemInstruction } from "./prompts.js";
 import { toFile } from "@anthropic-ai/sdk";
 
 loadEnvFile(".env");
@@ -66,18 +68,11 @@ const client = new Anthropic({
 async function developCodebook () {
 	const model = "claude-sonnet-4-5";
 
-	const systemPrompt = `
-Imagine you are a senior qualitative data researcher with a strong background in front-end web development (you know the entirety of MDN by heart),
-web standards, browser ecosystems, and the web platform.
-`;
-
-	const codebookPrompt = `...`;
-
 	const response = await client.beta.messages.create({
 		model,
 		max_tokens: 8000,
 		betas: ["structured-outputs-2025-11-13"],
-		system: systemPrompt,
+		system: systemInstruction,
 		messages: [
 			{
 				role: "user",

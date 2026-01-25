@@ -8,7 +8,8 @@ import {
 	ThinkingLevel,
 	Type,
 } from "@google/genai";
-import { codebookSchema } from "./util.js";
+import { codebookSchema } from "./schemas.js";
+import { codebookPrompt, systemInstruction } from "./prompts.js";
 
 loadEnvFile(".env");
 
@@ -70,7 +71,8 @@ async function main () {
 		model: "gemini-3-flash-preview",
 		contents: prompt,
 		config: {
-			systemInstruction: "You are a helpful assistant that generates a list of famous physicists.",
+			systemInstruction:
+				"You are a helpful assistant that generates a list of famous physicists.",
 			responseMimeType: "application/json",
 			responseJsonSchema: {
 				// See https://ai.google.dev/gemini-api/docs/structured-output?example=recipe#json_schema_support
@@ -192,13 +194,6 @@ async function useFileAsSourceTest (filename = "files/films") {
 
 async function developCodebook (filename = "files/starting-codes") {
 	const model = "gemini-3-flash-preview"; // TODO: Use the correct model. E.g., gemini-3-pro-preview
-
-	const systemInstruction = `
-Imagine you are a senior qualitative data researcher with a strong background in front-end web development (you know the entirety of MDN by heart),
-web standards, browser ecosystems, and the web platform.
-`;
-
-	const codebookPrompt = `...`;
 
 	let file;
 	try {
