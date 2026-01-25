@@ -71,6 +71,52 @@ const client = new Anthropic({
 // let files = await listFiles();
 // console.log(files);
 
+// It's an example of how to use the API to generate content.
+async function main () {
+	const response = await client.beta.messages.create({
+		model: "claude-sonnet-4-5",
+		system: "You are a helpful assistant that generates a list of famous physicists.",
+		max_tokens: 1024,
+		betas: ["structured-outputs-2025-11-13"],
+		messages: [
+			{
+				role: "user",
+				content: "Provide a list of 3 famous physicists.",
+			},
+		],
+		// See https://platform.claude.com/docs/en/build-with-claude/structured-outputs#json-outputs
+		output_format: {
+			type: "json_schema",
+			schema: {
+				title: "Famous Physicists",
+				type: "array",
+				items: {
+					type: "object",
+					properties: {
+						first_name: {
+							type: "string",
+						},
+						middle_name: {
+							type: "string",
+						},
+						last_name: {
+							type: "string",
+						},
+					},
+					required: ["first_name", "last_name"],
+					additionalProperties: false,
+				},
+			},
+		},
+	});
+
+	console.log(response.content[0].text);
+	// Possible output:
+	// [{"first_name":"Albert","last_name":"Einstein"},{"first_name":"Isaac","last_name":"Newton"},{"first_name":"Marie","last_name":"Curie"}]
+}
+
+// await main();
+
 async function useFileAsSourceTest (filename = "files/films.json") {
 	// Check if the file exists
 	let file = await getFile(filename);
@@ -178,48 +224,3 @@ async function developCodebook () {
 	const jsonText = response.content[0].text;
 	return JSON.parse(jsonText);
 }
-
-async function main () {
-	const response = await client.beta.messages.create({
-		model: "claude-sonnet-4-5",
-		system: "You are a helpful assistant that generates a list of famous physicists.",
-		max_tokens: 1024,
-		betas: ["structured-outputs-2025-11-13"],
-		messages: [
-			{
-				role: "user",
-				content: "Provide a list of 3 famous physicists.",
-			},
-		],
-		// See https://platform.claude.com/docs/en/build-with-claude/structured-outputs#json-outputs
-		output_format: {
-			type: "json_schema",
-			schema: {
-				title: "Famous Physicists",
-				type: "array",
-				items: {
-					type: "object",
-					properties: {
-						first_name: {
-							type: "string",
-						},
-						middle_name: {
-							type: "string",
-						},
-						last_name: {
-							type: "string",
-						},
-					},
-					required: ["first_name", "last_name"],
-					additionalProperties: false,
-				},
-			},
-		},
-	});
-
-	console.log(response.content[0].text);
-	// Possible output:
-	// [{"first_name":"Albert","last_name":"Einstein"},{"first_name":"Isaac","last_name":"Newton"},{"first_name":"Marie","last_name":"Curie"}]
-}
-
-await main();
