@@ -413,8 +413,11 @@ async function developCodebook (filename = "files/starting_codes.json") {
 		.on("response.output_text.delta", event => {
 			// Stream the response
 		})
-		.on("response.output_text.done", () => {
+		.on("response.output_text.done", event => {
 			// We are done
+			// The API will return a JSON with one property "codes".
+			// OpenAI doesn't support top-level arrays in output schemas.
+			// So, we actually need to store event.text.codes to a file (to be aligned, for example, with Gemini).
 		})
 		.on("response.error", event => {
 			// Handle the error
