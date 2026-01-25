@@ -1,5 +1,6 @@
 import { loadEnvFile } from "node:process";
 import path from "node:path";
+import { writeFile } from "node:fs/promises";
 import {
 	createUserContent,
 	createPartFromUri,
@@ -127,6 +128,67 @@ async function main () {
 // await deleteFile("files/starting-codes");
 // let files = await listFiles();
 // console.log(files);
+
+async function useFileAsSourceTest (filename = "files/films") {
+	let file;
+	try {
+		// Check if the file exists
+		file = await getFile(filename);
+	}
+	catch (e) {
+		// If doesn't exist, upload it
+		file = await uploadFile(filename + ".json");
+	}
+
+	console.log(file);
+
+	const stream = await ai.models.generateContentStream({
+		model: "gemini-3-flash-preview",
+		contents: createUserContent([
+			"For each of the films mentioned in the attached file, find their title in Russian distribution.",
+			createPartFromUri(file.uri, file.mimeType),
+		]),
+		config: {
+			systemInstruction:
+				"You are a helpful assistant that provides Russian distribution titles for films.",
+			responseMimeType: "application/json",
+			responseJsonSchema: {
+				title: "Films with Russian Titles",
+				type: Type.ARRAY,
+				items: {
+					type: Type.OBJECT,
+					properties: {
+						original_title: {
+							type: Type.STRING,
+						},
+						russian_title: {
+							type: Type.STRING,
+						},
+					},
+					required: ["original_title", "russian_title"],
+					additionalProperties: false,
+				},
+			},
+			thinkingConfig: {
+				thinkingLevel: ThinkingLevel.LOW,
+			},
+		},
+	});
+
+	// Stream the response
+	let res = [];
+	for await (const chunk of stream) {
+		res.push(chunk.candidates[0].content.parts[0].text);
+	}
+
+	let json = JSON.parse(res.join(""));
+	console.log("Response:\n", json);
+
+	// Save the response to a file
+	await writeFile(filename + "-russian-titles.json", JSON.stringify(json, null, 2));
+}
+
+// await useFileAsSourceTest();
 
 async function developCodebook (filename = "files/starting-codes") {
 	const model = "gemini-3-flash-preview"; // TODO: Use the correct model. E.g., gemini-3-pro-preview
