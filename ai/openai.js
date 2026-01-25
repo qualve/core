@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { loadEnvFile } from "node:process";
 import OpenAI from "openai";
 import { codebookSchema } from "./schemas.js";
-import { codebookPrompt, systemInstruction, systemInstruction } from "./prompts.js";
+import { codebookPrompt, systemInstruction } from "./prompts.js";
 
 loadEnvFile(".env");
 
