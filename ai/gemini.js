@@ -138,10 +138,11 @@ async function useFileAsSourceTest (filename = "files/films") {
 		file = await getFile(filename);
 	}
 	catch (e) {
-		// If doesn't exist, upload it
+		console.log("Uploading file...");
 		file = await uploadFile(filename + ".json");
 	}
 
+	console.log("File metadata:");
 	console.log(file);
 
 	const stream = await ai.models.generateContentStream({
@@ -177,6 +178,7 @@ async function useFileAsSourceTest (filename = "files/films") {
 		},
 	});
 
+	console.log("Thinking...");
 	// Stream the response
 	let res = [];
 	for await (const chunk of stream) {
@@ -186,8 +188,10 @@ async function useFileAsSourceTest (filename = "files/films") {
 	let json = JSON.parse(res.join(""));
 	console.log("Response:\n", json);
 
-	// Save the response to a file
+	console.log("Saving the response to a file...");
 	await writeFile(filename + "-russian-titles-gemini.json", JSON.stringify(json, null, 2));
+
+	console.log("Done!");
 }
 
 // await useFileAsSourceTest();
