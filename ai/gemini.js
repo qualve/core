@@ -187,7 +187,7 @@ async function useFileAsSourceTest (filename = "files/films") {
 	console.log("Response:\n", json);
 
 	// Save the response to a file
-	await writeFile(filename + "-russian-titles.json", JSON.stringify(json, null, 2));
+	await writeFile(filename + "-russian-titles-gemini.json", JSON.stringify(json, null, 2));
 }
 
 // await useFileAsSourceTest();
