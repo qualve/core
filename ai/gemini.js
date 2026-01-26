@@ -64,7 +64,7 @@ async function listFiles () {
 }
 
 // It's an example of how to use the API to generate content.
-async function main () {
+async function simpleTest () {
 	const prompt = "Provide a list of 3 famous physicists.";
 
 	const stream = await ai.models.generateContentStream({
@@ -116,7 +116,7 @@ async function main () {
 	// ":"Phillips","last_name":"Feynman"}]
 }
 
-// await main();
+// await simpleTest();
 
 // let myfile = await uploadFile("files/starting_codes.json");
 // console.log(myfile);

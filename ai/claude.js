@@ -72,7 +72,7 @@ const client = new Anthropic({
 // console.log(files);
 
 // It's an example of how to use the API to generate content.
-async function main () {
+async function simpleTest () {
 	const response = await client.beta.messages.create({
 		model: "claude-sonnet-4-5",
 		system: "You are a helpful assistant that generates a list of famous physicists.",
@@ -115,7 +115,7 @@ async function main () {
 	// [{"first_name":"Albert","last_name":"Einstein"},{"first_name":"Isaac","last_name":"Newton"},{"first_name":"Marie","last_name":"Curie"}]
 }
 
-// await main();
+// await simpleTest();
 
 async function useFileAsSourceTest (filename = "files/films.json") {
 	// Check if the file exists

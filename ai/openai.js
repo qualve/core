@@ -60,7 +60,7 @@ async function deleteFile (name) {
 // console.log(files);
 
 // It's an example of how to use the API to generate content.
-async function main () {
+async function simpleTest () {
 	// See https://platform.openai.com/docs/guides/structured-outputs?example=structured-data#streaming
 	const stream = client.responses
 		.stream({
@@ -239,7 +239,7 @@ async function main () {
 	// }
 }
 
-// await main();
+// await simpleTest();
 
 async function getVectorStore (name, fileId) {
 	const vectorStores = await client.vectorStores.list();
