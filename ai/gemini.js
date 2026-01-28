@@ -13,7 +13,7 @@ const ai = new GoogleGenAI({
 	apiKey: process.env.GEMINI_API_KEY,
 });
 
-async function codeAnswers (questionId, { fresh } = {}) {
+export async function codeAnswers (questionId, { fresh } = {}) {
 	if (!questionId) {
 		throw new Error("Question id is required!");
 	}
