@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 import { createUserContent, createPartFromUri, GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { answersSchema } from "./schemas.js";
 import { inputAnswers, intro, codingInstructions } from "./prompts.js";
-import { cleanUpFile, handleStreamedChunks } from "./util.js";
+import { cleanUpFile, handleStreamedChunks, getProgressIndicator } from "./util.js";
 
 loadEnvFile(".env");
 
@@ -81,7 +81,8 @@ export async function codeAnswers (questionId, { fresh } = {}) {
 	console.log(
 		`Source files (${codebookFile.name.replace("files/", "")}, ${answersFile.name.replace("files/", "")}) are ready.`,
 	);
-	console.log("Coding with Gemini...");
+
+	let stopIndicator = getProgressIndicator("Coding with Gemini...");
 
 	const stream = await ai.models.generateContentStream({
 		model: "gemini-3-pro-preview",
@@ -101,7 +102,8 @@ export async function codeAnswers (questionId, { fresh } = {}) {
 		},
 	});
 
-	console.log("Streaming the response...");
+	stopIndicator();
+	stopIndicator = getProgressIndicator("Streaming the response...");
 
 	await handleStreamedChunks({
 		stream,
@@ -109,6 +111,7 @@ export async function codeAnswers (questionId, { fresh } = {}) {
 		transform: chunk => chunk.candidates[0].content.parts[0].text,
 	});
 
+	stopIndicator();
 	console.log("Done!");
 }
 
