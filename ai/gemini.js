@@ -13,7 +13,7 @@ const ai = new GoogleGenAI({
 	apiKey: process.env.GEMINI_API_KEY,
 });
 
-export async function codeAnswers (questionId, { fresh } = {}) {
+export async function codeAnswers (questionId, { fresh, model = "gemini-3-flash-preview" } = {}) {
 	if (!questionId) {
 		throw new Error("Question id is required!");
 	}
@@ -85,7 +85,7 @@ export async function codeAnswers (questionId, { fresh } = {}) {
 	let stopIndicator = showProgressIndicator("Coding with Gemini...");
 
 	const stream = await ai.models.generateContentStream({
-		model: "gemini-3-pro-preview",
+		model,
 		contents: createUserContent([
 			inputAnswers,
 			codingInstructions,
@@ -107,7 +107,8 @@ export async function codeAnswers (questionId, { fresh } = {}) {
 
 	await handleStreamedChunks({
 		stream,
-		filepath: `${questionId}/gemini-coding.json`,
+		filepath: `${questionId}/gemini.json`,
+		suffix: model.replace("gemini", "") + "-coding",
 		transform: chunk => chunk.candidates[0].content.parts[0].text,
 	});
 
