@@ -90,7 +90,19 @@ async function uploadFile (filepath, mimeType = "application/json") {
 }
 
 async function getFile (name) {
-	return ai.files.get({ name: name.replace(/_/g, "-") });
+	name = name.replace(/_/g, "-");
+
+	// Why not just ai.files.get()? Because it throws in two cases: file not found and permission denied.
+	// We can't distinguish them without listing all files.
+	let files = await ai.files.list();
+	for await (const file of files) {
+		if (file.name === name) {
+			return file;
+		}
+	}
+
+	// Not found
+	return null;
 }
 
 async function deleteFile (name) {
