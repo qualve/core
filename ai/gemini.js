@@ -12,7 +12,7 @@ const ai = new GoogleGenAI({
 	apiKey: process.env.GEMINI_API_KEY,
 });
 
-async function codeAnswers (questionId, { cleanup = false } = {}) {
+async function codeAnswers (questionId, { fresh = false } = {}) {
 	if (!questionId) {
 		throw new Error("Question id is required!");
 	}
@@ -37,13 +37,15 @@ async function codeAnswers (questionId, { cleanup = false } = {}) {
 	let codebookPath = `${questionId}/codebook.json`;
 	let answersPath = `${questionId}/answers.json`;
 
-	if (cleanup) {
+	if (fresh) {
 		// Start fresh
 		console.log("Removing previously uploaded files...");
 
 		if (codebookFile) {
 			await deleteFile(codebookFile.name);
 			codebookFile = null;
+
+			console.log("Cleaning up the codebook...");
 			await cleanUpFile(codebookPath);
 		}
 
@@ -72,7 +74,7 @@ async function codeAnswers (questionId, { cleanup = false } = {}) {
 	console.log(
 		`Source files (${codebookFile.name.replace("files/", "")}, ${answersFile.name.replace("files/", "")}) are ready.`,
 	);
-	console.log("Starting coding process with Gemini...");
+	console.log("Coding with Gemini...");
 
 	const stream = await ai.models.generateContentStream({
 		model: "gemini-3-pro",
@@ -100,7 +102,7 @@ async function codeAnswers (questionId, { cleanup = false } = {}) {
 		},
 	});
 
-	console.log("Thinking...");
+	console.log("Streaming the response...");
 
 	await handleStreamedChunks({
 		stream,
