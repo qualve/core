@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { createUserContent, createPartFromUri, GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { answersSchema } from "./schemas.js";
 import { inputAnswers, intro, codingInstructions } from "./prompts.js";
-import { handleStreamedChunks } from "./util.js";
+import { cleanUpFile, handleStreamedChunks } from "./util.js";
 
 loadEnvFile(".env");
 
@@ -12,28 +12,67 @@ const ai = new GoogleGenAI({
 	apiKey: process.env.GEMINI_API_KEY,
 });
 
-async function codeAnswers (questionId) {
+async function codeAnswers (questionId, { cleanup = false } = {}) {
+	if (!questionId) {
+		throw new Error("Question id is required!");
+	}
+
 	const question = JSON.parse(await readFile(`${questionId}/question.json`, "utf-8")).description;
 
-	let codebookFile;
-	try {
-		// Check if the file exists
-		codebookFile = await getFile(`files/${questionId}-codebook`);
-	}
-	catch (e) {
-		// If doesn't exist, upload it
-		console.log("Uploading the codebook...");
-		codebookFile = await uploadFile(`${questionId}/codebook.json`);
-	}
+	console.log("Working with source files...");
 
-	let answersFile;
+	let codebookFile, answersFile;
 	try {
+		codebookFile = await getFile(`files/${questionId}-codebook`);
 		answersFile = await getFile(`files/${questionId}-answers`);
 	}
 	catch (e) {
-		console.log("Uploading the answers...");
-		answersFile = await uploadFile(`${questionId}/answers.json`);
+		let message = JSON.parse(e.message);
+		if (message?.error?.status === "PERMISSION_DENIED") {
+			// This shouldn't happen, abort
+			throw e;
+		}
 	}
+
+	let codebookPath = `${questionId}/codebook.json`;
+	let answersPath = `${questionId}/answers.json`;
+
+	if (cleanup) {
+		// Start fresh
+		console.log("Removing previously uploaded files...");
+
+		if (codebookFile) {
+			await deleteFile(codebookFile.name);
+			codebookFile = null;
+			await cleanUpFile(codebookPath);
+		}
+
+		if (answersFile) {
+			await deleteFile(answersFile.name);
+			answersFile = null;
+		}
+	}
+
+	try {
+		if (!codebookFile) {
+			console.log("Uploading the codebook...");
+			codebookFile = await uploadFile(codebookPath);
+		}
+
+		if (!answersFile) {
+			console.log("Uploading the answers...");
+			answersFile = await uploadFile(answersPath);
+		}
+	}
+	catch (e) {
+		// Something went wrong. We can't proceed without these files. Abort the mission!
+		throw e;
+	}
+
+	console.log(
+		`Source files (${codebookFile.name.replace("files/", "")}, ${answersFile.name.replace("files/", "")}) are ready.`,
+	);
+	console.log("Starting coding process with Gemini...");
 
 	const stream = await ai.models.generateContentStream({
 		model: "gemini-3-pro",
@@ -45,11 +84,14 @@ async function codeAnswers (questionId) {
 		]),
 		config: {
 			systemInstruction: intro(question),
-			tools: [
-				{
-					googleSearch: {},
-				},
-			],
+
+			// Enable on paid plans only
+			// tools: [
+			// 	{
+			// 		googleSearch: {},
+			// 	},
+			// ],
+
 			responseMimeType: "application/json",
 			responseJsonSchema: answersSchema.schema,
 			thinkingConfig: {
@@ -60,7 +102,7 @@ async function codeAnswers (questionId) {
 
 	console.log("Thinking...");
 
-	handleStreamedChunks({
+	await handleStreamedChunks({
 		stream,
 		filepath: `${questionId}/gemini-coding.json`,
 		transform: chunk => chunk.candidates[0].content.parts[0].text,
