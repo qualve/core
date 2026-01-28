@@ -93,14 +93,6 @@ export async function codeAnswers (questionId, { fresh } = {}) {
 		]),
 		config: {
 			systemInstruction: intro(question),
-
-			// Enable on paid plans only
-			// tools: [
-			// 	{
-			// 		googleSearch: {},
-			// 	},
-			// ],
-
 			responseMimeType: "application/json",
 			responseJsonSchema: answersSchema.schema,
 			thinkingConfig: {
@@ -119,8 +111,6 @@ export async function codeAnswers (questionId, { fresh } = {}) {
 
 	console.log("Done!");
 }
-
-// await codeAnswers("browser_apis");
 
 // === Helper functions for file management === //
 
