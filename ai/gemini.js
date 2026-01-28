@@ -1,5 +1,6 @@
 import { loadEnvFile } from "node:process";
 import path from "node:path";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createUserContent, createPartFromUri, GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { answersSchema } from "./schemas.js";
@@ -12,7 +13,7 @@ const ai = new GoogleGenAI({
 	apiKey: process.env.GEMINI_API_KEY,
 });
 
-async function codeAnswers (questionId, { fresh = false } = {}) {
+async function codeAnswers (questionId, { fresh } = {}) {
 	if (!questionId) {
 		throw new Error("Question id is required!");
 	}
@@ -36,6 +37,12 @@ async function codeAnswers (questionId, { fresh = false } = {}) {
 
 	let codebookPath = `${questionId}/codebook.json`;
 	let answersPath = `${questionId}/answers.json`;
+
+	if (fresh == undefined) {
+		// Determine if we should start fresh.
+		// Check if codebook_original.json exists.
+		fresh = !existsSync(`${questionId}/codebook_original.json`, "utf-8");
+	}
 
 	if (fresh) {
 		// Start fresh
