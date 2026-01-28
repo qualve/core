@@ -84,7 +84,7 @@ export async function codeAnswers (questionId, { fresh } = {}) {
 	console.log("Coding with Gemini...");
 
 	const stream = await ai.models.generateContentStream({
-		model: "gemini-3-pro",
+		model: "gemini-3-pro-preview",
 		contents: createUserContent([
 			inputAnswers,
 			codingInstructions,
