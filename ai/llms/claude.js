@@ -18,12 +18,14 @@ export async function codeAnswers (questionId, { fresh, model = "claude-sonnet-4
 		throw new Error("Question id is required!");
 	}
 
-	const question = JSON.parse(await readFile(`${questionId}/question.json`, "utf-8")).description;
+	const question = JSON.parse(
+		await readFile(`data/${questionId}/question.json`, "utf-8"),
+	).description;
 
 	console.log("Working with source files...");
 
-	let codebookPath = `${questionId}/codebook.json`;
-	let answersPath = `${questionId}/answers.json`;
+	let codebookPath = `data/${questionId}/codebook.json`;
+	let answersPath = `data/${questionId}/answers.json`;
 
 	let codebookFile = await getFile(codebookPath);
 	let answersFile = await getFile(answersPath);
@@ -98,7 +100,7 @@ export async function codeAnswers (questionId, { fresh, model = "claude-sonnet-4
 
 	await handleStreamedChunks({
 		stream,
-		filepath: `${questionId}/claude.json`,
+		filepath: `data/${questionId}/claude.json`,
 		suffix: model.replace("claude", "") + "-coding",
 		transform: chunk =>
 			chunk.type === "content_block_delta" && chunk.delta?.type === "text_delta"
