@@ -13,7 +13,7 @@ const ai = new GoogleGenAI({
 	apiKey: process.env.GEMINI_API_KEY,
 });
 
-export async function codeAnswers (questionId, { fresh, model = "gemini-3-flash-preview" } = {}) {
+export async function codeAnswers (questionId, { fresh, model = "gemini-3-pro-preview" } = {}) {
 	if (!questionId) {
 		throw new Error("Question id is required!");
 	}
@@ -94,6 +94,10 @@ export async function codeAnswers (questionId, { fresh, model = "gemini-3-flash-
 		]),
 		config: {
 			systemInstruction: intro(question),
+			tools:
+				model.includes("-pro-") || model.endsWith("-pro")
+					? [{ googleSearch: {} }]
+					: undefined,
 			responseMimeType: "application/json",
 			responseJsonSchema: answersSchema.schema,
 			thinkingConfig: {
