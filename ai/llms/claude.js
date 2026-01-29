@@ -76,15 +76,21 @@ export async function codeAnswers (questionId, { fresh, model = "claude-sonnet-4
 				content: [
 					{ type: "text", text: inputAnswers },
 					{ type: "text", text: codingInstructions },
+					{ type: "text", text: "Document 1: codebook.json (use only for code definitions)." },
 					{
 						type: "document",
+						title: "codebook.json",
+						context: "Codebook for deductive coding. Use only for code definitions.",
 						source: {
 							type: "file",
 							file_id: codebookFile.id,
 						},
 					},
+					{ type: "text", text: "Document 2: answers.json (the responses to code)." },
 					{
 						type: "document",
+						title: "answers.json",
+						context: "Survey responses to be deductively coded using the codebook.",
 						source: {
 							type: "file",
 							file_id: answersFile.id,
