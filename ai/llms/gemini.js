@@ -95,6 +95,7 @@ export async function generateCodebook (
 		]),
 		config: {
 			systemInstruction: intro(question),
+			temperature: 0.0, // recommended for deductive coding
 			tools:
 				model.includes("-pro-") || model.endsWith("-pro")
 					? [{ googleSearch: {} }]
@@ -201,6 +202,7 @@ export async function codeAnswers (questionId, { fresh, model = "gemini-3-pro-pr
 		]),
 		config: {
 			systemInstruction: intro(question),
+			temperature: 0.0, // recommended for deductive coding
 			tools:
 				model.includes("-pro-") || model.endsWith("-pro")
 					? [{ googleSearch: {} }]

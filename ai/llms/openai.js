@@ -85,7 +85,8 @@ export async function codeAnswers (questionId, { fresh, model = "gpt-5.2-pro" } 
 		reasoning: {
 			effort: "medium",
 		},
-		max_output_tokens: 4096,
+		max_output_tokens: 8000, // TODO: adjust based on model limits
+		temperature: 0.0, // recommended for deductive coding
 		truncation: "auto",
 		input: [
 			{

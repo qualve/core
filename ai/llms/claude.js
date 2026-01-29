@@ -66,7 +66,8 @@ export async function codeAnswers (questionId, { fresh, model = "claude-sonnet-4
 
 	const stream = client.beta.messages.stream({
 		model,
-		max_tokens: 8000,
+		max_tokens: 8000, // TODO: adjust based on model limits
+		temperature: 0.0, // recommended for deductive coding
 		betas: ["structured-outputs-2025-11-13", "files-api-2025-04-14"],
 		system: intro(question),
 		messages: [
