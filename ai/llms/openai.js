@@ -3,9 +3,9 @@ import fs from "node:fs";
 import { loadEnvFile } from "node:process";
 import { readFile } from "node:fs/promises";
 import OpenAI from "openai";
-import { answersSchema } from "./schemas.js";
-import { codingInstructions, intro, inputAnswers } from "./prompts.js";
-import { handleStreamedChunks, showProgressIndicator } from "./util.js";
+import { answersSchema } from "../schemas.js";
+import { codingInstructions, intro, inputAnswers } from "../prompts.js";
+import { handleStreamedChunks, showProgressIndicator } from "../util.js";
 
 loadEnvFile(".env");
 
@@ -32,12 +32,12 @@ export async function codeAnswers (questionId, { fresh, model = "gpt-5.2-pro" } 
 		throw new Error("Question id is required!");
 	}
 
-	const question = JSON.parse(await readFile(`${questionId}/question.json`, "utf-8")).description;
+	const question = JSON.parse(await readFile(`data/${questionId}/question.json`, "utf-8")).description;
 
 	console.log("Working with source files...");
 
-	let codebookPath = `${questionId}/codebook.json`;
-	let answersPath = `${questionId}/answers.json`;
+	let codebookPath = `data/${questionId}/codebook.json`;
+	let answersPath = `data/${questionId}/answers.json`;
 
 	let codebookFile = await getFile(codebookPath);
 	let answersFile = await getFile(answersPath);
@@ -134,7 +134,7 @@ export async function codeAnswers (questionId, { fresh, model = "gpt-5.2-pro" } 
 
 	await handleStreamedChunks({
 		stream,
-		filepath: `${questionId}/gpt.json`,
+		filepath: `data/${questionId}/gpt.json`,
 		suffix: model.replace("gpt", "") + "-coding",
 		transform: chunk => (chunk.type === "response.output_text.delta" ? chunk.delta : ""),
 	});

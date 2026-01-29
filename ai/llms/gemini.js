@@ -3,14 +3,14 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createUserContent, createPartFromUri, GoogleGenAI, ThinkingLevel } from "@google/genai";
-import { answersSchema, codebookSchema } from "./schemas.js";
+import { answersSchema, codebookSchema } from "../schemas.js";
 import {
 	inputAnswers,
 	intro,
 	codingInstructions,
 	codebookGenerationInstructions,
-} from "./prompts.js";
-import { cleanUpFile, handleStreamedChunks, showProgressIndicator } from "./util.js";
+} from "../prompts.js";
+import { cleanUpFile, handleStreamedChunks, showProgressIndicator } from "../util.js";
 
 loadEnvFile(".env");
 
@@ -26,7 +26,7 @@ export async function generateCodebook (
 		throw new Error("Question id is required!");
 	}
 
-	const question = JSON.parse(await readFile(`${questionId}/question.json`, "utf-8")).description;
+	const question = JSON.parse(await readFile(`data/${questionId}/question.json`, "utf-8")).description;
 
 	console.log("Working with source files...");
 
@@ -43,8 +43,8 @@ export async function generateCodebook (
 		}
 	}
 
-	let codebookPath = `${questionId}/starting-codebook.json`;
-	let answersPath = `${questionId}/answers.json`;
+	let codebookPath = `data/${questionId}/starting-codebook.json`;
+	let answersPath = `data/${questionId}/answers.json`;
 
 	if (fresh) {
 		// Start fresh
@@ -112,7 +112,7 @@ export async function generateCodebook (
 
 	await handleStreamedChunks({
 		stream,
-		filepath: `${questionId}/codebook.json`,
+		filepath: `data/${questionId}/codebook.json`,
 		transform: chunk => chunk.candidates[0].content.parts[0].text,
 	});
 
@@ -125,7 +125,7 @@ export async function codeAnswers (questionId, { fresh, model = "gemini-3-pro-pr
 		throw new Error("Question id is required!");
 	}
 
-	const question = JSON.parse(await readFile(`${questionId}/question.json`, "utf-8")).description;
+	const question = JSON.parse(await readFile(`data/${questionId}/question.json`, "utf-8")).description;
 
 	console.log("Working with source files...");
 
@@ -142,13 +142,13 @@ export async function codeAnswers (questionId, { fresh, model = "gemini-3-pro-pr
 		}
 	}
 
-	let codebookPath = `${questionId}/codebook.json`;
-	let answersPath = `${questionId}/answers.json`;
+	let codebookPath = `data/${questionId}/codebook.json`;
+	let answersPath = `data/${questionId}/answers.json`;
 
 	if (fresh == undefined) {
 		// Determine if we should start fresh.
 		// Check if codebook_original.json exists.
-		fresh = !existsSync(`${questionId}/codebook_original.json`, "utf-8");
+		fresh = !existsSync(`data/${questionId}/codebook_original.json`, "utf-8");
 	}
 
 	if (fresh) {
@@ -218,7 +218,7 @@ export async function codeAnswers (questionId, { fresh, model = "gemini-3-pro-pr
 
 	await handleStreamedChunks({
 		stream,
-		filepath: `${questionId}/gemini.json`,
+		filepath: `data/${questionId}/gemini.json`,
 		suffix: model.replace("gemini", "") + "-coding",
 		transform: chunk => chunk.candidates[0].content.parts[0].text,
 	});
