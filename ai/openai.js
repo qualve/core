@@ -83,8 +83,10 @@ export async function codeAnswers (questionId, { fresh, model = "gpt-5.2-pro" } 
 	const stream = client.responses.stream({
 		model,
 		reasoning: {
-			effort: "high",
+			effort: "medium",
 		},
+		max_output_tokens: 4096,
+		truncation: "auto",
 		input: [
 			{
 				type: "message",
