@@ -53,15 +53,15 @@ export async function generateCodebook (
 		if (codebookFile) {
 			await deleteFile(codebookFile.name);
 			codebookFile = null;
-
-			console.log("Cleaning up the codebook...");
-			await cleanUpFile(codebookPath);
 		}
 
 		if (answersFile) {
 			await deleteFile(answersFile.name);
 			answersFile = null;
 		}
+
+		console.log("Cleaning up the codebook...");
+		await cleanUpFile(codebookPath);
 	}
 
 	try {
