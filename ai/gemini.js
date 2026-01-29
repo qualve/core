@@ -3,8 +3,13 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createUserContent, createPartFromUri, GoogleGenAI, ThinkingLevel } from "@google/genai";
-import { answersSchema } from "./schemas.js";
-import { inputAnswers, intro, codingInstructions } from "./prompts.js";
+import { answersSchema, codebookSchema } from "./schemas.js";
+import {
+	inputAnswers,
+	intro,
+	codingInstructions,
+	codebookGenerationInstructions,
+} from "./prompts.js";
 import { cleanUpFile, handleStreamedChunks, showProgressIndicator } from "./util.js";
 
 loadEnvFile(".env");
@@ -12,6 +17,108 @@ loadEnvFile(".env");
 const ai = new GoogleGenAI({
 	apiKey: process.env.GEMINI_API_KEY,
 });
+
+export async function generateCodebook (
+	questionId,
+	{ fresh, model = "gemini-3-pro-preview" } = {},
+) {
+	if (!questionId) {
+		throw new Error("Question id is required!");
+	}
+
+	const question = JSON.parse(await readFile(`${questionId}/question.json`, "utf-8")).description;
+
+	console.log("Working with source files...");
+
+	let codebookFile, answersFile;
+	try {
+		codebookFile = await getFile(`files/${questionId}-starting-codebook`);
+		answersFile = await getFile(`files/${questionId}-answers`);
+	}
+	catch (e) {
+		let message = JSON.parse(e.message);
+		if (message?.error?.status === "PERMISSION_DENIED") {
+			// This shouldn't happen, abort
+			throw e;
+		}
+	}
+
+	let codebookPath = `${questionId}/starting-codebook.json`;
+	let answersPath = `${questionId}/answers.json`;
+
+	if (fresh) {
+		// Start fresh
+		console.log("Removing previously uploaded files...");
+
+		if (codebookFile) {
+			await deleteFile(codebookFile.name);
+			codebookFile = null;
+
+			console.log("Cleaning up the codebook...");
+			await cleanUpFile(codebookPath);
+		}
+
+		if (answersFile) {
+			await deleteFile(answersFile.name);
+			answersFile = null;
+		}
+	}
+
+	try {
+		if (!codebookFile) {
+			console.log("Uploading the codebook...");
+			codebookFile = await uploadFile(codebookPath);
+		}
+
+		if (!answersFile) {
+			console.log("Uploading the answers...");
+			answersFile = await uploadFile(answersPath);
+		}
+	}
+	catch (e) {
+		// Something went wrong. We can't proceed without these files. Abort the mission!
+		throw e;
+	}
+
+	console.log(
+		`Source files (${codebookFile.name.replace("files/", "")}, ${answersFile.name.replace("files/", "")}) are ready.`,
+	);
+
+	let stopIndicator = showProgressIndicator("Generating codebook with Gemini...");
+
+	const stream = await ai.models.generateContentStream({
+		model,
+		contents: createUserContent([
+			codebookGenerationInstructions,
+			createPartFromUri(answersFile.uri, answersFile.mimeType),
+			createPartFromUri(codebookFile.uri, codebookFile.mimeType),
+		]),
+		config: {
+			systemInstruction: intro(question),
+			tools:
+				model.includes("-pro-") || model.endsWith("-pro")
+					? [{ googleSearch: {} }]
+					: undefined,
+			responseMimeType: "application/json",
+			responseJsonSchema: codebookSchema.schema,
+			thinkingConfig: {
+				thinkingLevel: ThinkingLevel.HIGH,
+			},
+		},
+	});
+
+	stopIndicator();
+	stopIndicator = showProgressIndicator("Streaming the response...");
+
+	await handleStreamedChunks({
+		stream,
+		filepath: `${questionId}/codebook.json`,
+		transform: chunk => chunk.candidates[0].content.parts[0].text,
+	});
+
+	stopIndicator();
+	console.log("Done!");
+}
 
 export async function codeAnswers (questionId, { fresh, model = "gemini-3-pro-preview" } = {}) {
 	if (!questionId) {
@@ -53,7 +160,7 @@ export async function codeAnswers (questionId, { fresh, model = "gemini-3-pro-pr
 			codebookFile = null;
 
 			console.log("Cleaning up the codebook...");
-			await cleanUpFile(codebookPath);
+			await cleanUpFile(codebookPath, { exclude: ["ai"] });
 		}
 
 		if (answersFile) {
