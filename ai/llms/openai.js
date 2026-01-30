@@ -27,7 +27,7 @@ async function getVectorStore (name) {
 	return await client.vectorStores.create({ name });
 }
 
-export async function codeAnswers (questionId, { fresh, model = "gpt-5.2-pro" } = {}) {
+export async function codeAnswers (questionId, { fresh, model = "gpt-5.2" } = {}) {
 	if (!questionId) {
 		throw new Error("Question id is required!");
 	}
@@ -82,12 +82,11 @@ export async function codeAnswers (questionId, { fresh, model = "gpt-5.2-pro" } 
 
 	const stream = client.responses.stream({
 		model,
+		background: true, // try to avoid hitting a client-side socket timeout after ~601s (10 minutes)
+		store: true,
 		reasoning: {
-			effort: "medium",
+			effort: "medium", // enough for deductive coding
 		},
-		max_output_tokens: 8000, // TODO: adjust based on model limits
-		temperature: 0.0, // recommended for deductive coding
-		truncation: "auto",
 		input: [
 			{
 				type: "message",
