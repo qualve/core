@@ -14,7 +14,7 @@ import { cleanUpFile, handleStreamedChunks, showProgressIndicator } from "../uti
 
 loadEnvFile(".env");
 
-const ai = new GoogleGenAI({
+const client = new GoogleGenAI({
 	apiKey: process.env.GEMINI_API_KEY,
 });
 
@@ -86,7 +86,7 @@ export async function generateCodebook (
 
 	let stopIndicator = showProgressIndicator("Generating codebook with Gemini...");
 
-	const stream = await ai.models.generateContentStream({
+	const stream = await client.models.generateContentStream({
 		model,
 		contents: createUserContent([
 			codebookGenerationInstructions,
@@ -192,7 +192,7 @@ export async function codeAnswers (questionId, { fresh, model = "gemini-3-pro-pr
 
 	let stopIndicator = showProgressIndicator("Coding with Gemini...");
 
-	const stream = await ai.models.generateContentStream({
+	const stream = await client.models.generateContentStream({
 		model,
 		contents: createUserContent([
 			inputAnswers,
@@ -234,7 +234,7 @@ export async function codeAnswers (questionId, { fresh, model = "gemini-3-pro-pr
 async function uploadFile (filepath, mimeType = "application/json") {
 	const { dir: prefix, name, base } = path.parse(filepath);
 
-	const myfile = await ai.files.upload({
+	const myfile = await client.files.upload({
 		file: filepath,
 		config: {
 			// Important: File name may only contain lowercase alphanumeric characters or dashes (-) and cannot begin or end with a dash.
@@ -252,7 +252,7 @@ async function getFile (name) {
 
 	// Why not just ai.files.get()? Because it throws in two cases: file not found and permission denied.
 	// We can't distinguish them without listing all files.
-	let files = await ai.files.list();
+	let files = await client.files.list();
 	for await (const file of files) {
 		if (file.name === name) {
 			return file;
@@ -264,12 +264,12 @@ async function getFile (name) {
 }
 
 async function deleteFile (name) {
-	await ai.files.delete({ name: name.replace(/_/g, "-") });
+	await client.files.delete({ name: name.replace(/_/g, "-") });
 }
 
 async function listFiles () {
 	const meta = [];
-	const listResponse = await ai.files.list();
+	const listResponse = await client.files.list();
 	for await (const file of listResponse) {
 		meta.push(file);
 	}
