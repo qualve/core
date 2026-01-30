@@ -66,7 +66,7 @@ export async function codeAnswers (questionId, { fresh, model = "claude-sonnet-4
 
 	const stream = client.beta.messages.stream({
 		model,
-		max_tokens: 8000, // TODO: adjust based on model limits
+		max_tokens: 64000, // maximum for claude-sonnet-4-5
 		temperature: 0.0, // recommended for deductive coding
 		betas: ["structured-outputs-2025-11-13", "files-api-2025-04-14"],
 		system: intro(question),
@@ -76,7 +76,10 @@ export async function codeAnswers (questionId, { fresh, model = "claude-sonnet-4
 				content: [
 					{ type: "text", text: inputAnswers },
 					{ type: "text", text: codingInstructions },
-					{ type: "text", text: "Document 1: codebook.json (use only for code definitions)." },
+					{
+						type: "text",
+						text: "Document 1: codebook.json (use only for code definitions).",
+					},
 					{
 						type: "document",
 						title: "codebook.json",
