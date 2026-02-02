@@ -27,6 +27,7 @@ export default class Question {
 			process.exit(1);
 		}
 
+		question.id ??= id;
 		return new Question(question);
 	}
 }
