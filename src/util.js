@@ -134,7 +134,7 @@ export function minifyJSONSync (filepath, { force } = {}) {
 	let json = readJSONSync(filepath);
 
 	// value ?? undefined coerces nulls to undefined as well, and undefined values are omitted
-	writeJSONSync(filepathMinified, json, undefined, (key, value) => value ?? undefined);
+	writeJSONSync(filepathMinified, json, "", (key, value) => value ?? undefined);
 	return filepathMinified;
 }
 
