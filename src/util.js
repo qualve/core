@@ -39,40 +39,24 @@ export function writeJSONSync (path, data, indent = "\t", replacer = null) {
 	return writeFileSync(path, JSON.stringify(data, replacer, indent));
 }
 
-// export function readDirectorySync (directory, { type } = {}) {
-// 	try {
-// 		// TODO use withFileTypes option instead of filtering by statSync after
-// 		let ret = readdirSync(directory);
+export function readDirectorySync (directory, { type } = {}) {
+	try {
+		let ret = readdirSync(directory, { withFileTypes: true });
 
-// 		if (type) {
-// 			ret = ret.filter(item =>
-// 				statSync(path.join(directory, item))[
-// 					type === "directory" ? "isDirectory" : "isFile"
-// 				]());
-// 		}
+		if (type) {
+			ret = ret.filter(item => item[type === "directory" ? "isDirectory" : "isFile"]());
+		}
 
-// 		return ret;
-// 	}
-// 	catch (e) {
-// 		if (e.code === "ENOENT") {
-// 			return [];
-// 		}
+		return ret.map(item => item.name);
+	}
+	catch (e) {
+		if (e.code === "ENOENT") {
+			return [];
+		}
 
-// 		throw e;
-// 	}
-// }
-
-// export function getTopLevelModules (directory = "./node_modules") {
-// 	return readDirectorySync(directory, { type: "directory" }).flatMap(dir => {
-// 		if (dir[0] === "@") {
-// 			return readDirectorySync(path.join(directory, dir), { type: "directory" }).flatMap(
-// 				subdir => `${dir}/${subdir}`,
-// 			);
-// 		}
-
-// 		return dir;
-// 	});
-// }
+		throw e;
+	}
+}
 
 // export function isDirectoryEmptySync (path) {
 // 	const dir = opendirSync(path);
