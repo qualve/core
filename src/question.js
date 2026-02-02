@@ -1,4 +1,4 @@
-import { readJSONSync } from "./util.js";
+import { readJSONSync, readDirectorySync } from "./util.js";
 
 export default class Question {
 	constructor (question) {
@@ -22,6 +22,14 @@ export default class Question {
 	}
 
 	static all = {};
+
+	static #ids = null;
+	static get ids () {
+		if (!this.#ids) {
+			this.#ids = readDirectorySync("data", { type: "directory" });
+		}
+		return this.#ids;
+	}
 
 	static fromId (id) {
 		if (this.all[id]) {
