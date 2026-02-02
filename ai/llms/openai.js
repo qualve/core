@@ -1,62 +1,52 @@
-import path from "node:path";
 import fs from "node:fs";
-import OpenAI from "openai";
+import OpenAIClient from "openai";
+import LLM from "../src/llm.js";
 
-async function getVectorStore (client, name) {
-	const vectorStores = await client.vectorStores.list();
+export default class OpenAI extends LLM {
+	static models = ["gpt-5.2", "gpt-5-mini", "gpt-5-nano"];
+	static id = "openai";
+	static name = "OpenAI";
 
-	// First, let's try to find an existing vector store
-	for await (const store of vectorStores) {
-		if (store.name === name) {
-			return store;
+	client = new OpenAIClient({
+		apiKey: process.env.OPENAI_API_KEY,
+	});
+	stores = {};
+
+	async getStore (name) {
+		if (!name) {
+			return null;
 		}
+
+		if (!this.stores[name]) {
+			const vectorStores = await this.client.vectorStores.list();
+
+			// First, let's try to find an existing vector store
+			for await (const store of vectorStores) {
+				if (store.name === name) {
+					return store;
+				}
+			}
+
+			// If not found, create a new one
+			this.stores[name] = this.client.vectorStores
+				.create({ name })
+				.then(store => (this.stores[name] = store));
+		}
+
+		return this.stores[name];
 	}
 
-	// If not found, create a new one
-	return await client.vectorStores.create({ name });
-}
-
-export default {
-	id: "openai",
-	name: "OpenAI",
-	streaming: true,
-	filepath: true,
-	models: ["gpt-5.2", "gpt-5-mini", "gpt-5-nano"],
-
-	init () {
-		this.stores = new Proxy(
-			{},
-			{
-				get: (target, name) => {
-					if (name in target) {
-						return target[name];
-					}
-
-					target[name] ??= getVectorStore(this.client, name).then(
-						store => (target[name] = store),
-					);
-					return target[name];
-				},
-			},
-		);
-	},
-
-	getClient: () =>
-		new OpenAI({
-			apiKey: process.env.OPENAI_API_KEY,
-		}),
-
 	async uploadFile (filepath) {
+		let { dirName } = this.getFileInfo(filepath);
 		let file = await this.client.files.create({
 			file: fs.createReadStream(filepath),
 			purpose: "user_data",
 		});
-		let dirName = path.basename(path.dirname(filepath));
-		file.dirName = dirName;
-		let store = await this.stores[dirName];
+
+		let store = await this.getStore(dirName);
 		await this.client.vectorStores.files.createAndPoll(store.id, { file_id: file.id });
 		return file;
-	},
+	}
 
 	async listFiles () {
 		const meta = [];
@@ -67,31 +57,30 @@ export default {
 		}
 
 		return meta;
-	},
+	}
 
-	async getFile (name) {
-		name = path.basename(name);
+	async getFile (filepath) {
+		let { name } = this.getFileInfo(filepath);
 		const list = await this.listFiles();
 		return list.find(file => file.filename === name);
-	},
+	}
 
-	async deleteFile (name) {
+	async deleteFile (filepath) {
+		let { name, dirName } = this.getFileInfo(filepath);
+
 		const file = await this.getFile(name);
 		if (!file) {
 			return null;
 		}
 		await this.client.files.del(file.id);
-		let dirName = path.basename(path.dirname(name));
-		let store = await this.stores[dirName];
+
+		let store = await this.getStore(dirName);
 		await this.client.vectorStores.files.del(store.id, file.id);
-	},
+	}
 
 	async createStream ({ system, task, responseSchema, files = {} }) {
-		task = Array.isArray(task) ? task : [task];
-		system = Array.isArray(system) ? system : [system];
-
-		const dirName = Object.values(files)[0].dirName;
-		const store = await this.stores[dirName];
+		const storeId = Object.values(files)[0]?.storeId;
+		const store = await this.getStore(storeId);
 		let hasRootObject = responseSchema?.schema?.type === "object";
 
 		// OpenAI requires a name for the response schema and strict mode
@@ -140,5 +129,16 @@ export default {
 				chunk.type === "response.output_text.delta" ? chunk.delta : "",
 			transformResult: result => (hasRootObject ? result : result.data),
 		};
-	},
-};
+	}
+
+	async getRemoteFile (filepath) {
+		let ret = await super.getRemoteFile(filepath);
+
+		if (ret) {
+			let { dirName } = this.getFileInfo(filepath);
+			ret.storeId = dirName;
+		}
+
+		return ret;
+	}
+}

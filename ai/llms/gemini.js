@@ -1,33 +1,33 @@
-import path from "node:path";
+import LLM from "../src/llm.js";
 import { createUserContent, createPartFromUri, GoogleGenAI, ThinkingLevel } from "@google/genai";
 
-export default {
-	id: "gemini",
-	name: "Gemini",
-	models: ["gemini-3-pro-preview", "gemini-3-flash-preview"],
+export default class Gemini extends LLM {
+	static id = "gemini";
+	static name = "Gemini";
+	static models = ["gemini-3-pro-preview", "gemini-3-flash-preview"];
 
-	getClient: () =>
-		new GoogleGenAI({
-			apiKey: process.env.GEMINI_API_KEY,
-		}),
+	client = new GoogleGenAI({
+		apiKey: process.env.GEMINI_API_KEY,
+	});
 
-	normalizeFilename (filename) {
+	getFileInfo (filepath) {
+		let { name, dirName } = super.getFileInfo(filepath);
 		// Important: File name may only contain lowercase alphanumeric characters or dashes (-) and cannot begin or end with a dash.
-		return filename.replace(/[_.]/g, "-").replace(/^-|-$/g, "");
-	},
+		let displayName = name;
+		name = name.replace(/[_.]/g, "-").replace(/^-|-$/g, "");
+		return { name, dirName, displayName };
+	}
 
-	async uploadFile (filepath, { key = filepath, displayName = key, mimeType }) {
+	async uploadFile (filepath, { mimeType = "application/json" } = {}) {
+		let { name, displayName } = this.getFileInfo(filepath);
 		return this.client.files.upload({
 			file: filepath,
-			config: {
-				name: key,
-				displayName,
-				mimeType,
-			},
+			config: { name, displayName, mimeType },
 		});
-	},
+	}
 
-	async getFile (name) {
+	async getFile (filepath) {
+		let { name } = this.getFileInfo(filepath);
 		try {
 			// If we don't await here, the error is unhandled
 			return await this.client.files.get({ name: "files/" + name });
@@ -54,25 +54,24 @@ export default {
 
 		// Not found
 		return null;
-	},
+	}
 
-	async deleteFile (name) {
+	async deleteFile (filepath) {
+		let { name } = this.getFileInfo(filepath);
 		let file = await this.getFile(name);
 		if (!file) {
 			// Not found
 			return null;
 		}
 
-		await this.client.files.delete({ name: file.name });
-	},
+		await this.client.files.delete({ name });
+	}
 
 	async listFiles () {
 		return [...(await this.client.files.list())];
-	},
+	}
 
 	async createStream ({ system, task, responseSchema, files = {} }) {
-		task = Array.isArray(task) ? task : [task];
-
 		const stream = await this.client.models.generateContentStream({
 			model: this.model,
 			contents: createUserContent([
@@ -80,7 +79,7 @@ export default {
 				...Object.values(files).map(file => createPartFromUri(file.uri, file.mimeType)),
 			]),
 			config: {
-				systemInstruction: system,
+				systemInstruction: system?.join("\n"),
 				// For deductive coding, it's recommended to keep the temperature low (e.g., 0.0 as with other LLMs).
 				// However, we need to allow Gemini some flexibility to follow the schema properly.
 				// Otherwise, it might refuse to answer, and we'll never get a response.
@@ -98,5 +97,5 @@ export default {
 			stream,
 			transformChunk: chunk => chunk.candidates[0].content.parts[0].text,
 		};
-	},
-};
+	}
+}
