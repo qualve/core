@@ -1,19 +1,8 @@
 import path from "node:path";
 import fs from "node:fs";
-import { loadEnvFile } from "node:process";
-import { readFile } from "node:fs/promises";
 import OpenAI from "openai";
-import { answersSchema } from "../schemas.js";
-import { codingInstructions, intro, inputAnswers } from "../prompts.js";
-import { handleStreamedChunks, showProgressIndicator } from "../util.js";
 
-loadEnvFile(".env");
-
-const client = new OpenAI({
-	apiKey: process.env.OPENAI_API_KEY,
-});
-
-async function getVectorStore (name) {
+async function getVectorStore (client, name) {
 	const vectorStores = await client.vectorStores.list();
 
 	// First, let's try to find an existing vector store
@@ -27,155 +16,129 @@ async function getVectorStore (name) {
 	return await client.vectorStores.create({ name });
 }
 
-export async function codeAnswers (questionId, { fresh, model = "gpt-5.2" } = {}) {
-	if (!questionId) {
-		throw new Error("Question id is required!");
-	}
+export default {
+	id: "openai",
+	name: "OpenAI",
+	streaming: true,
+	filepath: true,
+	models: ["gpt-5.2", "gpt-5-mini", "gpt-5-nano"],
 
-	const question = JSON.parse(await readFile(`data/${questionId}/question.json`, "utf-8")).description;
-
-	console.log("Working with source files...");
-
-	let codebookPath = `data/${questionId}/codebook.json`;
-	let answersPath = `data/${questionId}/answers.json`;
-
-	let codebookFile = await getFile(codebookPath);
-	let answersFile = await getFile(answersPath);
-
-	const filesVS = await getVectorStore(`${questionId}-files`);
-
-	if (fresh) {
-		if (codebookFile) {
-			await client.files.del(codebookFile.id);
-			await client.vectorStores.files.del(filesVS.id, codebookFile.id);
-			codebookFile = null;
-		}
-
-		if (answersFile) {
-			await client.files.del(answersFile.id);
-			await client.vectorStores.files.del(filesVS.id, answersFile.id);
-			answersFile = null;
-		}
-	}
-
-	try {
-		if (!codebookFile) {
-			console.log("Uploading the codebook...");
-			codebookFile = await uploadFile(codebookPath);
-			await client.vectorStores.files.createAndPoll(filesVS.id, { file_id: codebookFile.id });
-		}
-
-		if (!answersFile) {
-			console.log("Uploading the answers...");
-			answersFile = await uploadFile(answersPath);
-			await client.vectorStores.files.createAndPoll(filesVS.id, { file_id: answersFile.id });
-		}
-	}
-	catch (e) {
-		// Something went wrong. We can't proceed without these files. Abort the mission!
-		throw e;
-	}
-
-	console.log(`Source files (${codebookFile.filename}, ${answersFile.filename}) are ready.`);
-
-	let stopIndicator = showProgressIndicator("Coding with OpenAI and streaming the response...");
-
-	const stream = client.responses.stream({
-		model,
-		background: true, // try to avoid hitting a client-side socket timeout after ~601s (10 minutes)
-		store: true,
-		reasoning: {
-			effort: "medium", // enough for deductive coding
-		},
-		input: [
+	init () {
+		this.stores = new Proxy(
+			{},
 			{
-				type: "message",
-				role: "system",
-				content: intro(question),
-			},
-			{
-				type: "message",
-				role: "user",
-				content: inputAnswers,
-			},
-			{
-				type: "message",
-				role: "user",
-				content: codingInstructions,
-			},
-		],
-		tools: [
-			{
-				type: "file_search",
-				vector_store_ids: [filesVS.id],
-			},
-		],
-		tool_choice: { type: "file_search" },
-		text: {
-			verbosity: "low",
-			format: {
-				name: "answers_coding",
-				type: "json_schema",
-				strict: true,
-				schema: {
-					title: "Coded Answers",
-					type: "object",
-					properties: {
-						answers: {
-							...answersSchema.schema,
-						},
-					},
-					required: ["answers"],
-					additionalProperties: false,
+				get: (target, name) => {
+					if (name in target) {
+						return target[name];
+					}
+
+					target[name] ??= getVectorStore(this.client, name).then(
+						store => (target[name] = store),
+					);
+					return target[name];
 				},
 			},
-		},
-	});
+		);
+	},
 
-	await handleStreamedChunks({
-		stream,
-		filepath: `data/${questionId}/gpt.json`,
-		suffix: model.replace("gpt", "") + "-coding",
-		transform: chunk => (chunk.type === "response.output_text.delta" ? chunk.delta : ""),
-	});
+	getClient: () =>
+		new OpenAI({
+			apiKey: process.env.OPENAI_API_KEY,
+		}),
 
-	await stream.finalResponse();
+	async uploadFile (filepath) {
+		let file = await this.client.files.create({
+			file: fs.createReadStream(filepath),
+			purpose: "user_data",
+		});
+		let dirName = path.basename(path.dirname(filepath));
+		file.dirName = dirName;
+		let store = await this.stores[dirName];
+		await this.client.vectorStores.files.createAndPoll(store.id, { file_id: file.id });
+		return file;
+	},
 
-	stopIndicator();
-	console.log("Done!");
-}
+	async listFiles () {
+		const meta = [];
+		const list = await this.client.files.list();
 
-// === Helper functions for file management === //
+		for await (const file of list) {
+			meta.push(file);
+		}
 
-async function uploadFile (filename) {
-	return client.files.create({
-		file: fs.createReadStream(filename),
-		purpose: "user_data",
-	});
-}
+		return meta;
+	},
 
-async function listFiles () {
-	const meta = [];
-	const list = await client.files.list();
+	async getFile (name) {
+		name = path.basename(name);
+		const list = await this.listFiles();
+		return list.find(file => file.filename === name);
+	},
 
-	for await (const file of list) {
-		meta.push(file);
-	}
+	async deleteFile (name) {
+		const file = await this.getFile(name);
+		if (!file) {
+			return null;
+		}
+		await this.client.files.del(file.id);
+		let dirName = path.basename(path.dirname(name));
+		let store = await this.stores[dirName];
+		await this.client.vectorStores.files.del(store.id, file.id);
+	},
 
-	return meta;
-}
+	async createStream ({ system, task, responseSchema, files = {} }) {
+		task = Array.isArray(task) ? task : [task];
+		system = Array.isArray(system) ? system : [system];
 
-async function getFile (name) {
-	const list = await listFiles();
+		const dirName = Object.values(files)[0].dirName;
+		const store = await this.stores[dirName];
+		let hasRootObject = responseSchema?.schema?.type === "object";
 
-	const basename = path.basename(name);
-	return list.find(file => file.filename === basename);
-}
+		// OpenAI requires a name for the response schema and strict mode
+		responseSchema = { strict: true, name: "response", ...responseSchema };
 
-async function deleteFile (name) {
-	const file = await getFile(name);
-	if (file) {
-		return client.files.del(file.id);
-	}
-	return null;
-}
+		if (!hasRootObject) {
+			// OpenAI only supports objects at the top level of output schemas.
+			// See https://platform.openai.com/docs/guides/structured-outputs#root-objects-must-not-be-anyof-and-must-be-an-object
+			responseSchema.schema = {
+				type: "object",
+				properties: {
+					data: responseSchema.schema,
+				},
+				required: ["data"],
+				additionalProperties: false,
+			};
+		}
+
+		const stream = this.client.responses.stream({
+			model: this.model,
+			background: true, // try to avoid hitting a client-side socket timeout after ~601s (10 minutes)
+			store: true,
+			reasoning: {
+				effort: "medium", // enough for deductive coding
+			},
+			input: [
+				...system.map(s => ({ type: "message", role: "system", content: s })),
+				...task.map(t => ({ type: "message", role: "user", content: t })),
+			],
+			tools: [
+				{
+					type: "file_search",
+					vector_store_ids: [store.id],
+				},
+			],
+			tool_choice: { type: "file_search" },
+			text: {
+				verbosity: "low",
+				format: responseSchema,
+			},
+		});
+
+		return {
+			stream,
+			transformChunk: chunk =>
+				chunk.type === "response.output_text.delta" ? chunk.delta : "",
+			transformResult: result => (hasRootObject ? result : result.data),
+		};
+	},
+};
