@@ -12,7 +12,6 @@
 
 import { argv, loadEnvFile } from "node:process";
 import { existsSync } from "node:fs";
-import LLM from "./llm.js";
 import Question from "./question.js";
 
 if (existsSync(".env")) {
