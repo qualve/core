@@ -81,7 +81,10 @@ export default {
 			]),
 			config: {
 				systemInstruction: system,
-				temperature: 0.0, // recommended for deductive coding
+				// For deductive coding, it's recommended to keep the temperature low (e.g., 0.0 as with other LLMs).
+				// However, we need to allow Gemini some flexibility to follow the schema properly.
+				// Otherwise, it might refuse to answer, and we'll never get a response.
+				temperature: 0.1,
 				tools: /-pro(?:-|$)/.test(this.model) ? [{ googleSearch: {} }] : undefined,
 				responseMimeType: "application/json",
 				responseJsonSchema: responseSchema.schema,
