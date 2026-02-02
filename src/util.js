@@ -109,6 +109,10 @@ export function camelCase (str) {
 	return str.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
 }
 
+export function toArray (value) {
+	return Array.isArray(value) ? value : [value];
+}
+
 /**
  * Minify a JSON file
  * @param {*} filepath

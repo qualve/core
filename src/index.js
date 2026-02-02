@@ -43,8 +43,8 @@ catch (e) {
 	process.exit(1);
 }
 
-const adapter = module.default ?? module;
-const runner = new LLM(adapter, { fresh, model });
+const Adapter = module.default ?? module;
+const runner = new Adapter({ fresh, model });
 
 let task = await import(`../tasks/${step}/index.js`).then(module => module.default);
 
