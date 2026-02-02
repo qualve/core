@@ -21,7 +21,13 @@ export default class Question {
 		return `data/${this.id}`;
 	}
 
+	static all = {};
+
 	static fromId (id) {
+		if (this.all[id]) {
+			return this.all[id];
+		}
+
 		let question = null;
 		try {
 			question = readJSONSync(`data/${id}/question.json`);
@@ -32,6 +38,7 @@ export default class Question {
 		}
 
 		question.id ??= id;
-		return new Question(question);
+		this.all[id] = new Question(question);
+		return this.all[id];
 	}
 }
