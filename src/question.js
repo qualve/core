@@ -13,6 +13,10 @@ export default class Question {
 		return this.question.description;
 	}
 
+	get prefix () {
+		return this.question.prefix ?? this.id;
+	}
+
 	get filePath () {
 		return `data/${this.id}`;
 	}
