@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import Question from "../src/question.js";
-import { readDirectorySync, formatDuration } from "../src/util.js";
+import { readDirectorySync, formatDuration, formatSize } from "../src/util.js";
 import { readArgs, confirm } from "./util.js";
 import { runTask } from "../src/graphql.js";
 
@@ -49,9 +49,12 @@ if (questionIds.length > 1) {
 
 for (let questionId of questionIds) {
 	let startTime = performance.now();
-	let { outputPath } = await runTask(task, questionId);
+	let { outputPath, size } = await runTask(task, questionId);
+	if (size !== undefined) {
+		size = formatSize(size);
+	}
 	let duration = performance.now() - startTime;
 	console.info(
-		`${task.title} for ${questionId} completed in ${formatDuration(duration)}${outputPath ? ` and wrote the output to ${outputPath}` : ""}`,
+		`${task.title}${questionIds.length > 1 ? ` for ${questionId}` : ""} completed in ${formatDuration(duration)}${outputPath ? ` and wrote ${size} to ${outputPath}` : ""}`,
 	);
 }
