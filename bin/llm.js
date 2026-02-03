@@ -79,7 +79,7 @@ const LLM = module.default ?? module;
 const runner = new LLM({ fresh, model });
 
 let task;
-let taskPath = `../tasks/${taskId}/index.js`;
+let taskPath = `../tasks/llm/${taskId}/index.js`;
 try {
 	task = await import(taskPath).then(module => module.default);
 }
@@ -87,7 +87,7 @@ catch (e) {
 	if (!existsSync(taskPath)) {
 		console.error(
 			`The task ID “${taskId}” is not valid. Available ids: `,
-			readDirectorySync("../tasks", { type: "directory" }).join(", "),
+			readDirectorySync("../tasks/llm", { type: "directory" }).join(", "),
 		);
 		process.exit(1);
 	}
