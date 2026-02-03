@@ -1,4 +1,4 @@
-import { writeJSONSync, formatDuration } from "./util.js";
+import { writeJSONSync } from "./util.js";
 import survey from "../tasks/survey.js";
 import Question from "./question.js";
 
