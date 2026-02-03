@@ -89,9 +89,9 @@ export async function runTask (task, questionId) {
 
 		if (task.output) {
 			var outputPath = `data/${questionId}/${task.output}`;
-			writeJSONSync(outputPath, result);
+			var size = writeJSONSync(outputPath, result)?.length;
 		}
 	}
 
-	return { result, query, outputPath };
+	return { result, query, outputPath, size };
 }
