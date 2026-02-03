@@ -66,7 +66,6 @@ export default class Claude extends LLM {
 		const stream = this.client.beta.messages.stream({
 			model: this.model,
 			max_tokens: 64000, // maximum for claude-sonnet-4-5
-			temperature: 0.0, // recommended for deductive coding
 			betas: ["structured-outputs-2025-11-13", "files-api-2025-04-14"],
 			system: system?.join("\n"),
 			messages: [
