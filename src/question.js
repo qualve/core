@@ -40,9 +40,8 @@ export default class Question {
 		try {
 			question = readJSONSync(`data/${id}/question.json`);
 		}
-		catch (e) {
-			console.error(`Failed to read question data: ${e.message}`, { cause: e });
-			process.exit(1);
+		catch (cause) {
+			throw new Error(`Failed to read question data: ${cause.message}`, { cause });
 		}
 
 		question.id ??= id;
