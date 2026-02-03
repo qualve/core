@@ -36,26 +36,22 @@ if (!task) {
 	process.exit(1);
 }
 
-if (task.scope === "question") {
-	if (!questionId) {
-		console.error(
-			"Please provide a question ID via the -q/--question flag. Available ids: ",
-			Question.ids.join(", "),
-		);
-		process.exit(1);
-	}
-	else if (!Question.ids.includes(questionId)) {
-		console.error(
-			`The question ID “${questionId}” is not valid. Available ids: `,
-			Question.ids.join(", "),
-		);
+let questionIds = questionId ? [questionId] : Question.ids;
+
+if (questionIds.length > 1) {
+	let confirmed = await confirm({
+		prompt: `Are you sure you want to run the task for ${questionIds.length} questions? (${questionIds.join(", ")})`,
+	});
+	if (!confirmed) {
 		process.exit(1);
 	}
 }
 
-let startTime = performance.now();
-let { outputPath } = await runTask(task, questionId);
-let duration = performance.now() - startTime;
-console.info(
-	`Finished ${task.title} in ${formatDuration(duration)}${outputPath ? ` and wrote the output to ${outputPath}` : ""}`,
-);
+for (let questionId of questionIds) {
+	let startTime = performance.now();
+	let { outputPath } = await runTask(task, questionId);
+	let duration = performance.now() - startTime;
+	console.info(
+		`${task.title} for ${questionId} completed in ${formatDuration(duration)}${outputPath ? ` and wrote the output to ${outputPath}` : ""}`,
+	);
+}
