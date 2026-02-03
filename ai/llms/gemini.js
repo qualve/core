@@ -64,7 +64,7 @@ export default class Gemini extends LLM {
 			return null;
 		}
 
-		await this.client.files.delete({ name });
+		await this.client.files.delete({ name: "files/" + name });
 	}
 
 	async listFiles () {
