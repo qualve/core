@@ -3,7 +3,7 @@ import {
 	writeFileSync,
 	rmSync,
 	existsSync,
-	// readdirSync,
+	readdirSync,
 	// statSync,
 	// opendirSync,
 } from "node:fs";
