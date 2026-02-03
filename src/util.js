@@ -256,14 +256,13 @@ export async function handleStreamedChunks ({
 		await once(ws, "finish");
 
 		// Clean up: prettify the result and write it to the final file
-		let result = readFileSync(tmpFile, "utf-8");
-		result = JSON.parse(result.trim());
+		let result = readJSONSync(tmpFile);
 
 		if (transformResult) {
 			result = transformResult(result);
 		}
 
-		writeFileSync(outputPath, JSON.stringify(result, null, 2));
+		writeJSONSync(outputPath, result);
 		rmSync(tmpFile);
 	}
 	finally {
