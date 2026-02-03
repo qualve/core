@@ -10,7 +10,7 @@ export function stringifyQuery (value, key) {
 			return `${key} { ${stringifyQuery(value)} }`;
 		}
 		else if (typeof value === "string") {
-			return `${key} "${value}"`;
+			return `${key} { ${value} }`;
 		}
 
 		return key;
