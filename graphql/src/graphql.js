@@ -71,23 +71,26 @@ export async function runTask (task, questionId) {
 	query = stringifyQuery(query, "query");
 
 	let result = await runQuery(query);
-	result = result?.data;
 
-	if (task.scope === "survey" || task.scope === "question") {
-		result = result.surveys[survey.name][survey.id];
+	if (result) {
+		result = result?.data;
 
-		if (task.scope === "question") {
-			result = result[question.section][question.id];
+		if (task.scope === "survey" || task.scope === "question") {
+			result = result.surveys[survey.name][survey.id];
+
+			if (task.scope === "question") {
+				result = result[question.section][question.id];
+			}
 		}
-	}
 
-	if (task.handleResult) {
-		result = task.handleResult(result) ?? result;
-	}
+		if (task.handleResult) {
+			result = task.handleResult(result) ?? result;
+		}
 
-	if (task.output) {
-		var outputPath = `data/${questionId}/${task.output}`;
-		writeJSONSync(outputPath, result);
+		if (task.output) {
+			var outputPath = `data/${questionId}/${task.output}`;
+			writeJSONSync(outputPath, result);
+		}
 	}
 
 	return { result, query, outputPath };
