@@ -113,6 +113,41 @@ export function toArray (value) {
 	return Array.isArray(value) ? value : [value];
 }
 
+const UNITS = {
+	days: 86_400_000,
+	hours: 3_600_000,
+	minutes: 60_000,
+	seconds: 1_000,
+};
+
+function msToUnits (ms) {
+	let format = {};
+
+	for (const unit in UNITS) {
+		let unitMs = UNITS[unit];
+		if (ms >= unitMs) {
+			format[unit] = Math.floor(ms / unitMs);
+			ms %= unitMs;
+		}
+	}
+
+	format.milliseconds = ms;
+	return format;
+}
+
+export function formatDuration (ms, { locale = "en", ...options } = {}) {
+	let format = msToUnits(ms);
+
+	// Otherwise Intl.DurationFormat will throw with "Number not integral"
+	format.milliseconds = Math.round(format.milliseconds);
+
+	return new Intl.DurationFormat(locale, {
+		style: "short",
+		maximumFractionDigits: 2,
+		...options,
+	}).format(format);
+}
+
 /**
  * Minify a JSON file
  * @param {*} filepath
