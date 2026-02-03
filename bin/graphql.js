@@ -37,15 +37,21 @@ if (!task) {
 }
 
 let questionIds = questionId ? [questionId] : Question.ids;
+const multipleQuestions = questionIds.length > 1;
 
-if (questionIds.length > 1) {
+if (multipleQuestions) {
 	let confirmed = await confirm({
 		prompt: `Are you sure you want to run the task for ${questionIds.length} questions? (${questionIds.join(", ")})`,
 	});
 	if (!confirmed) {
 		process.exit(1);
 	}
+
+	console.info(`Running task “${task.title}” for ${questionIds.length} questions…`);
 }
+
+const maxQuestionIdLength = Math.max(...questionIds.map(id => id.length));
+let index = 1;
 
 for (let questionId of questionIds) {
 	let startTime = performance.now();
@@ -55,6 +61,6 @@ for (let questionId of questionIds) {
 	}
 	let duration = performance.now() - startTime;
 	console.info(
-		`${task.title}${questionIds.length > 1 ? ` for ${questionId}` : ""} completed in ${formatDuration(duration)}${outputPath ? ` and wrote ${size} to ${outputPath}` : ""}`,
+		`${multipleQuestions ? `${questionId} (${index}/${questionIds.length})`.padStart(maxQuestionIdLength + 7) : `${task.title}`} completed in ${formatDuration(duration)}${outputPath ? ` and wrote ${size} to ${outputPath}` : ""}`,
 	);
 }
