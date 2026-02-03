@@ -36,7 +36,7 @@ if (!task) {
 	process.exit(1);
 }
 
-let questionIds = questionId ? [questionId] : Question.ids;
+let questionIds = questionId || task.scope !== "question" ? [questionId] : Question.ids;
 const multipleQuestions = questionIds.length > 1;
 
 if (multipleQuestions) {
