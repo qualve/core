@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import Question from "../src/question.js";
 import { readDirectorySync, formatDuration } from "../src/util.js";
-import { readArgs } from "./util.js";
+import { readArgs, confirm } from "./util.js";
 import { runTask } from "../src/graphql.js";
 
 const availableOptions = {
@@ -16,11 +16,13 @@ const { questionId } = args;
 const taskId = args._[0];
 
 if (!taskId) {
-	console.error(
-		"Please provide a task ID as the first argument. Available tasks:",
-		readDirectorySync("tasks/graphql/").map(file => file.replace(".js", "")),
+	console.info(
+		"Available tasks:",
+		readDirectorySync("tasks/graphql/", { type: "file" })
+			.map(file => "\n" + file.replace(".js", ""))
+			.join(""),
 	);
-	process.exit(1);
+	process.exit(0);
 }
 
 let task = await import(`../tasks/graphql/${taskId}.js`);

@@ -45,7 +45,17 @@ const availableOptions = {
 const args = readArgs(process.argv.slice(2), availableOptions);
 
 const { questionId, llmId, model, fresh } = args;
-const taskId = args._[0] ?? "answers";
+const taskId = args._[0];
+
+if (!taskId) {
+	console.info(
+		"Available tasks:",
+		readDirectorySync("tasks/llm/", { type: "directory" })
+			.map(file => "\n" + file.replace(".js", ""))
+			.join(""),
+	);
+	process.exit(0);
+}
 
 if (!questionId) {
 	console.error(
