@@ -270,21 +270,51 @@ export async function handleStreamedChunks ({
 	}
 }
 
-export function showProgressIndicator (message) {
-	const frames = ["-", "\\", "|", "/"];
-	const framesLength = frames.length;
-	let index = 0;
+export class ProgressIndicator {
+	// Sadly emojis are not supported on some terminals :'(
+	// frames = "🕛🕧🕐🕜🕑🕝🕒🕞🕓🕟🕔🕠🕕🕠🕖🕡🕗🕢🕘🕣🕙🕤🕚🕥".split("");
+	frames = ["-", "\\", "|", "/"];
+	frameIndex = 0;
+	#status = "Working...";
+	interval = 80;
 
-	const interval = setInterval(() => {
-		const frame = frames[(index = ++index % framesLength)];
-		logUpdate(frame + " " + message);
-	}, 80);
-
-	function done () {
-		clearInterval(interval);
-		logUpdate(message);
-		logUpdate.done();
+	constructor (options = {}) {
+		Object.assign(this, options);
 	}
 
-	return done;
+	start () {
+		this.timer = setInterval(() => {
+			this.frameIndex = (this.frameIndex + 1) % this.frames.length;
+			logUpdate(this.message);
+		}, this.interval);
+	}
+
+	get frame () {
+		return this.frames[this.frameIndex];
+	}
+
+	get message () {
+		return this.frame + " " + this.status;
+	}
+
+	get status () {
+		return this.#status;
+	}
+	set status (value) {
+		this.#status = value;
+		this.update();
+	}
+
+	update (status) {
+		if (status !== undefined) {
+			this.#status = status;
+		}
+		logUpdate(this.message);
+	}
+
+	stop () {
+		clearInterval(this.timer);
+		logUpdate.done();
+		this.timer = undefined;
+	}
 }
