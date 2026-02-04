@@ -9,10 +9,16 @@ const availableOptions = {
 		long: "question",
 		short: "q",
 	},
+	input: {
+		short: "i",
+	},
+	output: {
+		short: "o",
+	},
 };
 
 const args = readArgs(process.argv.slice(2), availableOptions);
-const { questionId } = args;
+let { questionId, input, output } = args;
 const taskId = args._[0];
 
 if (!taskId) {
@@ -35,6 +41,10 @@ if (!task) {
 	);
 	process.exit(1);
 }
+
+task = { ...task };
+task.input = input ?? task.input;
+task.output = output ?? task.output;
 
 let questionIds =
 	task.scope === "question" ? (questionId ? [questionId] : Question.ids) : [questionId];
