@@ -47,13 +47,15 @@ const args = readArgs(process.argv.slice(2), availableOptions);
 const { questionId, llmId, model, fresh } = args;
 const taskId = args._[0];
 
+function getTaskIds () {
+	return readDirectorySync("tasks/llm/", { type: "file" })
+		.filter(file => file.endsWith(".js") && !file.startsWith("_"))
+		.map(file => "\n" + file.replace(".js", ""))
+		.join("");
+}
+
 if (!taskId) {
-	console.info(
-		"Available tasks:",
-		readDirectorySync("tasks/llm/", { type: "directory" })
-			.map(file => "\n" + file.replace(".js", ""))
-			.join(""),
-	);
+	console.info("Available tasks:", getTaskIds());
 	process.exit(0);
 }
 
@@ -89,16 +91,13 @@ const LLM = module.default ?? module;
 const runner = new LLM({ fresh, model });
 
 let task;
-let taskPath = `../tasks/llm/${taskId}/index.js`;
+let taskPath = `../tasks/llm/${taskId}.js`;
 try {
 	task = await import(taskPath).then(module => module.default);
 }
 catch (e) {
 	if (!existsSync(taskPath)) {
-		console.error(
-			`The task ID “${taskId}” is not valid. Available ids: `,
-			readDirectorySync("../tasks/llm", { type: "directory" }).join(", "),
-		);
+		console.error(`The task ID “${taskId}” is not valid. Available ids: `, getTaskIds());
 		process.exit(1);
 	}
 
