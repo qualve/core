@@ -10,6 +10,10 @@ import {
 import path from "node:path";
 import { once } from "node:events";
 
+export * from "./util/csv.js";
+export * from "./util/format.js";
+export * from "./util/progress-indicator.js";
+
 export function readJSONSync (path) {
 	let contents;
 
@@ -60,8 +64,6 @@ export function readDirectorySync (directory, { type } = {}) {
 	}
 }
 
-export * from "./util/csv.js";
-
 export function camelCase (str) {
 	return str.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
 }
@@ -69,8 +71,6 @@ export function camelCase (str) {
 export function toArray (value) {
 	return Array.isArray(value) ? value : [value];
 }
-
-export * from "./util/format.js";
 
 /**
  * Minify a JSON file
@@ -162,5 +162,3 @@ export async function handleStreamedChunks ({
 		ws.destroy();
 	}
 }
-
-export * from "./util/progress-indicator.js";
