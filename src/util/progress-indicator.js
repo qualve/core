@@ -48,6 +48,7 @@ export class ProgressIndicator {
 
 	stop () {
 		clearInterval(this.timer);
+		logUpdate(this.status);
 		logUpdate.done();
 		this.timer = undefined;
 	}
