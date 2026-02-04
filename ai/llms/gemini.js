@@ -32,23 +32,11 @@ export default class Gemini extends LLM {
 			// If we don't await here, the error is unhandled
 			return await this.client.files.get({ name: "files/" + name });
 		}
-		catch (e) {}
-
-		// this.client.files.get() throws in two cases: file not found and permission denied.
-		// We can't distinguish them without listing all files.
-		try {
-			let files = await this.client.files.list();
-			for await (const file of files) {
-				if (file.name === "files/" + name) {
-					return file;
-				}
-			}
-		}
 		catch (e) {
 			let message = JSON.parse(e.message);
 			if (message?.error?.status === "PERMISSION_DENIED") {
 				// This shouldn't happen, abort
-				throw e;
+				throw new Error(`Failed to get file ${filepath}`, { cause: e });
 			}
 		}
 
@@ -58,13 +46,21 @@ export default class Gemini extends LLM {
 
 	async deleteFile (filepath) {
 		let { name } = this.getFileInfo(filepath);
-		let file = await this.getFile(name);
-		if (!file) {
-			// Not found
-			return null;
+
+		try {
+			// If we don't await here, the error is unhandled
+			return await this.client.files.delete({ name: "files/" + name });
+		}
+		catch (e) {
+			let message = JSON.parse(e.message);
+			if (message?.error?.status === "PERMISSION_DENIED") {
+				// This shouldn't happen, abort
+				throw new Error(`Failed to delete file ${filepath}`, { cause: e });
+			}
 		}
 
-		await this.client.files.delete({ name: "files/" + name });
+		// Not found; nothing to delete
+		return null;
 	}
 
 	async listFiles () {
