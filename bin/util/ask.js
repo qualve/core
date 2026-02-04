@@ -22,6 +22,7 @@ export async function ask (options = {}) {
 
 	let {
 		prompt,
+		reprompts,
 		reprompt,
 		transformAnswer,
 		default: defaultValue,
@@ -37,7 +38,7 @@ export async function ask (options = {}) {
 		else if (validate) {
 			let isValid = validate.call(options, answer);
 			if (!isValid) {
-				if (reprompt) {
+				if (reprompt && reprompts > 0) {
 					return ask({ ...options, prompt: reprompt, reprompts: reprompts - 1 });
 				}
 				else {

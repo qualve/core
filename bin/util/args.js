@@ -13,7 +13,7 @@ export function readArgs (argv = process.argv.slice(2), availableOptions) {
 		if (long in args) {
 			ret[key] = args[long];
 		}
-		else if (option.short in args) {
+		else if (option.short && option.short in args) {
 			ret[key] = args[option.short];
 		}
 
