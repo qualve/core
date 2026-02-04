@@ -4,11 +4,13 @@ import {
 	rmSync,
 	existsSync,
 	readdirSync,
-	// statSync,
-	// opendirSync,
+	renameSync,
+	createWriteStream,
 } from "node:fs";
-// import * as path from "node:path";
-// import { pathToFileURL } from "node:url";
+import path from "node:path";
+import { once } from "node:events";
+import csv from "csvtojson";
+import { AsyncParser } from "@json2csv/node";
 
 export function readJSONSync (path) {
 	let contents;
@@ -59,40 +61,6 @@ export function readDirectorySync (directory, { type } = {}) {
 		throw e;
 	}
 }
-
-// export function isDirectoryEmptySync (path) {
-// 	const dir = opendirSync(path);
-// 	const entry = dir.readSync();
-// 	dir.closeSync();
-// 	return entry === null;
-// }
-
-// export function importCwdRelative (pathFromCwd) {
-// 	return import(pathToFileURL(path.resolve(process.cwd(), pathFromCwd)).href);
-// }
-
-// /**
-//  * Matches a path against a glob pattern or array of glob patterns
-//  * Like `path.matchesGlob()`, but supports arrays of patterns.
-//  * If array is provided, returns true if any of the patterns match.
-//  * @param { string } path - The path to match
-//  * @param { string | string[] } glob - The glob pattern or array of patterns
-//  * @returns { boolean } Whether the path matches the glob pattern
-//  */
-// export function matchesGlob (filePath, glob) {
-// 	if (Array.isArray(glob)) {
-// 		return glob.some(g => path.matchesGlob(filePath, g));
-// 	}
-
-// 	return path.matchesGlob(filePath, glob);
-// }
-
-import { createWriteStream, renameSync } from "node:fs";
-import path from "node:path";
-import { once } from "node:events";
-import csv from "csvtojson";
-import { AsyncParser } from "@json2csv/node";
-import logUpdate from "log-update";
 
 export async function csvToJson (filepath) {
 	const json = await csv().fromFile(filepath);
@@ -256,65 +224,20 @@ export async function handleStreamedChunks ({
 		await once(ws, "finish");
 
 		// Clean up: prettify the result and write it to the final file
-		let result = readJSONSync(tmpFile);
 
 		if (transformResult) {
+			let result = readJSONSync(tmpFile);
 			result = transformResult(result);
+			writeJSONSync(outputPath, result);
+			rmSync(tmpFile);
 		}
-
-		writeJSONSync(outputPath, result);
-		rmSync(tmpFile);
+		else {
+			renameSync(tmpFile, outputPath);
+		}
 	}
 	finally {
 		ws.destroy();
 	}
 }
 
-export class ProgressIndicator {
-	// Sadly emojis are not supported on some terminals :'(
-	// frames = "🕛🕧🕐🕜🕑🕝🕒🕞🕓🕟🕔🕠🕕🕠🕖🕡🕗🕢🕘🕣🕙🕤🕚🕥".split("");
-	frames = ["-", "\\", "|", "/"];
-	frameIndex = 0;
-	#status = "Working...";
-	interval = 80;
-
-	constructor (options = {}) {
-		Object.assign(this, options);
-	}
-
-	start () {
-		this.timer = setInterval(() => {
-			this.frameIndex = (this.frameIndex + 1) % this.frames.length;
-			logUpdate(this.message);
-		}, this.interval);
-	}
-
-	get frame () {
-		return this.frames[this.frameIndex];
-	}
-
-	get message () {
-		return this.frame + " " + this.status;
-	}
-
-	get status () {
-		return this.#status;
-	}
-	set status (value) {
-		this.#status = value;
-		this.update();
-	}
-
-	update (status) {
-		if (status !== undefined) {
-			this.#status = status;
-		}
-		logUpdate(this.message);
-	}
-
-	stop () {
-		clearInterval(this.timer);
-		logUpdate.done();
-		this.timer = undefined;
-	}
-}
+export * from "./util/progress-indicator.js";
