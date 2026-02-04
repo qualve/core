@@ -1,6 +1,7 @@
-import { writeJSONSync } from "./util.js";
-import survey from "../tasks/survey.js";
-import Question from "./question.js";
+import { writeJSONSync } from "../util.js";
+import survey from "../../tasks/survey.js";
+
+export const id = "graphql";
 
 const ENDPOINT = "https://api.devographics.com/graphql";
 
@@ -55,9 +56,7 @@ export async function runQuery (query, endpoint = ENDPOINT) {
 	return json;
 }
 
-export async function runTask (task, questionId) {
-	let question = questionId && task.scope === "question" ? Question.fromId(questionId) : null;
-
+export async function runTask (task, question) {
 	let query = task.fields;
 
 	if (task.scope === "survey" || task.scope === "question") {
@@ -86,7 +85,7 @@ export async function runTask (task, questionId) {
 		result = task.handleResult?.(result, question) ?? result;
 
 		if (task.output) {
-			var outputPath = `data${task.scope === "question" ? "/" + questionId : ""}/${task.output}`;
+			var outputPath = `data${task.scope === "question" ? "/" + question.id : ""}/${task.output}`;
 			var size = writeJSONSync(outputPath, result)?.length;
 		}
 	}
