@@ -16,7 +16,6 @@ const availableOptions = {
 		short: "o",
 	},
 };
-
 const args = readArgs(process.argv.slice(2), availableOptions);
 let { questionId, input, output } = args;
 const taskId = args._[0];
@@ -46,9 +45,10 @@ task = { ...task };
 task.input = input ?? task.input;
 task.output = output ?? task.output;
 
+// Intentionally assigning [undefined] to questionIds if not a question task, so that the loop still runs once
 let questionIds =
 	task.scope === "question" ? (questionId ? [questionId] : Question.ids) : [questionId];
-questionIds = questionIds.filter(id => id !== undefined);
+
 const multipleQuestions = questionIds.length > 1;
 
 if (multipleQuestions) {
@@ -62,7 +62,8 @@ if (multipleQuestions) {
 	console.info(`Running task “${task.title}” for ${questionIds.length} questions…`);
 }
 
-const maxQuestionIdLength = Math.max(...questionIds.map(id => id.length));
+const maxQuestionIdLength =
+	task.scope === "question" ? Math.max(...questionIds.map(id => id.length ?? 0)) : 0;
 let index = 1;
 
 for (let qid of questionIds) {
