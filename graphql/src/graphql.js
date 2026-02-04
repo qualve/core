@@ -86,8 +86,7 @@ export async function runTask (task, questionId) {
 		result = task.handleResult?.(result, question) ?? result;
 
 		if (task.output) {
-			var outputPath =
-				task.scope === "question" ? `data/${questionId}/${task.output}` : task.output;
+			var outputPath = `data${task.scope === "question" ? "/" + questionId : ""}/${task.output}`;
 			var size = writeJSONSync(outputPath, result)?.length;
 		}
 	}
