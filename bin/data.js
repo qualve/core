@@ -14,4 +14,4 @@ const availableOptions = {
 	},
 };
 
-run(runner, availableOptions);
+await run(runner, availableOptions);
