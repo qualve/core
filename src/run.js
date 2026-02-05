@@ -15,15 +15,21 @@ export function getTaskIds (id) {
 
 export async function getTask (id, taskId, overrides = {}) {
 	id = id.id ?? id;
+	let task;
 
 	if (!taskId) {
 		throw new Error(`Available tasks:${getTaskIds(id)}`);
 	}
 
-	try {
-		var task = await import(`../tasks/${id}/${taskId}.js`);
+	if (typeof taskId === "object") {
+		task = taskId;
 	}
-	catch (e) {}
+	else {
+		try {
+			task = await import(`../tasks/${id}/${taskId}.js`);
+		}
+		catch (e) {}
+	}
 
 	if (!task) {
 		throw new Error(`The task ID “${taskId}” is not valid. Available tasks:${getTaskIds(id)}`);
@@ -58,6 +64,13 @@ function getMessage (result, startTime) {
 	return message.join(" ");
 }
 
+/**
+ * Runs a task.
+ * @param {string | { id: string, runTask: function, noMultipleQuestions: boolean }} runner
+ * @param {string | object} taskId
+ * @param { {questionId?: string, confirm?: function, info?: function, ...overrides?: object}} [options]
+ * @returns {Promise<object>} The result of the task.
+ */
 export default async function runTask (
 	runner,
 	taskId,
