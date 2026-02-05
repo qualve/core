@@ -7,7 +7,7 @@ export async function getRunner (id) {
 }
 
 export function getTaskIds (id) {
-	return readDirectorySync(`tasks/${id}/`, { type: "file" })
+	return readDirectorySync(`tasks/`, { type: "file" })
 		.filter(file => file.endsWith(".js") && !file.startsWith("_"))
 		.map(file => "\n" + file.replace(".js", ""))
 		.join("");
@@ -26,7 +26,7 @@ export async function getTask (id, taskId, overrides = {}) {
 	}
 	else {
 		try {
-			task = await import(`../tasks/${id}/${taskId}.js`);
+			task = await import(`../tasks/${taskId}.js`);
 		}
 		catch (e) {}
 	}
