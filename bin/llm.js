@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import * as runner from "../src/run/llm.js";
 import { run } from "./util/run.js";
 
