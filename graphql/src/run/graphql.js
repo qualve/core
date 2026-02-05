@@ -1,5 +1,5 @@
 import { writeJSONSync } from "../util.js";
-import survey from "../../tasks/survey.js";
+import survey from "../../survey.js";
 
 export const id = "graphql";
 
