@@ -34,6 +34,15 @@ export default async function runTask (taskId, { questionId, confirm, info, ...o
 		task.id = taskId;
 	}
 
+	if (Array.isArray(task)) {
+		// Run tasks sequentially
+		// TODO we should probably resolve question ids only once instead of asking each time
+		let results = [];
+		for (let t of task) {
+			results.push(await runTask(t, { questionId, confirm, info, ...overrides }));
+		}
+		return results;
+	}
 
 	task = { ...task };
 
@@ -44,11 +53,9 @@ export default async function runTask (taskId, { questionId, confirm, info, ...o
 	// No need to handle errors since we currently only set this internally
 	let runner = await import(`./run/${task.type ?? "data"}.js`).then(m => m.default ?? m);
 
-	let { id, runTask, noMultipleQuestions } = runner;
-
 	if (task.scope === "question") {
 		if (!questionId) {
-			if (noMultipleQuestions) {
+			if (runner.noMultipleQuestions) {
 				throw new Error(
 					`Please provide a question ID via the -q/--question flag. Available ids: ${Question.ids.join(", ")}`,
 				);
@@ -87,7 +94,7 @@ export default async function runTask (taskId, { questionId, confirm, info, ...o
 	for (let qid of questionIds) {
 		let startTime = performance.now();
 		let question = task.scope === "question" ? Question.fromId(qid) : null;
-		let result = await runTask(task, question);
+		let result = await runner.runTask(task, question);
 		let prefix = task.title;
 
 		if (multipleQuestions) {
