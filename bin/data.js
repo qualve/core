@@ -31,7 +31,7 @@ let { questionId, _: positional, ...overrides } = args;
 const taskId = positional[0];
 
 if (!taskId) {
-	console.info(`Available tasks:${getTaskIds()}`);
+	console.info(`Available tasks: ${getTaskIds().join("\n")}`);
 	process.exit(0);
 }
 
@@ -39,6 +39,6 @@ try {
 	await runTask(taskId, { questionId, confirm, info: console.info, ...overrides });
 }
 catch (cause) {
-	console.error(cause.message, { cause });
+	console.error(cause.message);
 	process.exit(1);
 }

@@ -8,31 +8,7 @@ import Question from "./question.js";
  * @returns {Promise<object>} The result of the task.
  */
 export default async function runTask (taskId, { questionId, confirm, info, ...overrides } = {}) {
-	let task;
-
-	if (!taskId) {
-		throw new Error(`No task ID provided. Available tasks:${getTaskIds()}`);
-	}
-
-	if (typeof taskId === "object") {
-		task = taskId;
-		taskId = task.id;
-	}
-	else {
-		try {
-			task = await import(`../tasks/${taskId}.js`);
-		}
-		catch (e) {}
-
-		if (!task) {
-			throw new Error(
-				`The task ID “${taskId}” is not valid. Available tasks:${getTaskIds()}`,
-			);
-		}
-
-		task = task.default ?? task;
-		task.id = taskId;
-	}
+	let task = await getTask(taskId);
 
 	if (Array.isArray(task)) {
 		// Run tasks sequentially
@@ -116,11 +92,39 @@ export default async function runTask (taskId, { questionId, confirm, info, ...o
 	return multipleQuestions ? results : results[0];
 }
 
+export async function getTask (taskId) {
+	let task;
+
+	if (!taskId) {
+		throw new Error(`No task provided. Available tasks: ${getTaskIds().join(", ")}`);
+	}
+
+	if (typeof taskId === "object") {
+		task = taskId;
+		taskId = task.id;
+	}
+	else {
+		try {
+			task = await import(`../tasks/${taskId}.js`).then(m => {
+				let task = m.default ?? m;
+				task.id = taskId;
+				return task;
+			});
+		}
+		catch (e) {}
+
+		if (!task) {
+			throw new Error(
+				`The task ID “${taskId}” is not valid. Available tasks: ${getTaskIds().join(", ")}`,
+			);
+		}
+	}
+}
+
 export function getTaskIds () {
 	return readDirectorySync(`tasks/`, { type: "file" })
 		.filter(file => file.endsWith(".js") && !file.startsWith("_"))
-		.map(file => "\n" + file.replace(".js", ""))
-		.join("");
+		.map(file => file.replace(".js", ""));
 }
 
 function getMessage (result, startTime) {
