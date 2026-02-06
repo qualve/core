@@ -1,28 +1,22 @@
 import { formatDuration, formatSize, readDirectorySync } from "./util.js";
 import Question from "./question.js";
 
-export async function getRunner (id) {
-	// No need to handle errors since we currently only set this internally
-	return await import(`./run/${id}.js`).then(m => m.default ?? m);
-}
-
-export function getTaskIds (id) {
-	return readDirectorySync(`tasks/`, { type: "file" })
-		.filter(file => file.endsWith(".js") && !file.startsWith("_"))
-		.map(file => "\n" + file.replace(".js", ""))
-		.join("");
-}
-
-export async function getTask (id, taskId, overrides = {}) {
-	id = id.id ?? id;
+/**
+ * Runs a task.
+ * @param {string | object} taskId The task ID or a task object.
+ * @param { {questionId?: string, confirm?: function, info?: function, ...overrides?: object}} [options]
+ * @returns {Promise<object>} The result of the task.
+ */
+export default async function runTask (taskId, { questionId, confirm, info, ...overrides } = {}) {
 	let task;
 
 	if (!taskId) {
-		throw new Error(`Available tasks:${getTaskIds(id)}`);
+		throw new Error(`No task ID provided. Available tasks:${getTaskIds(id)}`);
 	}
 
 	if (typeof taskId === "object") {
 		task = taskId;
+		taskId = task.id;
 	}
 	else {
 		try {
@@ -43,45 +37,10 @@ export async function getTask (id, taskId, overrides = {}) {
 		task[key] = overrides[key] ?? task[key];
 	}
 
-	return task;
-}
-
-function getMessage (result, startTime) {
-	let { outputPath, size, sizeUnit, error } = result;
-	let message = [
-		error ? "failed after" : "completed in",
-		formatDuration(performance.now() - startTime),
-	];
-
-	if (size !== undefined) {
-		message.push(`and wrote ${sizeUnit ? `${size} ${sizeUnit}` : formatSize(size)}`);
-	}
-
-	if (outputPath) {
-		message.push(` to ${outputPath}`);
-	}
-
-	return message.join(" ");
-}
-
-/**
- * Runs a task.
- * @param {string | { id: string, runTask: function, noMultipleQuestions: boolean }} runner
- * @param {string | object} taskId
- * @param { {questionId?: string, confirm?: function, info?: function, ...overrides?: object}} [options]
- * @returns {Promise<object>} The result of the task.
- */
-export default async function runTask (
-	runner,
-	taskId,
-	{ questionId, confirm, info, ...overrides } = {},
-) {
-	if (typeof runner === "string") {
-		runner = await getRunner(runner);
-	}
+	// No need to handle errors since we currently only set this internally
+	let runner = await import(`./run/${task.type ?? "data"}.js`).then(m => m.default ?? m);
 
 	let { id, runTask, noMultipleQuestions } = runner;
-	let task = await getTask(id, taskId, overrides);
 
 	if (task.scope === "question") {
 		if (!questionId) {
@@ -144,4 +103,29 @@ export default async function runTask (
 	}
 
 	return multipleQuestions ? results : results[0];
+}
+
+export function getTaskIds (id) {
+	return readDirectorySync(`tasks/`, { type: "file" })
+		.filter(file => file.endsWith(".js") && !file.startsWith("_"))
+		.map(file => "\n" + file.replace(".js", ""))
+		.join("");
+}
+
+function getMessage (result, startTime) {
+	let { outputPath, size, sizeUnit, error } = result;
+	let message = [
+		error ? "failed after" : "completed in",
+		formatDuration(performance.now() - startTime),
+	];
+
+	if (size !== undefined) {
+		message.push(`and wrote ${sizeUnit ? `${size} ${sizeUnit}` : formatSize(size)}`);
+	}
+
+	if (outputPath) {
+		message.push(` to ${outputPath}`);
+	}
+
+	return message.join(" ");
 }
