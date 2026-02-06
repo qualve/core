@@ -23,13 +23,17 @@ export default async function runTask (taskId, { questionId, confirm, info, ...o
 			task = await import(`../tasks/${taskId}.js`);
 		}
 		catch (e) {}
+
+		if (!task) {
+			throw new Error(
+				`The task ID “${taskId}” is not valid. Available tasks:${getTaskIds(id)}`,
+			);
+		}
+
+		task = task.default ?? task;
+		task.id = taskId;
 	}
 
-	if (!task) {
-		throw new Error(`The task ID “${taskId}” is not valid. Available tasks:${getTaskIds(id)}`);
-	}
-
-	task = task.default ?? task;
 
 	task = { ...task };
 
