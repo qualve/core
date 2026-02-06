@@ -11,7 +11,7 @@ export default async function runTask (taskId, { questionId, confirm, info, ...o
 	let task;
 
 	if (!taskId) {
-		throw new Error(`No task ID provided. Available tasks:${getTaskIds(id)}`);
+		throw new Error(`No task ID provided. Available tasks:${getTaskIds()}`);
 	}
 
 	if (typeof taskId === "object") {
@@ -26,7 +26,7 @@ export default async function runTask (taskId, { questionId, confirm, info, ...o
 
 		if (!task) {
 			throw new Error(
-				`The task ID “${taskId}” is not valid. Available tasks:${getTaskIds(id)}`,
+				`The task ID “${taskId}” is not valid. Available tasks:${getTaskIds()}`,
 			);
 		}
 
@@ -109,7 +109,7 @@ export default async function runTask (taskId, { questionId, confirm, info, ...o
 	return multipleQuestions ? results : results[0];
 }
 
-export function getTaskIds (id) {
+export function getTaskIds () {
 	return readDirectorySync(`tasks/`, { type: "file" })
 		.filter(file => file.endsWith(".js") && !file.startsWith("_"))
 		.map(file => "\n" + file.replace(".js", ""))
