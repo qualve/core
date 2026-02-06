@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import OpenAIClient from "openai";
-import LLM from "../src/llm.js";
+import LLM from "../llm.js";
 
 export default class OpenAI extends LLM {
 	static models = ["gpt-5.2", "gpt-5-mini", "gpt-5-nano"];

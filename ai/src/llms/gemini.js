@@ -1,4 +1,4 @@
-import LLM from "../src/llm.js";
+import LLM from "../llm.js";
 import { createUserContent, createPartFromUri, GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 export default class Gemini extends LLM {

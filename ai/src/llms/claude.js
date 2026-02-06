@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import LLM from "../src/llm.js";
+import LLM from "../llm.js";
 import Anthropic, { toFile } from "@anthropic-ai/sdk";
 
 export default class Claude extends LLM {
