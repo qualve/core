@@ -74,10 +74,10 @@ export default class OpenAI extends LLM {
 		if (!file) {
 			return null;
 		}
-		await this.client.files.del(file.id);
+		await this.client.files.delete(file.id);
 
 		let store = await this.getStore(dirName);
-		await this.client.vectorStores.files.del(store.id, file.id);
+		await this.client.vectorStores.files.delete(file.id, { vector_store_id: store.id });
 	}
 
 	async createStream ({ system, task, responseSchema, files = {} }) {
