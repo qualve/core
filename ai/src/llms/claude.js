@@ -11,9 +11,9 @@ export default class Claude extends LLM {
 		apiKey: process.env.ANTHROPIC_API_KEY,
 	});
 
-	async uploadFile (filepath, { mimeType = "application/json" } = {}) {
+	async uploadFile (filepath, { mimeType = "application/json", contents } = {}) {
 		let { name } = this.getFileInfo(filepath);
-		const file = await fs.readFile(filepath);
+		let file = contents ?? (await fs.readFile(filepath));
 
 		return this.client.beta.files.upload(
 			{

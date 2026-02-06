@@ -18,10 +18,10 @@ export default class Gemini extends LLM {
 		return { name, dirName, displayName };
 	}
 
-	async uploadFile (filepath, { mimeType = "application/json" } = {}) {
+	async uploadFile (filepath, { mimeType = "application/json", contents } = {}) {
 		let { name, displayName } = this.getFileInfo(filepath);
 		return this.client.files.upload({
-			file: filepath,
+			file: contents ? new Blob([contents], { type: mimeType }) : filepath,
 			config: { name, displayName, mimeType },
 		});
 	}

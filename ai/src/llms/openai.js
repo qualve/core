@@ -36,10 +36,12 @@ export default class OpenAI extends LLM {
 		return this.stores[name];
 	}
 
-	async uploadFile (filepath) {
-		let { dirName } = this.getFileInfo(filepath);
+	async uploadFile (filepath, { mimeType = "application/json", contents } = {}) {
+		let { name, dirName } = this.getFileInfo(filepath);
 		let file = await this.client.files.create({
-			file: fs.createReadStream(filepath),
+			file: contents
+				? new File([contents], name, { type: mimeType }).stream()
+				: fs.createReadStream(filepath),
 			purpose: "user_data",
 		});
 
