@@ -119,6 +119,8 @@ export async function getTask (taskId) {
 			);
 		}
 	}
+
+	return task;
 }
 
 export function getTaskIds () {
