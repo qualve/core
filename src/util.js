@@ -163,3 +163,15 @@ export async function handleStreamedChunks ({
 		ws.destroy();
 	}
 }
+
+export async function mapAsync (arr, fn, { parallelize = false } = {}) {
+	if (parallelize) {
+		return Promise.allSettled(arr.map(fn)).map(result => result.value);
+	}
+
+	let results = [];
+	for (let i = 0; i < arr.length; i++) {
+		results.push(await fn(arr[i], i, arr));
+	}
+	return results;
+}
