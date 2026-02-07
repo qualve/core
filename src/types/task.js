@@ -1,4 +1,4 @@
-import { formatDuration, formatSize, readDirectorySync, mapAsync, toArray } from "../util.js";
+import { formatDuration, formatSize, readDirectorySync, mapAsync, toArray, addFilenameSuffix } from "../util.js";
 import Question from "../question.js";
 import path from "node:path";
 

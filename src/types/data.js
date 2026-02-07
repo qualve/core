@@ -26,6 +26,6 @@ export default class DataTask extends Task {
 		let outputPath = this.outputPath;
 		let size = outputPath ? writeJSONSync(outputPath, result)?.length : undefined;
 
-		return { inputs, result, outputPath, size };
+		return { inputs: files, result, outputPath, size };
 	}
 }
