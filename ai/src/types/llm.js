@@ -12,12 +12,25 @@ export default class LLMTask extends Task {
 			loadEnvFile(".env");
 		}
 
+		this.llmId = this.llm ?? "gemini";
+		this.llm = undefined;
+
 		// We do not yet support parallelizing LLM tasks
 		// Since we use logUpdate() to display the progress of the task, it would create a total mess
 		let t = this;
 		while (t) {
 			t.parallelize = false;
 			t = t.parent;
+		}
+
+		if (this.input) {
+			for (let file of this.input) {
+				if (typeof file === "string") {
+					file = { name: file };
+				}
+
+				file.schema = file.schema ?? {};
+			}
 		}
 	}
 
@@ -43,23 +56,13 @@ export default class LLMTask extends Task {
 		this.system = handlePrompts(this.system, this.question);
 		this.prompt = handlePrompts(this.prompt, this.question);
 
-		this.llm ??= "gemini";
-		const llm = await LLM.create(this.llm, { fresh: this.fresh, model: this.model });
+		this.llm = await LLM.create(this.llmId, { fresh: this.fresh, model: this.model });
 
 		if (this.output) {
-			let suffix = "";
-
-			if (this.output.suffix) {
-				suffix = `-${llm.id}` + (this.output.suffix === "model" ? `-${llm.model}` : "");
-			}
-
-			this.outputPath = `${this.cwd}/${this.output.name}${suffix}.json`;
-			this.responseSchema = this.output.schema;
-
-			delete this.output;
+			this.output.path = this.outputPath;
 		}
 
-		return llm.runTask(this);
+		return this.llm.runTask(this);
 	}
 }
 

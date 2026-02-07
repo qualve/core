@@ -58,7 +58,8 @@ export default class Claude extends LLM {
 		return meta;
 	}
 
-	async createStream ({ system, prompt, responseSchema, files = {} }) {
+	async createStream ({ system, prompt, output, files = {} }) {
+		let responseSchema = output?.schema;
 		const stream = this.client.beta.messages.stream({
 			model: this.model,
 			max_tokens: 64000, // maximum for claude-sonnet-4-5

@@ -80,7 +80,8 @@ export default class OpenAI extends LLM {
 		await this.client.vectorStores.files.delete(file.id, { vector_store_id: store.id });
 	}
 
-	async createStream ({ system, prompt, responseSchema, files = {} }) {
+	async createStream ({ system, prompt, output, files = {} }) {
+		let responseSchema = output?.schema;
 		const storeId = Object.values(files)[0]?.storeId;
 		const store = await this.getStore(storeId);
 		let hasRootObject = responseSchema?.schema?.type === "object";
