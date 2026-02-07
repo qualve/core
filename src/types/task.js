@@ -1,5 +1,6 @@
-import { formatDuration, formatSize, readDirectorySync, mapAsync } from "../util.js";
+import { formatDuration, formatSize, readDirectorySync, mapAsync, toArray } from "../util.js";
 import Question from "../question.js";
+import path from "node:path";
 
 export default class Task {
 	constructor (task, { parent = null, parallelize, questionIds, info } = {}) {
@@ -17,6 +18,28 @@ export default class Task {
 
 		if (questionIds) {
 			this.questionIds = questionIds;
+		}
+
+		if (this.input) {
+			this.input = toArray(this.input).map(input => {
+				let ret = typeof input === "object" ? input : { name: input };
+				let { name, filename, ...rest } = ret;
+
+				if (name?.endsWith(".json")) {
+					filename = name;
+					name = name.slice(0, -5);
+				}
+				else if (name) {
+					filename ??= name + (name.endsWith(".json") ? "" : ".json");
+				}
+
+				return { name, filename, ...rest };
+			});
+		}
+
+		if (this.output) {
+			this.output =
+				typeof this.output === "string" ? { name: this.output } : { ...this.output };
 		}
 
 		this.subtasks = task.subtasks?.map(t => this.createSubtask(t));
@@ -99,6 +122,35 @@ export default class Task {
 
 	get cwd () {
 		return "data/" + (this.questionId ? `${this.questionId}/` : "");
+	}
+
+	resolveValue (value) {
+		return typeof value === "function" ? value.call(this) : value;
+	}
+
+	get outputPath () {
+		if (!this.output) {
+			return undefined;
+		}
+
+		let outputName = this.resolveValue(this.output.name);
+
+		if (!outputName && this.output.suffix) {
+			outputName = this.resolveValue(this.input?.[0]?.name) ?? this.id;
+		}
+
+		if (this.output.suffix) {
+			let suffix = this.resolveValue(this.output.suffix);
+			if (suffix) {
+				outputName = addFilenameSuffix(outputName, suffix);
+			}
+		}
+
+		if (!outputName.endsWith(".json")) {
+			outputName += ".json";
+		}
+
+		return path.join(this.cwd, outputName);
 	}
 
 	getMessage (args = {}) {

@@ -5,7 +5,9 @@ import Task from "./task.js";
 
 export default class DataTask extends Task {
 	async runTask () {
-		let inputs = globSync(this.input, { cwd: this.cwd, withFileTypes: true })
+		let globs = this.input.map(input => input.filename);
+
+		let files = globSync(globs, { cwd: this.cwd, withFileTypes: true })
 			.filter(file => file.isFile())
 			.map(file => {
 				let ret = { path: path.join(file.parentPath, file.name), name: file.name };
@@ -15,16 +17,14 @@ export default class DataTask extends Task {
 
 		let input =
 			this.resultType === "array"
-				? inputs.map(input => input.contents)
+				? files.map(file => file.contents)
 				: this.resultType === "files"
-					? inputs
-					: inputs[0].contents;
+					? files
+					: files[0].contents;
 		let result = this.handleResult?.(input) ?? input;
 
-		if (this.output) {
-			var outputPath = `${this.cwd}/${this.output}`;
-			var size = writeJSONSync(outputPath, result)?.length;
-		}
+		let outputPath = this.outputPath;
+		let size = outputPath ? writeJSONSync(outputPath, result)?.length : undefined;
 
 		return { inputs, result, outputPath, size };
 	}
