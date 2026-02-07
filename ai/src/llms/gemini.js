@@ -67,11 +67,11 @@ export default class Gemini extends LLM {
 		return [...(await this.client.files.list())];
 	}
 
-	async createStream ({ system, task, responseSchema, files = {} }) {
+	async createStream ({ system, prompt, responseSchema, files = {} }) {
 		const stream = await this.client.models.generateContentStream({
 			model: this.model,
 			contents: createUserContent([
-				...task,
+				...prompt,
 				...Object.values(files).map(file => createPartFromUri(file.uri, file.mimeType)),
 			]),
 			config: {

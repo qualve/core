@@ -58,7 +58,7 @@ export default class Claude extends LLM {
 		return meta;
 	}
 
-	async createStream ({ system, task, responseSchema, files = {} }) {
+	async createStream ({ system, prompt, responseSchema, files = {} }) {
 		// Claude API doesn't allow extra properties in the schema root.
 		// It throws an "invalid_request_error" error (output_format.description: Extra inputs are not permitted)
 		delete responseSchema.description;
@@ -72,7 +72,7 @@ export default class Claude extends LLM {
 				{
 					role: "user",
 					content: [
-						...task.map(t => ({ type: "text", text: t })),
+						...prompt.map(t => ({ type: "text", text: t })),
 						{
 							type: "text",
 							text: "Document 1: codebook.json (use only for code definitions).",
