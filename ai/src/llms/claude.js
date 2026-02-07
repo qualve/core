@@ -59,10 +59,6 @@ export default class Claude extends LLM {
 	}
 
 	async createStream ({ system, prompt, responseSchema, files = {} }) {
-		// Claude API doesn't allow extra properties in the schema root.
-		// It throws an "invalid_request_error" error (output_format.description: Extra inputs are not permitted)
-		delete responseSchema.description;
-
 		const stream = this.client.beta.messages.stream({
 			model: this.model,
 			max_tokens: 64000, // maximum for claude-sonnet-4-5
@@ -98,7 +94,12 @@ export default class Claude extends LLM {
 					],
 				},
 			],
-			output_format: responseSchema,
+			// Claude API doesn't allow extra properties in the schema root.
+			// It throws an "invalid_request_error" error (output_format.description: Extra inputs are not permitted)
+			output_format: {
+				type: "json_schema",
+				schema: responseSchema.schema,
+			},
 		});
 
 		return {
