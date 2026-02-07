@@ -21,7 +21,7 @@ export default class LLMTask extends Task {
 		}
 	}
 
-	async runTask (question) {
+	async runTask () {
 		if (this.input) {
 			this.files = Object.fromEntries(
 				this.input.map(file => {
@@ -30,7 +30,7 @@ export default class LLMTask extends Task {
 					return [
 						camelCase(name),
 						{
-							filePath: minifyJSONSync(`${question.filePath}/${name}.json`),
+							filePath: minifyJSONSync(`${this.cwd}/${name}.json`),
 							schema,
 						},
 					];
@@ -40,8 +40,8 @@ export default class LLMTask extends Task {
 			delete this.input;
 		}
 
-		this.system = handlePrompts(this.system, question);
-		this.prompt = handlePrompts(this.prompt, question);
+		this.system = handlePrompts(this.system, this.question);
+		this.prompt = handlePrompts(this.prompt, this.question);
 
 		this.llm ??= "gemini";
 		const llm = await LLM.create(this.llm, { fresh: this.fresh, model: this.model });
@@ -53,13 +53,13 @@ export default class LLMTask extends Task {
 				suffix = `-${llm.id}` + (this.output.suffix === "model" ? `-${llm.model}` : "");
 			}
 
-			this.outputPath = `${question.filePath}/${this.output.name}${suffix}.json`;
+			this.outputPath = `${this.cwd}/${this.output.name}${suffix}.json`;
 			this.responseSchema = this.output.schema;
 
 			delete this.output;
 		}
 
-		return llm.runTask(this, question);
+		return llm.runTask(this);
 	}
 }
 
