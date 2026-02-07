@@ -4,12 +4,8 @@ import { readJSONSync, writeJSONSync } from "../util.js";
 import Task from "./task.js";
 
 export default class DataTask extends Task {
-	async runTask (question) {
-		if (this.input) {
-			var inputPath = question ? `${question.id}/${this.input}` : this.input;
-		}
-
-		let inputs = globSync(inputPath, { cwd: "data", withFileTypes: true })
+	async runTask () {
+		let inputs = globSync(this.input, { cwd: this.cwd, withFileTypes: true })
 			.filter(file => file.isFile())
 			.map(file => {
 				let ret = { path: path.join(file.parentPath, file.name), name: file.name };
@@ -23,13 +19,13 @@ export default class DataTask extends Task {
 				: this.resultType === "files"
 					? inputs
 					: inputs[0].contents;
-		let result = this.handleResult?.(input, question) ?? input;
+		let result = this.handleResult?.(input) ?? input;
 
 		if (this.output) {
-			var outputPath = `data${this.scope === "question" ? "/" + question.id : ""}/${this.output}`;
+			var outputPath = `${this.cwd}/${this.output}`;
 			var size = writeJSONSync(outputPath, result)?.length;
 		}
 
-		return { inputs, result, inputPath, outputPath, size };
+		return { inputs, result, outputPath, size };
 	}
 }

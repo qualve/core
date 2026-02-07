@@ -97,6 +97,10 @@ export default class Task {
 		return this.subtasks || (this.scope === "question" && this.questionIds?.length > 1);
 	}
 
+	get cwd () {
+		return "data/" + (this.questionId ? `${this.questionId}/` : "");
+	}
+
 	getMessage (args = {}) {
 		if (typeof args === "string") {
 			return this.prefix + args;
@@ -143,7 +147,7 @@ export default class Task {
 			this.info(this.getMessage({ startTime }));
 		}
 		else {
-			result = await this.runTask(this.question);
+			result = await this.runTask();
 			let message = this.getMessage({ ...result, startTime });
 
 			if (result.error) {
@@ -156,7 +160,7 @@ export default class Task {
 		return result;
 	}
 
-	async runTask (question) {
+	async runTask () {
 		throw this.notImplemented();
 	}
 
