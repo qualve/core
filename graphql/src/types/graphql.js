@@ -33,10 +33,8 @@ export default class GraphQLTask extends Task {
 
 			result = this.handleResult?.(result) ?? result;
 
-			if (this.output) {
-				var outputPath = `${this.cwd}/${this.output}`;
-				var size = writeJSONSync(outputPath, result)?.length;
-			}
+			var outputPath = this.outputPath;
+			var size = outputPath ? writeJSONSync(outputPath, result)?.length : undefined;
 		}
 
 		return { result, query, outputPath, size };
