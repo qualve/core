@@ -5,12 +5,12 @@ import Task from "./task.js";
 const ENDPOINT = "https://api.devographics.com/graphql";
 
 export default class GraphQLTask extends Task {
-	async runTask (question) {
+	async runTask () {
 		let query = this.fields;
 
 		if (this.scope === "survey" || this.scope === "question") {
 			if (this.scope === "question") {
-				query = { [question.section]: { [question.id]: query } };
+				query = { [this.question.section]: { [this.question.id]: query } };
 			}
 
 			query = { surveys: { [survey.name]: { [survey.id]: query } } };
@@ -27,14 +27,14 @@ export default class GraphQLTask extends Task {
 				result = result.surveys[survey.name][survey.id];
 
 				if (this.scope === "question") {
-					result = result[question.section][question.id];
+					result = result[this.question.section][this.question.id];
 				}
 			}
 
-			result = this.handleResult?.(result, question) ?? result;
+			result = this.handleResult?.(result) ?? result;
 
 			if (this.output) {
-				var outputPath = `data${this.scope === "question" ? "/" + question.id : ""}/${this.output}`;
+				var outputPath = `${this.cwd}/${this.output}`;
 				var size = writeJSONSync(outputPath, result)?.length;
 			}
 		}
