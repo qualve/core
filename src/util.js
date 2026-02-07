@@ -166,7 +166,7 @@ export async function handleStreamedChunks ({
 
 export async function mapAsync (arr, fn, { parallelize = false } = {}) {
 	if (parallelize) {
-		return Promise.allSettled(arr.map(fn)).map(result => result.value);
+		return Promise.all(arr.map(fn));
 	}
 
 	let results = [];
