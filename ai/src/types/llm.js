@@ -23,18 +23,11 @@ export default class LLMTask extends Task {
 			t = t.parent;
 		}
 
-		if (this.input) {
-			for (let file of this.input) {
-				if (typeof file === "string") {
-					file = { name: file };
-				}
-
-				file.schema = file.schema ?? {};
-			}
-		}
 	}
 
-	async runTask () {
+	async prepare () {
+		super.prepare();
+
 		if (this.input) {
 			this.files = Object.fromEntries(
 				this.input.map(file => {
@@ -61,7 +54,9 @@ export default class LLMTask extends Task {
 		if (this.output) {
 			this.output.path = this.outputPath;
 		}
+	}
 
+	async runTask () {
 		return this.llm.runTask(this);
 	}
 }
