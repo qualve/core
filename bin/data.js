@@ -23,6 +23,9 @@ const availableOptions = {
 	model: {},
 	fresh: {
 		default: false,
+	},
+	force: {
+		default: false,
 		short: "f",
 	},
 };

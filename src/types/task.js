@@ -1,6 +1,7 @@
 import { formatDuration, formatSize, readDirectorySync, mapAsync, toArray, addFilenameSuffix } from "../util.js";
 import Question from "../question.js";
 import path from "node:path";
+import { existsSync } from "node:fs";
 
 export default class Task {
 	constructor (task, { parent = null, parallelize, questionIds, info } = {}) {
@@ -20,29 +21,17 @@ export default class Task {
 			this.questionIds = questionIds;
 		}
 
-		if (this.input) {
-			this.input = toArray(this.input).map(input => {
-				let ret = typeof input === "object" ? input : { name: input };
-				let { name, filename, ...rest } = ret;
-
-				if (name?.endsWith(".json")) {
-					filename = name;
-					name = name.slice(0, -5);
-				}
-				else if (name) {
-					filename ??= name + (name.endsWith(".json") ? "" : ".json");
-				}
-
-				return { name, filename, ...rest };
-			});
-		}
-
-		if (this.output) {
-			this.output =
-				typeof this.output === "string" ? { name: this.output } : { ...this.output };
-		}
-
 		this.subtasks = task.subtasks?.map(t => this.createSubtask(t));
+
+		// Memoize prepare() so it runs once regardless of how many times it's called.
+		// Captures the most-derived override; super.prepare() in subclasses
+		// bypasses this (goes through prototype chain) so base logic still runs.
+		let prepare = this.prepare.bind(this);
+		this.prepare = () => {
+			let result = prepare();
+			this.prepare = () => result;
+			return result;
+		};
 	}
 
 	createSubtask (subtask = this.task, args = {}) {
@@ -179,7 +168,33 @@ export default class Task {
 		return this.prefix + " " + message.join(" ");
 	}
 
+	prepare () {
+		if (this.input) {
+			this.input = toArray(this.input).map(input => {
+				let ret = typeof input === "object" ? input : { name: input };
+				let { name, filename, ...rest } = ret;
+
+				if (name?.endsWith(".json")) {
+					filename = name;
+					name = name.slice(0, -5);
+				}
+				else if (name) {
+					filename ??= name + (name.endsWith(".json") ? "" : ".json");
+				}
+
+				return { name, filename, ...rest };
+			});
+		}
+
+		if (this.output) {
+			this.output =
+				typeof this.output === "string" ? { name: this.output } : { ...this.output };
+		}
+	}
+
 	async run () {
+		await this.prepare();
+
 		let startTime = performance.now();
 		let result;
 
@@ -199,6 +214,12 @@ export default class Task {
 			this.info(this.getMessage({ startTime }));
 		}
 		else {
+			let outputPath = this.outputPath;
+			if (!this.force && outputPath && existsSync(outputPath)) {
+				this.info(this.prefix + ` skipped (output already exists: ${outputPath}). Use -f to force.`);
+				return;
+			}
+
 			result = await this.runTask();
 			let message = this.getMessage({ ...result, startTime });
 
