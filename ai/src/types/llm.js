@@ -2,7 +2,7 @@ import LLM from "../llm.js";
 import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import Task from "./task.js";
-import { camelCase, minifyJSONSync, dedent } from "../util.js";
+import { minifyJSONSync, dedent } from "../util.js";
 
 export default class LLMTask extends Task {
 	constructor (task, args) {
@@ -29,21 +29,9 @@ export default class LLMTask extends Task {
 		super.prepare();
 
 		if (this.input) {
-			this.files = Object.fromEntries(
-				this.input.map(file => {
-					let { name, schema } = file;
-					// TODO incorporate file schema into the prompt or send it to LLM if it supports this
-					return [
-						camelCase(name),
-						{
-							filePath: minifyJSONSync(`${this.cwd}/${name}.json`),
-							schema,
-						},
-					];
-				}),
-			);
-
-			delete this.input;
+			for (let entry of this.input) {
+				entry.filePath = minifyJSONSync(`${this.cwd}/${entry.name}.json`);
+			}
 		}
 
 		this.system = handlePrompts(this.system, this.question);
