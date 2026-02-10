@@ -25,16 +25,18 @@ export default class LLMTask extends Task {
 		}
 	}
 
-	async prepare () {
-		super.prepare();
+	async initAsync () {
+		this.llm = await LLM.create(this.llmId, { fresh: this.fresh, model: this.model });
+	}
+
+	async postInit () {
+		await super.postInit();
 
 		if (this.input) {
 			for (let entry of this.input) {
 				entry.filePath = minifyJSONSync(`${this.cwd}${entry.name}.json`);
 			}
 		}
-
-		this.llm = await LLM.create(this.llmId, { fresh: this.fresh, model: this.model });
 
 		this.system = handlePrompts(this.system, this.question);
 		this.prompt = handlePrompts(this.prompt, this.question);
