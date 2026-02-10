@@ -1,4 +1,11 @@
-import { formatDuration, formatSize, readDirectorySync, mapAsync, toArray, addFilenameSuffix } from "../util.js";
+import {
+	formatDuration,
+	formatSize,
+	readDirectorySync,
+	mapAsync,
+	toArray,
+	addFilenameSuffix,
+} from "../util.js";
 import Question from "../question.js";
 import path from "node:path";
 import { existsSync } from "node:fs";
@@ -217,7 +224,10 @@ export default class Task {
 		else {
 			let outputPath = this.outputPath;
 			if (!this.force && outputPath && existsSync(outputPath)) {
-				this.info(this.prefix + ` skipped (output already exists: ${outputPath}). Use -f to force.`);
+				this.info(
+					this.prefix +
+						` skipped (output already exists: ${outputPath}). Use -f to force.`,
+				);
 				return;
 			}
 
