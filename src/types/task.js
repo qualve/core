@@ -179,7 +179,7 @@ export default class Task {
 		if (this.input) {
 			this.input = toArray(this.input).map(input => {
 				let ret = typeof input === "object" ? input : { name: input };
-				let { name, filename, ...rest } = ret;
+				let { name, filename, description, ...rest } = ret;
 				let ext = path.extname(filename ?? name);
 
 				if (ext) {
@@ -190,7 +190,11 @@ export default class Task {
 					filename ??= name + ".json";
 				}
 
-				return { name, filename, ...rest };
+				if (typeof description === "function") {
+					description = description(this.question);
+				}
+
+				return { name, filename, description, ...rest };
 			});
 		}
 
