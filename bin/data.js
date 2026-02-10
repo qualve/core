@@ -39,7 +39,7 @@ if (!taskId) {
 	process.exit(0);
 }
 
-let task = await Task.fromId(taskId, { questionIds: questionId, ...overrides });
+let task = await Task.fromId(taskId, { questionIds: questionId || Question.ids, ...overrides });
 
 if (task.scope === "question") {
 	if (!questionId) {
@@ -56,8 +56,6 @@ if (task.scope === "question") {
 				`Please provide a question ID via the -q/--question flag. Available ids: ${Question.ids.join(", ")}`,
 			);
 		}
-
-		task.questionIds = Question.ids;
 	}
 }
 
