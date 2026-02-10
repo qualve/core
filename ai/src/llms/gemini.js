@@ -14,7 +14,7 @@ export default class Gemini extends LLM {
 		let { name, dirName } = super.getFileInfo(filepath);
 		// Important: File name may only contain lowercase alphanumeric characters or dashes (-) and cannot begin or end with a dash.
 		let displayName = name;
-		name = name.replace(/[_.]/g, "-").replace(/^-|-$/g, "");
+		name = `${dirName}-${name}`.replace(/[_.]/g, "-").replace(/^-|-$/g, "");
 		return { name, dirName, displayName };
 	}
 
