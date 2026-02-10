@@ -45,7 +45,7 @@ export default class LLMTask extends Task {
 			!this.llm.constructor.capabilities.inputDescriptions
 		) {
 			// Incorporate file descriptions and schemas into the prompt
-			this.prompt.push(inputFiles(this.input));
+			this.prompt.push(inputFiles.call(this, this.input));
 		}
 
 		if (this.output) {

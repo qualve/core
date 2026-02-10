@@ -62,10 +62,9 @@ export default class Claude extends LLM {
 		return meta;
 	}
 
-	async createStream ({ system, prompt, output, input = [] }) {
+	async createStream (task) {
+		let { system, prompt, output, input = [] } = task;
 		let responseSchema = output?.schema;
-		let codebook = input.find(f => f.name === "codebook")?.remoteFile;
-		let answers = input.find(f => f.name === "answers")?.remoteFile;
 		const stream = this.client.beta.messages.stream({
 			model: this.model,
 			max_tokens: 64000, // maximum for claude-sonnet-4-5
@@ -78,7 +77,7 @@ export default class Claude extends LLM {
 						...prompt.map(t => ({ type: "text", text: t })),
 						...input.map(f => ({
 							type: "document",
-							context: inputFile(f),
+							context: inputFile.call(task, f),
 							source: {
 								type: "file",
 								file_id: f.remoteFile.id,
