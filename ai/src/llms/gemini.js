@@ -34,8 +34,23 @@ export default class Gemini extends LLM {
 		}
 		catch (e) {
 			let message = JSON.parse(e.message);
-			if (message?.error?.status === "PERMISSION_DENIED") {
-				// This shouldn't happen, abort
+			if (message?.error?.code === 403) {
+				// Check if the file exists but we don't have permission to access it
+				let files = await this.client.files.list();
+				for await (let file of files) {
+					if (file.name === "files/" + name) {
+						var ret = file;
+					}
+				}
+
+				if (ret) {
+					// Permission denied. This shouldn't happen, abort
+					throw new Error(`You don't have permission to access file ${filepath}`, {
+						cause: e,
+					});
+				}
+			}
+			else {
 				throw new Error(`Failed to get file ${filepath}`, { cause: e });
 			}
 		}
