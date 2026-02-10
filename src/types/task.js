@@ -121,7 +121,7 @@ export default class Task {
 	}
 
 	resolveValue (value) {
-		return typeof value === "function" ? value.call(this) : value;
+		return typeof value === "function" ? value.call(this, this.question) : value;
 	}
 
 	get outputPath () {
@@ -191,9 +191,7 @@ export default class Task {
 			}
 		}
 
-		if (typeof description === "function") {
-			description = description(this.question);
-		}
+		description = this.resolveValue(description);
 
 		return { name, filename, description, ...rest };
 	}
