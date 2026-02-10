@@ -118,31 +118,6 @@ export default class Task {
 		return typeof value === "function" ? value.call(this, this.question) : value;
 	}
 
-	get outputPath () {
-		if (!this.output) {
-			return undefined;
-		}
-
-		let outputName = this.resolveValue(this.output.name);
-
-		if (!outputName && this.output.suffix) {
-			outputName = this.resolveValue(this.input?.[0]?.name) ?? this.id;
-		}
-
-		if (this.output.suffix) {
-			let suffix = this.resolveValue(this.output.suffix);
-			if (suffix) {
-				outputName = addFilenameSuffix(outputName, suffix);
-			}
-		}
-
-		if (!outputName.endsWith(".json")) {
-			outputName += ".json";
-		}
-
-		return path.join(this.cwd, outputName);
-	}
-
 	getMessage (args = {}) {
 		if (typeof args === "string") {
 			return this.prefix + args;
@@ -171,7 +146,13 @@ export default class Task {
 
 	normalizeFile (spec) {
 		let ret = typeof spec === "object" ? { ...spec } : { name: spec };
-		let { name, filename, description, ...rest } = ret;
+		let { name, filename, description, suffix, ...rest } = ret;
+
+		name = this.resolveValue(name);
+
+		if (!name && suffix) {
+			name = this.resolveValue(this.input?.[0]?.name) ?? this.id;
+		}
 
 		if (typeof name === "string") {
 			let ext = path.extname(filename ?? name);
@@ -180,14 +161,22 @@ export default class Task {
 				filename = name;
 				name = name.slice(0, -ext.length);
 			}
-			else {
-				filename ??= name + ".json";
+		}
+
+		filename ??= (name ?? this.id) + ".json";
+
+		if (suffix) {
+			let resolvedSuffix = this.resolveValue(suffix);
+			if (resolvedSuffix) {
+				filename = addFilenameSuffix(filename, resolvedSuffix);
 			}
 		}
 
 		description = this.resolveValue(description);
 
-		return { name, filename, description, ...rest };
+		let filePath = path.join(this.cwd, filename);
+
+		return { name, filename, description, filePath, suffix, ...rest };
 	}
 
 	async initAsync () {}
@@ -224,7 +213,7 @@ export default class Task {
 			this.info(this.getMessage({ startTime }));
 		}
 		else {
-			let outputPath = this.outputPath;
+			let outputPath = this.output?.filePath;
 			if (!this.force && outputPath && existsSync(outputPath)) {
 				this.info(
 					this.prefix +
