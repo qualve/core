@@ -30,15 +30,9 @@ export default class Task {
 
 		this.subtasks = task.subtasks?.map(t => this.createSubtask(t));
 
-		// Memoize prepare() so it runs once regardless of how many times it's called.
-		// Captures the most-derived override; super.prepare() in subclasses
-		// bypasses this (goes through prototype chain) so base logic still runs.
-		let prepare = this.prepare.bind(this);
-		this.prepare = () => {
-			let result = prepare();
-			this.prepare = () => result;
-			return result;
-		};
+		this.ready = Promise.resolve()
+			.then(() => this.initAsync())
+			.then(() => this.postInit());
 	}
 
 	createSubtask (subtask = this.task, args = {}) {
@@ -196,7 +190,9 @@ export default class Task {
 		return { name, filename, description, ...rest };
 	}
 
-	prepare () {
+	async initAsync () {}
+
+	async postInit () {
 		if (this.input) {
 			this.input = toArray(this.input).map(input => this.normalizeFile(input));
 		}
@@ -207,7 +203,7 @@ export default class Task {
 	}
 
 	async run () {
-		await this.prepare();
+		await this.ready;
 
 		let startTime = performance.now();
 		let result;
