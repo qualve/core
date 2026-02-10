@@ -173,13 +173,14 @@ export default class Task {
 			this.input = toArray(this.input).map(input => {
 				let ret = typeof input === "object" ? input : { name: input };
 				let { name, filename, ...rest } = ret;
+				let ext = path.extname(filename ?? name);
 
-				if (name?.endsWith(".json")) {
+				if (ext) {
 					filename = name;
-					name = name.slice(0, -5);
+					name = name.slice(0, -ext.length);
 				}
-				else if (name) {
-					filename ??= name + (name.endsWith(".json") ? "" : ".json");
+				else {
+					filename ??= name + ".json";
 				}
 
 				return { name, filename, ...rest };
