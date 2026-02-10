@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import Task from "./task.js";
 import { minifyJSONSync, dedent } from "../util.js";
+import { inputFiles } from "../tasks/_prompts-common.js";
 
 export default class LLMTask extends Task {
 	constructor (task, args) {
@@ -33,10 +34,19 @@ export default class LLMTask extends Task {
 			}
 		}
 
+		this.llm = await LLM.create(this.llmId, { fresh: this.fresh, model: this.model });
+
 		this.system = handlePrompts(this.system, this.question);
 		this.prompt = handlePrompts(this.prompt, this.question);
 
-		this.llm = await LLM.create(this.llmId, { fresh: this.fresh, model: this.model });
+		if (
+			this.input?.length > 0 &&
+			!this.llm.constructor.capabilities.inputSchema &&
+			!this.llm.constructor.capabilities.inputDescriptions
+		) {
+			// Incorporate file descriptions and schemas into the prompt
+			this.prompt.push(inputFiles(this.input));
+		}
 
 		if (this.output) {
 			this.output.path = this.outputPath;

@@ -1,11 +1,15 @@
 import fs from "node:fs/promises";
 import LLM from "../llm.js";
 import Anthropic, { toFile } from "@anthropic-ai/sdk";
+import { inputFile } from "../../tasks/_prompts-common.js";
 
 export default class Claude extends LLM {
 	static id = "claude";
 	static name = "Claude";
 	static models = ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-5"];
+	static capabilities = {
+		inputDescriptions: true,
+	};
 
 	client = new Anthropic({
 		apiKey: process.env.ANTHROPIC_API_KEY,
@@ -72,28 +76,14 @@ export default class Claude extends LLM {
 					role: "user",
 					content: [
 						...prompt.map(t => ({ type: "text", text: t })),
-						{
-							type: "text",
-							text: "Document 1: codebook.json (use only for code definitions).",
-						},
-						{
+						...input.map(f => ({
 							type: "document",
-							context:
-								"Codebook for deductive coding. Use only for code definitions.",
+							context: inputFile(f),
 							source: {
 								type: "file",
-								file_id: codebook.id,
+								file_id: f.remoteFile.id,
 							},
-						},
-						{ type: "text", text: "Document 2: answers.json (the responses to code)." },
-						{
-							type: "document",
-							context: "Survey responses to be deductively coded using the codebook.",
-							source: {
-								type: "file",
-								file_id: answers.id,
-							},
-						},
+						})),
 					],
 				},
 			],
