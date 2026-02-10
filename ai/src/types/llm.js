@@ -50,7 +50,7 @@ export default class LLMTask extends Task {
 
 		if (this.input) {
 			for (let entry of this.input) {
-				entry.filePath = minifyJSONSync(`${this.cwd}${entry.name}.json`);
+				entry.filePath = minifyJSONSync(entry.filePath);
 			}
 		}
 
@@ -69,8 +69,6 @@ export default class LLMTask extends Task {
 		}
 
 		if (this.output) {
-			this.output.path = this.outputPath;
-
 			this.prompt.push(outputFile.call(this, this.output));
 		}
 	}
