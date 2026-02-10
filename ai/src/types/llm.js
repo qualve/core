@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import Task from "./task.js";
 import { minifyJSONSync, dedent } from "../util.js";
-import { inputFiles, outputFile } from "../tasks/_prompts-common.js";
+import { inputFiles, outputFile } from "../../tasks/_prompts-common.js";
 
 export default class LLMTask extends Task {
 	constructor (task, args) {
@@ -29,9 +29,9 @@ export default class LLMTask extends Task {
 		this.llm = await LLM.create(this.llmId, { fresh: this.fresh, model: this.model });
 	}
 
-	async normalizePrompts (prompts) {
+	normalizePrompts (prompts) {
 		if (typeof prompts === "function") {
-			prompts = prompts(question);
+			prompts = prompts(this.question);
 		}
 
 		// Do not convert to else if, function may return a string or an array
