@@ -29,6 +29,22 @@ export default class LLMTask extends Task {
 		this.llm = await LLM.create(this.llmId, { fresh: this.fresh, model: this.model });
 	}
 
+	async normalizePrompts (prompts) {
+		if (typeof prompts === "function") {
+			prompts = prompts(question);
+		}
+
+		// Do not convert to else if, function may return a string or an array
+		if (typeof prompts === "string") {
+			prompts = dedent(prompts);
+		}
+		else if (Array.isArray(prompts)) {
+			return prompts.flatMap(prompt => this.normalizePrompts(prompt));
+		}
+
+		return [prompts];
+	}
+
 	async postInit () {
 		await super.postInit();
 
@@ -38,13 +54,15 @@ export default class LLMTask extends Task {
 			}
 		}
 
-		this.system = handlePrompts(this.system, this.question);
-		this.prompt = handlePrompts(this.prompt, this.question);
+		this.system = this.normalizePrompts(this.system);
+		this.prompt = this.normalizePrompts(this.prompt);
+
+		const capabilities = this.llm.constructor.capabilities;
 
 		if (
 			this.input?.length > 0 &&
-			!this.llm.constructor.capabilities.inputSchema &&
-			!this.llm.constructor.capabilities.inputDescriptions
+			!capabilities.inputSchema &&
+			!capabilities.inputDescriptions
 		) {
 			// Incorporate file descriptions and schemas into the prompt
 			this.prompt.push(inputFiles.call(this, this.input));
@@ -58,20 +76,4 @@ export default class LLMTask extends Task {
 	async runTask () {
 		return this.llm.runTask(this);
 	}
-}
-
-function handlePrompts (prompts, question) {
-	if (typeof prompts === "function") {
-		prompts = prompts(question);
-	}
-
-	// Do not convert to else if, function may return a string or an array
-	if (typeof prompts === "string") {
-		prompts = dedent(prompts);
-	}
-	else if (Array.isArray(prompts)) {
-		return prompts.flatMap(prompt => handlePrompts(prompt, question));
-	}
-
-	return [prompts];
 }
