@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import Task from "./task.js";
 import { minifyJSONSync, dedent } from "../util.js";
-import { inputFiles } from "../tasks/_prompts-common.js";
+import { inputFiles, outputFile } from "../tasks/_prompts-common.js";
 
 export default class LLMTask extends Task {
 	constructor (task, args) {
@@ -70,6 +70,8 @@ export default class LLMTask extends Task {
 
 		if (this.output) {
 			this.output.path = this.outputPath;
+
+			this.prompt.push(outputFile.call(this, this.output));
 		}
 	}
 

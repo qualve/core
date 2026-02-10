@@ -6,6 +6,9 @@ export default class OpenAI extends LLM {
 	static models = ["gpt-5.2", "gpt-5-mini", "gpt-5-nano"];
 	static id = "openai";
 	static name = "OpenAI";
+	static capabilities = {
+		outputSchema: true,
+	};
 
 	client = new OpenAIClient({
 		apiKey: process.env.OPENAI_API_KEY,

@@ -5,6 +5,9 @@ export default class Gemini extends LLM {
 	static id = "gemini";
 	static name = "Gemini";
 	static models = ["gemini-3-pro-preview", "gemini-3-flash-preview"];
+	static capabilities = {
+		outputSchema: true,
+	};
 
 	client = new GoogleGenAI({
 		apiKey: process.env.GEMINI_API_KEY,

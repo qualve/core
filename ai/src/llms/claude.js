@@ -9,6 +9,7 @@ export default class Claude extends LLM {
 	static models = ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-5"];
 	static capabilities = {
 		inputDescriptions: true,
+		outputSchema: true,
 	};
 
 	client = new Anthropic({
