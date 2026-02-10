@@ -175,32 +175,36 @@ export default class Task {
 		return this.prefix + " " + message.join(" ");
 	}
 
+	normalizeFile (spec) {
+		let ret = typeof spec === "object" ? { ...spec } : { name: spec };
+		let { name, filename, description, ...rest } = ret;
+
+		if (typeof name === "string") {
+			let ext = path.extname(filename ?? name);
+
+			if (ext) {
+				filename = name;
+				name = name.slice(0, -ext.length);
+			}
+			else {
+				filename ??= name + ".json";
+			}
+		}
+
+		if (typeof description === "function") {
+			description = description(this.question);
+		}
+
+		return { name, filename, description, ...rest };
+	}
+
 	prepare () {
 		if (this.input) {
-			this.input = toArray(this.input).map(input => {
-				let ret = typeof input === "object" ? input : { name: input };
-				let { name, filename, description, ...rest } = ret;
-				let ext = path.extname(filename ?? name);
-
-				if (ext) {
-					filename = name;
-					name = name.slice(0, -ext.length);
-				}
-				else {
-					filename ??= name + ".json";
-				}
-
-				if (typeof description === "function") {
-					description = description(this.question);
-				}
-
-				return { name, filename, description, ...rest };
-			});
+			this.input = toArray(this.input).map(input => this.normalizeFile(input));
 		}
 
 		if (this.output) {
-			this.output =
-				typeof this.output === "string" ? { name: this.output } : { ...this.output };
+			this.output = this.normalizeFile(this.output);
 		}
 	}
 
