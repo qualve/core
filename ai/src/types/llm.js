@@ -22,7 +22,6 @@ export default class LLMTask extends Task {
 			t.parallelize = false;
 			t = t.parent;
 		}
-
 	}
 
 	async prepare () {
