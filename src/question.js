@@ -21,6 +21,14 @@ export default class Question {
 		return `data/${this.id}`;
 	}
 
+	get text () {
+		if (!this.prompt) {
+			return this.description;
+		}
+
+		return `${this.description} ${this.prompt}`;
+	}
+
 	static fromId (id) {
 		return questions[id];
 	}
