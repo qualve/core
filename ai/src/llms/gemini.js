@@ -106,7 +106,7 @@ export default class Gemini extends LLM {
 				systemInstruction: system?.join("\n"),
 				tools: this.capabilities.webSearch ? [{ googleSearch: {} }] : undefined,
 				responseMimeType: "application/json",
-				responseJsonSchema: responseSchema.schema,
+				responseJsonSchema: responseSchema,
 				thinkingConfig: {
 					thinkingLevel: ThinkingLevel.HIGH,
 				},
