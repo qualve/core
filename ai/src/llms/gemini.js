@@ -9,6 +9,13 @@ export default class Gemini extends LLM {
 		outputSchema: true,
 	};
 
+	get capabilities () {
+		return {
+			...super.capabilities,
+			webSearch: /-pro(?:-|$)/.test(this.model),
+		};
+	}
+
 	client = new GoogleGenAI({
 		apiKey: process.env.GEMINI_API_KEY,
 	});
@@ -95,7 +102,7 @@ export default class Gemini extends LLM {
 			]),
 			config: {
 				systemInstruction: system?.join("\n"),
-				tools: /-pro(?:-|$)/.test(this.model) ? [{ googleSearch: {} }] : undefined,
+				tools: this.capabilities.webSearch ? [{ googleSearch: {} }] : undefined,
 				responseMimeType: "application/json",
 				responseJsonSchema: responseSchema.schema,
 				thinkingConfig: {

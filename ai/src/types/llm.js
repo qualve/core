@@ -31,7 +31,7 @@ export default class LLMTask extends Task {
 
 	normalizePrompts (prompts) {
 		if (typeof prompts === "function") {
-			prompts = prompts(this.question);
+			prompts = prompts.call(this, this.question);
 		}
 
 		// Do not convert to else if, function may return a string or an array
@@ -57,7 +57,7 @@ export default class LLMTask extends Task {
 		this.system = this.normalizePrompts(this.system);
 		this.prompt = this.normalizePrompts(this.prompt);
 
-		const capabilities = this.llm.constructor.capabilities;
+		const capabilities = this.llm.capabilities;
 
 		if (
 			this.input?.length > 0 &&
