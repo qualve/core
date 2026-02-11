@@ -2,7 +2,7 @@
 import { readArgs } from "./util/args.js";
 import { confirm } from "./util/ask.js";
 import Task from "../src/task.js";
-import Question from "../src/question.js";
+import { ids as questionIds } from "../src/question.js";
 
 const availableOptions = {
 	questionId: {
@@ -39,7 +39,7 @@ if (!taskId) {
 	process.exit(0);
 }
 
-let task = await Task.fromId(taskId, { questionIds: questionId || Question.ids, ...overrides });
+let task = await Task.fromId(taskId, { questionIds: questionId || questionIds, ...overrides });
 
 if (task.scope === "question") {
 	if (!questionId) {
@@ -53,7 +53,7 @@ if (task.scope === "question") {
 					: true;
 		if (!allQuestions) {
 			throw new Error(
-				`Please provide a question ID via the -q/--question flag. Available ids: ${Question.ids.join(", ")}`,
+				`Please provide a question ID via the -q/--question flag. Available ids: ${questionIds.join(", ")}`,
 			);
 		}
 	}

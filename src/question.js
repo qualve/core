@@ -1,4 +1,4 @@
-import { readJSONSync, readDirectorySync } from "./util.js";
+import questionData from "../data/questions.json" with { type: "json" };
 
 export default class Question {
 	constructor (question) {
@@ -21,31 +21,10 @@ export default class Question {
 		return `data/${this.id}`;
 	}
 
-	static all = {};
-
-	static #ids = null;
-	static get ids () {
-		if (!this.#ids) {
-			this.#ids = readDirectorySync("data", { type: "directory" });
-		}
-		return this.#ids;
-	}
-
 	static fromId (id) {
-		if (this.all[id]) {
-			return this.all[id];
-		}
-
-		let question = null;
-		try {
-			question = readJSONSync(`data/${id}/question.json`);
-		}
-		catch (cause) {
-			throw new Error(`Failed to read question data: ${cause.message}`, { cause });
-		}
-
-		question.id ??= id;
-		this.all[id] = new Question(question);
-		return this.all[id];
+		return questions[id];
 	}
 }
+
+export const questions = Object.fromEntries(questionData.map(q => [q.id, new Question(q)]));
+export const ids = Object.keys(questions);
