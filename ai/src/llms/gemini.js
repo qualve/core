@@ -1,4 +1,5 @@
 import LLM from "../llm.js";
+import { truncatedIds } from "../question.js";
 import { createUserContent, createPartFromUri, GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 export default class Gemini extends LLM {
@@ -22,9 +23,10 @@ export default class Gemini extends LLM {
 
 	getFileInfo (filepath) {
 		let { name, dirName } = super.getFileInfo(filepath);
-		// Important: File name may only contain lowercase alphanumeric characters or dashes (-) and cannot begin or end with a dash.
 		let displayName = name;
-		name = `${dirName}-${name}`.replace(/[_.]/g, "-").replace(/^-|-$/g, "");
+		// Important: File name may only contain lowercase alphanumeric characters or dashes (-) and cannot begin or end with a dash.
+		let prefix = truncatedIds[dirName];
+		name = `${prefix}-${name}`.replace(/[_.]/g, "-").replace(/^-|-$/g, "");
 		return { name, dirName, displayName };
 	}
 
