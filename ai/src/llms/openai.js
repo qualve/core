@@ -89,6 +89,19 @@ export default class OpenAI extends LLM {
 		const store = await this.getStore(storeId);
 		let hasRootObject = responseSchema?.schema?.type === "object";
 
+		// All object properties in the response schema must be required.
+		// See https://developers.openai.com/api/docs/guides/structured-outputs#all-fields-must-be-required
+		let obj = hasRootObject ? responseSchema.schema : responseSchema.schema.items;
+		let properties = Object.keys(obj.properties);
+		let notRequired = properties.filter(key => !obj.required.includes(key));
+		if (notRequired.length) {
+			for (let key of notRequired) {
+				// Emulate an optional parameter by using a union type with null
+				obj.properties[key].type = [obj.properties[key].type, "null"];
+			}
+			obj.required = properties;
+		}
+
 		// OpenAI requires a name for the response schema and strict mode
 		responseSchema = { strict: true, name: "response", ...responseSchema };
 
