@@ -106,9 +106,11 @@ export function addFilenameSuffix (filepath, suffix) {
 /**
  * Safely handles an async iterable stream of chunks from an LLM response,
  * writing them to a file with proper error handling and cleanup.
- * @param {AsyncIterable<any>} stream - An async iterable of chunks to be written.
- * @param {string} outputPath - The path to the file where chunks will be written.
- * @param {(chunk: any) => string} [transform] - An optional transform function to apply to each chunk before writing.
+ * @param {Object} options
+ * @param {AsyncIterable<Object>} options.stream - An async iterable of chunks to be written.
+ * @param {string} options.outputPath - The path to the file where chunks will be written.
+ * @param {(chunk: Object) => string} [options.transformChunk] - An optional transform function to apply to each chunk before writing.
+ * @param {(result: Object) => string} [options.transformResult] - An optional transform function to apply to the final result after all chunks have been written and read back.
  */
 export async function handleStreamedChunks ({
 	stream,
