@@ -29,6 +29,10 @@ export default class Question {
 		return `${this.description} ${this.prompt}`;
 	}
 
+	get truncatedId () {
+		return truncatedIds[this.id];
+	}
+
 	static fromId (id) {
 		return questions[id];
 	}
@@ -36,3 +40,16 @@ export default class Question {
 
 export const questions = Object.fromEntries(questionData.map(q => [q.id, new Question(q)]));
 export const ids = Object.keys(questions);
+export function truncateId (id, all = ids) {
+	for (let i = 1; i <= id.length; i++) {
+		let prefix = id.slice(0, i);
+		let unique = all.every(other => other === id || !other.startsWith(prefix));
+		if (unique) {
+			return prefix;
+		}
+	}
+
+	return id;
+}
+
+export const truncatedIds = Object.fromEntries(ids.map(id => [id, truncateId(id)]));
