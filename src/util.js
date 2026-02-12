@@ -111,12 +111,14 @@ export function addFilenameSuffix (filepath, suffix) {
  * @param {string} options.outputPath - The path to the file where chunks will be written.
  * @param {(chunk: Object) => string} [options.transformChunk] - An optional transform function to apply to each chunk before writing.
  * @param {(result: Object) => string} [options.transformResult] - An optional transform function to apply to the final result after all chunks have been written and read back.
+ * @param {(chunk: Object) => void} [options.onChunk] - An optional callback to handle each chunk as it is processed (e.g. for progress updates).
  */
 export async function handleStreamedChunks ({
 	stream,
 	outputPath,
 	transformChunk,
 	transformResult,
+	onChunk = () => {},
 } = {}) {
 	const tmpFile = addFilenameSuffix(outputPath, ".tmp");
 
@@ -135,6 +137,8 @@ export async function handleStreamedChunks ({
 				// That shouldn't happen, but if it does, we stop processing further chunks.
 				throw writeError;
 			}
+
+			onChunk(chunk);
 
 			if (transformChunk) {
 				chunk = transformChunk(chunk);
