@@ -145,7 +145,7 @@ export default class Task {
 	}
 
 	normalizeFile (spec) {
-		let ret = typeof spec === "object" ? { ...spec } : { name: spec };
+		let ret = normalizeFile(spec);
 		let { name, filename, description, suffix, ...rest } = ret;
 
 		name = this.resolveValue(name);
@@ -294,7 +294,21 @@ export default class Task {
 
 		task = { ...task };
 
-		for (let key in overrides) {
+		let { input, output, ...otherOverrides } = overrides;
+
+		if (input) {
+			task.input = toArray(input).map(input => normalizeFile(input));
+			task.input[0].name = input;
+			delete task.input[0].filename;
+		}
+
+		if (output) {
+			task.output = normalizeFile(output);
+			task.output.name = output;
+			delete task.output.filename;
+		}
+
+		for (let key in otherOverrides) {
 			// Why not use Object.assign()? Because we want to ignore undefined values.
 			task[key] = overrides[key] ?? task[key];
 		}
@@ -306,4 +320,12 @@ export default class Task {
 	static create (task, ...args) {
 		return new Task(task, ...args);
 	}
+}
+
+function normalizeFile (spec) {
+	if (!spec) {
+		return undefined;
+	}
+
+	return typeof spec === "object" ? { ...spec } : { name: spec };
 }
