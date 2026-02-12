@@ -113,7 +113,7 @@ export function addFilenameSuffix (filepath, suffix) {
  * @param {(result: Object) => string} [options.transformResult] - An optional transform function to apply to the final result after all chunks have been written and read back.
  * @param {(chunk: Object) => void} [options.onChunk] - An optional callback to handle each chunk as it is processed (e.g. for progress updates).
  */
-export async function handleStreamedChunks ({
+export async function handleStream ({
 	stream,
 	outputPath,
 	transformChunk,
