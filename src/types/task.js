@@ -20,6 +20,8 @@ export default class Task {
 			}
 		}
 
+		normalizeFiles(this);
+
 		this.parent = parent;
 		this.parallelize = parallelize;
 		this.customInfo = info;
@@ -145,7 +147,7 @@ export default class Task {
 	}
 
 	normalizeFile (spec) {
-		let ret = normalizeFile(spec);
+		let ret = spec;
 		let { name, filename, description, suffix, ...rest } = ret;
 
 		name = this.resolveValue(name);
@@ -183,7 +185,7 @@ export default class Task {
 
 	async postInit () {
 		if (this.input) {
-			this.input = toArray(this.input).map(input => this.normalizeFile(input));
+			this.input = this.input.map(input => this.normalizeFile(input));
 		}
 
 		if (this.output) {
@@ -294,10 +296,11 @@ export default class Task {
 
 		task = { ...task };
 
+		task = normalizeFiles(task);
+
 		let { input, output, ...otherOverrides } = overrides;
 
 		if (input) {
-			task.input = toArray(input).map(input => normalizeFile(input));
 			input = toArray(input);
 			for (let i = 0; i < input.length; i++) {
 				if (!input[i] || !task.input[i]) {
@@ -312,7 +315,6 @@ export default class Task {
 		}
 
 		if (output) {
-			task.output = normalizeFile(output);
 			task.output.name = output;
 			delete task.output.filename;
 		}
@@ -329,6 +331,24 @@ export default class Task {
 	static create (task, ...args) {
 		return new Task(task, ...args);
 	}
+}
+
+/**
+ * Light normalization of task.input and task.output.
+ * Does not resolve values or anything that depends on them, only converts input to an array of objects and output to an object.
+ * @param {{input?, output?}} task
+ * @returns {{input?: object[], output?: object}}
+ */
+function normalizeFiles (task) {
+	if (task.input) {
+		task.input = toArray(task.input).map(input => normalizeFile(input));
+	}
+
+	if (task.output) {
+		task.output = normalizeFile(task.output);
+	}
+
+	return task;
 }
 
 function normalizeFile (spec) {
