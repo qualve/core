@@ -298,8 +298,17 @@ export default class Task {
 
 		if (input) {
 			task.input = toArray(input).map(input => normalizeFile(input));
-			task.input[0].name = input;
-			delete task.input[0].filename;
+			input = toArray(input);
+			for (let i = 0; i < input.length; i++) {
+				if (!input[i] || !task.input[i]) {
+					// This way we can provide a falsy value to not override the first input
+					// `-i -i foo` or `-i '' -i foo` don't seem to work but `-i 0 -i foo` does
+					continue;
+				}
+
+				task.input[i].name = input[i];
+				delete task.input[i].filename;
+			}
 		}
 
 		if (output) {
