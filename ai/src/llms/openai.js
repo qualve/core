@@ -160,4 +160,37 @@ export default class OpenAI extends LLM {
 
 		return ret;
 	}
+
+	getMessage (chunk) {
+		// All supported events: https://platform.openai.com/docs/api-reference/responses-streaming
+		let { type, item } = chunk;
+		type = type.replace("response.", "");
+		let message;
+		if (type === "created") {
+			message = "Processing the input...";
+		}
+		else if (type === "in_progress") {
+			message = "Working on the response...";
+		}
+		else if (type.startsWith("output_item")) {
+			if (item.type === "file_search_call") {
+				message = "Working on the uploaded files...";
+			}
+			else if (item.type === "reasoning") {
+				// If we don't do the model more “talkative” during reasoning, we won't get any additional info to display
+				message = "Thinking...";
+			}
+		}
+		else if (type.startsWith("web_search_call")) {
+			message = "Searching the web...";
+		}
+		else if (type === "output_text.delta") {
+			message = "Streaming the response...";
+		}
+		else if (type === "error") {
+			message = `An error occurred: ${chunk.message}`;
+		}
+
+		return message;
+	}
 }
