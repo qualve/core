@@ -1,6 +1,7 @@
 import LLM from "../llm.js";
 import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
+import path from "node:path";
 import Task from "./task.js";
 import { minifyJSONSync, dedent } from "../util.js";
 import { inputFiles, outputFile } from "../../tasks/_prompts-common.js";
@@ -50,7 +51,7 @@ export default class LLMTask extends Task {
 
 		if (this.input) {
 			for (let entry of this.input) {
-				entry.filePath = minifyJSONSync(entry.filePath);
+				entry.filename = path.basename(minifyJSONSync(entry.filePath));
 			}
 		}
 
