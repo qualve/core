@@ -181,3 +181,17 @@ export async function mapAsync (arr, fn, { parallelize = false } = {}) {
 	}
 	return results;
 }
+
+export function hasExtension (source) {
+	if (typeof source !== "string" || !/\.\w+$/.test(source)) {
+		return false;
+	}
+
+	let ext = path.extname(source);
+	if (ext >= 0) {
+		// We don't accept purely numeric extensions
+		return false;
+	}
+
+	return true;
+}

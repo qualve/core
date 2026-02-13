@@ -1,13 +1,6 @@
-import {
-	formatDuration,
-	formatSize,
-	readDirectorySync,
-	mapAsync,
-	toArray,
-	addFilenameSuffix,
-} from "../util.js";
+import { formatDuration, formatSize, readDirectorySync, mapAsync, toArray } from "../util.js";
 import Question from "../question.js";
-import path from "node:path";
+import File from "../file.js";
 import { existsSync } from "node:fs";
 
 export default class Task {
@@ -116,10 +109,6 @@ export default class Task {
 		return "data/" + (this.questionId ? `${this.questionId}/` : "");
 	}
 
-	resolveValue (value) {
-		return typeof value === "function" ? value.call(this, this.question) : value;
-	}
-
 	getMessage (args = {}) {
 		if (typeof args === "string") {
 			return this.prefix + args;
@@ -146,50 +135,15 @@ export default class Task {
 		return this.prefix + " " + message.join(" ");
 	}
 
-	normalizeFile (spec) {
-		let ret = spec;
-		let { name, filename, description, suffix, ...rest } = ret;
-
-		name = this.resolveValue(name);
-
-		if (!name && suffix) {
-			name = this.resolveValue(this.input?.[0]?.name) ?? this.id;
-		}
-
-		if (typeof name === "string") {
-			let ext = path.extname(filename ?? name);
-
-			if (ext) {
-				filename = name;
-				name = name.slice(0, -ext.length);
-			}
-		}
-
-		filename ??= (name ?? this.id) + ".json";
-
-		if (suffix) {
-			let resolvedSuffix = this.resolveValue(suffix);
-			if (resolvedSuffix) {
-				filename = addFilenameSuffix(filename, resolvedSuffix);
-			}
-		}
-
-		description = this.resolveValue(description);
-
-		let filePath = path.join(this.cwd, filename);
-
-		return { name, filename, description, filePath, suffix, ...rest };
-	}
-
 	async initAsync () {}
 
 	async postInit () {
 		if (this.input) {
-			this.input = this.input.map(input => this.normalizeFile(input));
+			this.input = toArray(this.input).map(input => File.get(input, this));
 		}
 
 		if (this.output) {
-			this.output = this.normalizeFile(this.output);
+			this.output = File.get(this.output, this);
 		}
 	}
 
@@ -296,12 +250,13 @@ export default class Task {
 
 		task = { ...task };
 
-		task = normalizeFiles(task);
+		normalizeFiles(task);
 
 		let { input, output, ...otherOverrides } = overrides;
 
 		if (input) {
 			input = toArray(input);
+
 			for (let i = 0; i < input.length; i++) {
 				if (!input[i] || !task.input[i]) {
 					// This way we can provide a falsy value to not override the first input
@@ -309,14 +264,12 @@ export default class Task {
 					continue;
 				}
 
-				task.input[i].name = input[i];
-				delete task.input[i].filename;
+				task.input[i].source = input[i];
 			}
 		}
 
 		if (output) {
-			task.output.name = output;
-			delete task.output.filename;
+			task.output.source = output;
 		}
 
 		for (let key in otherOverrides) {
@@ -333,28 +286,14 @@ export default class Task {
 	}
 }
 
-/**
- * Light normalization of task.input and task.output.
- * Does not resolve values or anything that depends on them, only converts input to an array of objects and output to an object.
- * @param {{input?, output?}} task
- * @returns {{input?: object[], output?: object}}
- */
 function normalizeFiles (task) {
+	let context = task instanceof Task ? task : undefined;
+
 	if (task.input) {
-		task.input = toArray(task.input).map(input => normalizeFile(input));
+		task.input = toArray(task.input).map(file => File.get(file, context));
 	}
 
 	if (task.output) {
-		task.output = normalizeFile(task.output);
+		task.output = File.get(task.output, context);
 	}
-
-	return task;
-}
-
-function normalizeFile (spec) {
-	if (!spec) {
-		return undefined;
-	}
-
-	return typeof spec === "object" ? { ...spec } : { name: spec };
 }
