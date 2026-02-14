@@ -4,7 +4,7 @@ import File from "../file.js";
 import { existsSync } from "node:fs";
 
 export default class Task {
-	constructor (task, { parent = null, parallelize, questionIds, info } = {}) {
+	constructor (task, { parent = null, parallelize, questionIds, info, force } = {}) {
 		this.task = task instanceof Task ? task.task : task;
 
 		for (let key in task) {
@@ -21,6 +21,10 @@ export default class Task {
 
 		if (questionIds) {
 			this.questionIds = questionIds;
+		}
+
+		if (force !== undefined) {
+			this.force = force;
 		}
 
 		this.subtasks = task.subtasks?.map(t => this.createSubtask(t));
@@ -89,6 +93,14 @@ export default class Task {
 	set questionIds (questionIds) {
 		questionIds = Array.isArray(questionIds) ? questionIds : [questionIds];
 		this.#questionIds = questionIds;
+	}
+
+	#force;
+	get force () {
+		return this.#force ?? this.parent?.force ?? false;
+	}
+	set force (value) {
+		this.#force = value;
 	}
 
 	get questionId () {
@@ -252,7 +264,7 @@ export default class Task {
 
 		normalizeFiles(task);
 
-		let { input, output, ...otherOverrides } = overrides;
+		let { input, output, force, ...otherOverrides } = overrides;
 
 		if (input) {
 			input = toArray(input);
@@ -277,7 +289,7 @@ export default class Task {
 			task[key] = overrides[key] ?? task[key];
 		}
 
-		return Task.create(task, { questionIds });
+		return Task.create(task, { questionIds, force });
 	}
 
 	// To be overridden
