@@ -20,6 +20,14 @@ export default class GraphQLTask extends Task {
 		return stringifyQuery(query, "query");
 	}
 
+	async debugInfo () {
+		return {
+			...(await super.debugInfo()),
+			endpoint: ENDPOINT,
+			query: this.query,
+		};
+	}
+
 	async runTask () {
 		let query = this.query;
 		let result = await runQuery(query);
