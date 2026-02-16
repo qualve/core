@@ -5,6 +5,7 @@ import {
 	existsSync,
 	readdirSync,
 	renameSync,
+	statSync,
 	createWriteStream,
 } from "node:fs";
 import path from "node:path";
@@ -74,10 +75,11 @@ export function toArray (value) {
 }
 
 /**
- * Minify a JSON file
- * @param {*} filepath
- * @param {*} param1
- * @returns
+ * Minify a JSON file, reusing a cached `.min` version if it's still fresh.
+ * @param {string} filepath Path to the source JSON file
+ * @param {object} [options]
+ * @param {boolean} [options.force] Regenerate even if a fresh minified file exists
+ * @returns {string} Path to the minified file
  */
 export function minifyJSONSync (filepath, { force } = {}) {
 	if (!filepath) {
@@ -87,8 +89,12 @@ export function minifyJSONSync (filepath, { force } = {}) {
 
 	let filepathMinified = addFilenameSuffix(filepath, ".min");
 	if (!force && existsSync(filepathMinified)) {
-		// TODO also discard if source file has been modified since the minified file was created
-		return filepathMinified;
+		let sourceMtime = statSync(filepath).mtimeMs;
+		let minMtime = statSync(filepathMinified).mtimeMs;
+
+		if (minMtime >= sourceMtime) {
+			return filepathMinified;
+		}
 	}
 
 	let json = readJSONSync(filepath);
