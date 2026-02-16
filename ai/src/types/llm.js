@@ -74,6 +74,16 @@ export default class LLMTask extends Task {
 		}
 	}
 
+	async debugInfo () {
+		return {
+			...(await super.debugInfo()),
+			llm: this.llm.name,
+			model: this.llm.model,
+			system: this.system,
+			prompt: this.prompt,
+		};
+	}
+
 	async runTask () {
 		return this.llm.runTask(this);
 	}
