@@ -85,6 +85,10 @@ export default class File {
 		if (this.source.name) {
 			delete this.source.name;
 		}
+
+		if (this.source.suffix) {
+			delete this.source.suffix;
+		}
 	}
 
 	get filePath () {
