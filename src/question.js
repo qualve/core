@@ -33,6 +33,24 @@ export default class Question {
 		return truncatedIds[this.id];
 	}
 
+	/**
+	 * Resolve a (possibly abbreviated) question ID prefix to the full ID.
+	 * The prefix must be at least as long as the question's truncated ID.
+	 */
+	static resolveId (prefix) {
+		if (questions[prefix]) {
+			return prefix;
+		}
+
+		let matches = ids.filter(id => id.startsWith(prefix));
+
+		if (matches.length === 1 && prefix.length >= truncatedIds[matches[0]].length) {
+			return matches[0];
+		}
+
+		return prefix;
+	}
+
 	static fromId (id) {
 		return questions[id];
 	}

@@ -2,7 +2,7 @@
 import { readArgs } from "./util/args.js";
 import { confirm } from "./util/ask.js";
 import Task from "../src/task.js";
-import { ids as questionIds } from "../src/question.js";
+import Question, { ids as questionIds } from "../src/question.js";
 
 const availableOptions = {
 	questionId: {
@@ -36,7 +36,21 @@ const taskId = positional[0];
 
 if (!taskId) {
 	console.info(`Available tasks:\n${Task.ids.join("\n")}`);
-	process.exit(0);
+	process.exit(1);
+}
+
+if (questionId) {
+	questionId = Question.resolveId(questionId);
+
+	if (questionId !== args.questionId && process.stdin.isTTY) {
+		if (
+			!(await confirm({
+				prompt: `Did you mean "${questionId}" instead of "${args.questionId}"?`,
+			}))
+		) {
+			process.exit(1);
+		}
+	}
 }
 
 let task = await Task.fromId(taskId, { questionIds: questionId || questionIds, ...overrides });
