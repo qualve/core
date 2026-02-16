@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-import { readArgs } from "./util/args.js";
-import { confirm } from "./util/ask.js";
+import { prettyPrint, confirm, readArgs } from "./util.js";
 import Task from "../src/task.js";
 import Question, { ids as questionIds } from "../src/question.js";
 
@@ -28,10 +27,13 @@ const availableOptions = {
 		default: false,
 		short: "f",
 	},
+	dryRun: {
+		long: "dry-run",
+	},
 };
 
 const args = readArgs(process.argv.slice(2), availableOptions);
-let { questionId, _: positional, ...overrides } = args;
+let { questionId, dryRun, _: positional, ...overrides } = args;
 const taskId = positional[0];
 
 if (!taskId) {
@@ -74,7 +76,10 @@ if (task.scope === "question") {
 }
 
 try {
-	await task.run();
+	let result = await task.run({ dryRun });
+	if (dryRun) {
+		console.info(prettyPrint(result));
+	}
 }
 catch (e) {
 	console.error(e.stack);

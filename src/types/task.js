@@ -166,10 +166,11 @@ export default class Task {
 		}
 	}
 
-	async run () {
+	async run ({ dryRun } = {}) {
 		await this.ready;
 
 		let startTime = performance.now();
+		let debugInfo = dryRun ? await this.debugInfo() : undefined;
 		let result;
 
 		if (this.multiple) {
@@ -184,8 +185,14 @@ export default class Task {
 				parallelize ??= true;
 			}
 
-			result = await mapAsync(subtasks, t => t.run(), { parallelize });
+			result = await mapAsync(subtasks, t => t.run({ dryRun }), { parallelize });
+
 			this.info(this.getMessage({ startTime }));
+
+			if (dryRun) {
+				debugInfo.subtasks = result;
+				return debugInfo;
+			}
 		}
 		else {
 			let outputPath = this.output?.filePath;
@@ -194,7 +201,17 @@ export default class Task {
 					this.prefix +
 						` skipped (output already exists: ${outputPath}). Use -f to force.`,
 				);
+
+				if (dryRun) {
+					debugInfo.skipped = true;
+					return debugInfo;
+				}
+
 				return;
+			}
+
+			if (dryRun) {
+				return debugInfo;
 			}
 
 			result = await this.runTask();
@@ -212,6 +229,29 @@ export default class Task {
 
 	async runTask () {
 		throw this.notImplemented();
+	}
+
+	/**
+	 * Return the fully resolved state of this task as a plain object.
+	 * Base returns common info (title, type, scope, input files, output).
+	 * Subclasses override and spread super to add type-specific details.
+	 */
+	async debugInfo () {
+		let info = {
+			title: this.prefix,
+			type: this.type ?? "compound",
+			scope: this.scope,
+		};
+
+		if (this.input?.length > 0) {
+			info.input = this.input.map(f => ({ ...f }));
+		}
+
+		if (this.output) {
+			info.output = { ...this.output };
+		}
+
+		return info;
 	}
 
 	notImplemented () {
