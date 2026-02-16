@@ -1,4 +1,11 @@
-import { formatDuration, formatSize, readDirectorySync, mapAsync, toArray } from "../util.js";
+import {
+	formatDuration,
+	formatSize,
+	readDirectorySync,
+	mapAsync,
+	toArray,
+	importCwd,
+} from "../util.js";
 import Question from "../question.js";
 import File from "../file.js";
 import { existsSync } from "node:fs";
@@ -240,19 +247,26 @@ export default class Task {
 			taskId = task.id;
 		}
 		else {
-			try {
-				task = await import(`../../tasks/${taskId}.js`).then(m => {
-					let task = m.default ?? m;
-					task.id = taskId;
-					return task;
-				});
-			}
-			catch (e) {}
+			let taskPath = `tasks/${taskId}.js`;
 
-			if (!task) {
+			if (!existsSync(taskPath)) {
 				throw new Error(
 					`Invalid task ID “${taskId}”. Available tasks: ${this.ids.join(", ")}`,
 				);
+			}
+
+			try {
+				task = await importCwd(taskPath).then(m => {
+					m.id = taskId;
+					return m;
+				});
+			}
+			catch (e) {
+				throw new Error(`Task ${taskId} at ${taskPath} is invalid.`, { cause: e });
+			}
+
+			if (!task) {
+				throw new Error(`Task ${taskId} at ${taskPath} is empty.`);
 			}
 		}
 

@@ -9,6 +9,7 @@ import {
 	createWriteStream,
 } from "node:fs";
 import path from "node:path";
+import { pathToFileURL, URL } from "node:url";
 import { once } from "node:events";
 
 export { default as dedent } from "dedent";
@@ -203,4 +204,12 @@ export function hasExtension (source) {
 	}
 
 	return true;
+}
+
+export async function importCwd (modulePath) {
+	let absPath = path.resolve(process.cwd(), modulePath);
+	let url = pathToFileURL(absPath).href;
+
+	let m = await import(url);
+	return Object.keys(m).length === 1 && m.default ? m.default : m;
 }
