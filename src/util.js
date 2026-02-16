@@ -165,6 +165,9 @@ export async function handleStream ({
 			renameSync(tmpFile, outputPath);
 		}
 	}
+	catch (e) {
+		throw new Error(`Stream handling failed for ${outputPath}`, { cause: e });
+	}
 	finally {
 		ws.destroy();
 	}

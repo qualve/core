@@ -194,7 +194,7 @@ export default class Task {
 			let message = this.getMessage({ ...result, startTime });
 
 			if (result.error) {
-				throw new Error(message);
+				throw new Error(message, { cause: result.error });
 			}
 
 			this.info?.(message);

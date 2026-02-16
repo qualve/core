@@ -62,7 +62,15 @@ if (task.scope === "question") {
 try {
 	await task.run();
 }
-catch (cause) {
-	console.error(cause.message, cause.stack);
+catch (e) {
+	console.error(e.stack);
+
+	let depth = 1;
+	for (let cause = e.cause; cause; cause = cause.cause, depth++) {
+		let indent = "  ".repeat(depth);
+		let text = (cause.stack ?? String(cause)).replaceAll("\n", "\n" + indent);
+		console.error(indent + "Caused by", text);
+	}
+
 	process.exit(1);
 }
