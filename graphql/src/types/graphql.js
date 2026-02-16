@@ -5,7 +5,8 @@ import Task from "./task.js";
 const ENDPOINT = "https://api.devographics.com/graphql";
 
 export default class GraphQLTask extends Task {
-	async runTask () {
+	/** Build the full GraphQL query string from `this.fields` and scope. */
+	get query () {
 		let query = this.fields;
 
 		if (this.scope === "survey" || this.scope === "question") {
@@ -16,8 +17,11 @@ export default class GraphQLTask extends Task {
 			query = { surveys: { [survey.name]: { [survey.id]: query } } };
 		}
 
-		query = stringifyQuery(query, "query");
+		return stringifyQuery(query, "query");
+	}
 
+	async runTask () {
+		let query = this.query;
 		let result = await runQuery(query);
 
 		if (result) {
