@@ -94,6 +94,21 @@ export default class Gemini extends LLM {
 		return [...(await this.client.files.list())];
 	}
 
+	async countTokens (task) {
+		let { system, prompt, input = [] } = task;
+		const result = await this.client.models.countTokens({
+			model: this.model,
+			contents: createUserContent([
+				// FIXME: Correctly pass system instructions via `config.systemInstruction` instead of including them in contents once countTokens supports it.
+				...system,
+				...prompt,
+				...input.map(f => this.readFile(f.filePath)?.contents).filter(Boolean),
+			]),
+		});
+
+		return result.totalTokens;
+	}
+
 	async createStream ({ system, prompt, output, input = [] }) {
 		let responseSchema = output?.schema;
 		const stream = await this.client.models.generateContentStream({

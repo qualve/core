@@ -68,12 +68,15 @@ export default class LLMTask extends Task {
 	}
 
 	async debugInfo () {
+		const [base, tokens] = await Promise.all([super.debugInfo(), this.llm.countTokens(this)]);
+
 		return {
-			...(await super.debugInfo()),
+			...base,
 			llm: this.llm.name,
 			model: this.llm.model,
 			system: this.system,
 			prompt: this.prompt,
+			...(tokens != undefined && { tokens }),
 		};
 	}
 

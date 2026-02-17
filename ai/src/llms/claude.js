@@ -61,6 +61,33 @@ export default class Claude extends LLM {
 		return meta;
 	}
 
+	async countTokens (task) {
+		let { system, prompt, input = [] } = task;
+		let result = await this.client.messages.countTokens({
+			model: this.model,
+			system: system?.join("\n"),
+			messages: [
+				{
+					role: "user",
+					content: [
+						...prompt.map(t => ({ type: "text", text: t })),
+						...input.map(f => ({
+							type: "document",
+							context: inputFile.call(task, f),
+							source: {
+								type: "text",
+								media_type: "text/plain",
+								data: this.readFile(f.filePath)?.contents ?? "",
+							},
+						})),
+					],
+				},
+			],
+		});
+
+		return result.input_tokens;
+	}
+
 	async createStream (task) {
 		let { system, prompt, output, input = [] } = task;
 		let responseSchema = output?.schema;
