@@ -1,5 +1,5 @@
 import path from "node:path";
-import { addFilenameSuffix, hasExtension } from "./util.js";
+import { addFilenameSuffix, getExtension } from "./util.js";
 
 export default class File {
 	#source;
@@ -23,7 +23,7 @@ export default class File {
 			return;
 		}
 
-		let type = hasExtension(source) ? "filename" : "name";
+		let type = getExtension(source) ? "filename" : "name";
 
 		if (this.#source) {
 			// Override, we want to preserve schema, description, etc.

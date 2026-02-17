@@ -192,18 +192,23 @@ export async function mapAsync (arr, fn, { parallelize = false } = {}) {
 	return results;
 }
 
-export function hasExtension (source) {
+/**
+ * Get the file extension from a source string, ignoring purely numeric extensions.
+ * @param {string} source
+ * @returns {string | undefined} The extension (e.g. ".json") or undefined if none found.
+ */
+export function getExtension (source) {
 	if (typeof source !== "string" || !/\.\w+$/.test(source)) {
-		return false;
+		return;
 	}
 
 	let ext = path.extname(source);
 	if (ext >= 0) {
 		// We don't accept purely numeric extensions
-		return false;
+		return;
 	}
 
-	return true;
+	return ext;
 }
 
 export async function importCwd (modulePath) {
