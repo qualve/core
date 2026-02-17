@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import OpenAIClient from "openai";
 import LLM from "../llm.js";
 
@@ -39,12 +38,10 @@ export default class OpenAI extends LLM {
 		return this.stores[name];
 	}
 
-	async uploadFile (filepath, { mimeType = "application/json", contents } = {}) {
+	async uploadFile (filepath, { mimeType, contents }) {
 		let { name, dirName } = this.getFileInfo(filepath);
 		let file = await this.client.files.create({
-			file: contents
-				? new File([contents], name, { type: mimeType }).stream()
-				: fs.createReadStream(filepath),
+			file: new File([contents], name, { type: mimeType }).stream(),
 			purpose: "user_data",
 		});
 

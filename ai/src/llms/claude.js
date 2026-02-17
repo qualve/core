@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import LLM from "../llm.js";
 import Anthropic, { toFile } from "@anthropic-ai/sdk";
 import { inputFile } from "../../tasks/_prompts-common.js";
@@ -16,9 +15,8 @@ export default class Claude extends LLM {
 		apiKey: process.env.ANTHROPIC_API_KEY,
 	});
 
-	async uploadFile (filepath, { mimeType = "application/json", contents } = {}) {
+	async uploadFile (filepath, { contents }) {
 		let { name } = this.getFileInfo(filepath);
-		let file = contents ?? (await fs.readFile(filepath));
 
 		return this.client.beta.files.upload(
 			{
