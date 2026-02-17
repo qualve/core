@@ -106,8 +106,13 @@ export function minifyJSONSync (filepath, { force } = {}) {
 }
 
 export function addFilenameSuffix (filepath, suffix) {
-	let { dir, name, ext } = path.parse(filepath);
-	return path.join(dir, name + suffix + ext);
+	let ext = getExtension(filepath);
+
+	if (!ext) {
+		return filepath + suffix;
+	}
+
+	return filepath.slice(0, -ext.length) + suffix + ext;
 }
 
 /**
