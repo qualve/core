@@ -2,10 +2,8 @@ import {
 	readFileSync,
 	writeFileSync,
 	rmSync,
-	existsSync,
 	readdirSync,
 	renameSync,
-	statSync,
 	createWriteStream,
 } from "node:fs";
 import path from "node:path";
@@ -73,36 +71,6 @@ export function camelCase (str) {
 
 export function toArray (value) {
 	return Array.isArray(value) ? value : value === null || value === undefined ? [] : [value];
-}
-
-/**
- * Minify a JSON file, reusing a cached `.min` version if it's still fresh.
- * @param {string} filepath Path to the source JSON file
- * @param {object} [options]
- * @param {boolean} [options.force] Regenerate even if a fresh minified file exists
- * @returns {string} Path to the minified file
- */
-export function minifyJSONSync (filepath, { force } = {}) {
-	if (!filepath) {
-		console.error("Empty filepath provided to minifyJSONSync().");
-		return filepath;
-	}
-
-	let filepathMinified = addFilenameSuffix(filepath, ".min");
-	if (!force && existsSync(filepathMinified)) {
-		let sourceMtime = statSync(filepath).mtimeMs;
-		let minMtime = statSync(filepathMinified).mtimeMs;
-
-		if (minMtime >= sourceMtime) {
-			return filepathMinified;
-		}
-	}
-
-	let json = readJSONSync(filepath);
-
-	// value ?? undefined coerces nulls to undefined as well, and undefined values are omitted
-	writeJSONSync(filepathMinified, json, "", (key, value) => value ?? undefined);
-	return filepathMinified;
 }
 
 export function addFilenameSuffix (filepath, suffix) {
