@@ -107,6 +107,24 @@ export default class File {
 		return this.resolveValue(this.source.suffix) ?? "";
 	}
 
+	debugInfo () {
+		let info = {
+			name: this.name,
+			filename: this.filename,
+			filePath: this.filePath,
+		};
+
+		if (this.description) {
+			info.description = this.description;
+		}
+
+		if (this.schema) {
+			info.schema = this.schema;
+		}
+
+		return info;
+	}
+
 	/**
 	 * Convert an object, function, or string to a File object if it's not already one.
 	 * @param {File | object | function | string} source

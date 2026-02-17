@@ -244,11 +244,11 @@ export default class Task {
 		};
 
 		if (this.input?.length > 0) {
-			info.input = this.input.map(f => ({ ...f }));
+			info.input = this.input.map(f => f.debugInfo());
 		}
 
 		if (this.output) {
-			info.output = { ...this.output };
+			info.output = this.output.debugInfo();
 		}
 
 		return info;
