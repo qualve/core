@@ -38,11 +38,19 @@ export default class Gemini extends LLM {
 		});
 	}
 
-	async getFile (filepath) {
+	/**
+	 * Execute a file operation with shared error handling for 403/not-found cases.
+	 * @param {string} filepath - The local file path (used for name resolution and error messages).
+	 * @param {"get" | "delete"} method - The method name on `this.client.files` to call.
+	 * @returns {Promise<object|null>} The operation result, or null if the file was not found.
+	 */
+	async #safeFileOp (filepath, method) {
 		let { name } = this.getFileInfo(filepath);
+		name = "files/" + name;
+
 		try {
 			// If we don't await here, the error is unhandled
-			return await this.client.files.get({ name: "files/" + name });
+			return await this.client.files[method]({ name });
 		}
 		catch (e) {
 			let message = JSON.parse(e.message);
@@ -50,7 +58,7 @@ export default class Gemini extends LLM {
 				// Check if the file exists but we don't have permission to access it
 				let files = await this.client.files.list();
 				for await (let file of files) {
-					if (file.name === "files/" + name) {
+					if (file.name === name) {
 						var ret = file;
 					}
 				}
@@ -63,7 +71,7 @@ export default class Gemini extends LLM {
 				}
 			}
 			else {
-				throw new Error(`Failed to get file ${filepath}`, { cause: e });
+				throw new Error(`Failed to ${method} file ${filepath}`, { cause: e });
 			}
 		}
 
@@ -71,23 +79,12 @@ export default class Gemini extends LLM {
 		return null;
 	}
 
+	async getFile (filepath) {
+		return this.#safeFileOp(filepath, "get");
+	}
+
 	async deleteFile (filepath) {
-		let { name } = this.getFileInfo(filepath);
-
-		try {
-			// If we don't await here, the error is unhandled
-			return await this.client.files.delete({ name: "files/" + name });
-		}
-		catch (e) {
-			let message = JSON.parse(e.message);
-			if (message?.error?.status === "PERMISSION_DENIED") {
-				// This shouldn't happen, abort
-				throw new Error(`Failed to delete file ${filepath}`, { cause: e });
-			}
-		}
-
-		// Not found; nothing to delete
-		return null;
+		return this.#safeFileOp(filepath, "delete");
 	}
 
 	async listFiles () {
