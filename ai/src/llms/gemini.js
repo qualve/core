@@ -19,6 +19,7 @@ export default class Gemini extends LLM {
 
 	client = new GoogleGenAI({
 		apiKey: process.env.GEMINI_API_KEY,
+		httpOptions: { timeout: 30 * 60_000 }, // 30 minutes — LLM tasks with thinking can be very slow
 	});
 
 	getFileInfo (filepath) {

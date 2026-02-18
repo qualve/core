@@ -13,6 +13,7 @@ export default class Claude extends LLM {
 
 	client = new Anthropic({
 		apiKey: process.env.ANTHROPIC_API_KEY,
+		timeout: 30 * 60_000, // 30 minutes — LLM tasks with thinking can be very slow
 	});
 
 	async uploadFile (filepath, { contents }) {

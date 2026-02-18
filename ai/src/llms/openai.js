@@ -11,6 +11,7 @@ export default class OpenAI extends LLM {
 
 	client = new OpenAIClient({
 		apiKey: process.env.OPENAI_API_KEY,
+		timeout: 30 * 60_000, // 30 minutes — LLM tasks with thinking can be very slow
 	});
 	stores = {};
 
