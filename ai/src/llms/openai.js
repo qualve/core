@@ -7,6 +7,7 @@ export default class OpenAI extends LLM {
 	static name = "OpenAI";
 	static capabilities = {
 		outputSchema: true,
+		thinkingLevel: true,
 	};
 
 	client = new OpenAIClient({
@@ -121,7 +122,7 @@ export default class OpenAI extends LLM {
 			background: true, // try to avoid hitting a client-side socket timeout after ~601s (10 minutes)
 			store: true,
 			reasoning: {
-				effort: "medium", // enough for deductive coding
+				effort: this.thinking ?? "medium",
 			},
 			input: [
 				...system.map(s => ({ type: "message", role: "system", content: s })),

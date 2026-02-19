@@ -26,7 +26,7 @@ export default class LLMTask extends Task {
 	}
 
 	async initAsync () {
-		this.llm = await LLM.create(this.llmId, { fresh: this.fresh, model: this.model });
+		this.llm = await LLM.create(this.llmId, { fresh: this.fresh, model: this.model, thinking: this.thinking });
 	}
 
 	normalizePrompts (prompts) {
@@ -74,6 +74,7 @@ export default class LLMTask extends Task {
 			...base,
 			llm: this.llm.name,
 			model: this.llm.model,
+			...(this.llm.thinking !== undefined && { thinking: this.llm.thinking }),
 			system: this.system,
 			prompt: this.prompt,
 			...(tokens != undefined && { tokens }),

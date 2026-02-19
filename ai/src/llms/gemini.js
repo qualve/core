@@ -1,13 +1,15 @@
 import LLM from "../llm.js";
 import { truncatedIds } from "../question.js";
-import { createUserContent, createPartFromUri, GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { createUserContent, createPartFromUri, GoogleGenAI } from "@google/genai";
 
 export default class Gemini extends LLM {
 	static id = "gemini";
 	static name = "Gemini";
 	static models = ["gemini-3-pro-preview", "gemini-3-flash-preview"];
+	static levelMap = { none: "minimal", xhigh: "high" };
 	static capabilities = {
 		outputSchema: true,
+		thinkingLevel: true,
 	};
 
 	get capabilities () {
@@ -121,7 +123,7 @@ export default class Gemini extends LLM {
 				responseMimeType: "application/json",
 				responseJsonSchema: responseSchema.schema,
 				thinkingConfig: {
-					thinkingLevel: ThinkingLevel.HIGH,
+					thinkingLevel: this.thinking ?? "high",
 				},
 			},
 		});
