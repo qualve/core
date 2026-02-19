@@ -43,7 +43,7 @@ export default class OpenAI extends LLM {
 	async uploadFile (filepath, { mimeType, contents }) {
 		let { name, dirName } = this.getFileInfo(filepath);
 		let file = await this.client.files.create({
-			file: new File([contents], name, { type: mimeType }).stream(),
+			file: new File([contents], name, { type: mimeType }),
 			purpose: "user_data",
 		});
 
@@ -70,14 +70,13 @@ export default class OpenAI extends LLM {
 	}
 
 	async deleteFile (filepath) {
-		let { name, dirName } = this.getFileInfo(filepath);
-
-		const file = await this.getFile(name);
+		const file = await this.getFile(filepath);
 		if (!file) {
 			return null;
 		}
 		await this.client.files.delete(file.id);
 
+		let { dirName } = this.getFileInfo(filepath);
 		let store = await this.getStore(dirName);
 		await this.client.vectorStores.files.delete(file.id, { vector_store_id: store.id });
 	}

@@ -16,7 +16,7 @@ export default class Claude extends LLM {
 		timeout: 30 * 60_000, // 30 minutes — LLM tasks with thinking can be very slow
 	});
 
-	async uploadFile (filepath, { contents }) {
+	async uploadFile (filepath, { mimeType, contents }) {
 		let { name } = this.getFileInfo(filepath);
 
 		return this.client.beta.files.upload(
@@ -24,7 +24,9 @@ export default class Claude extends LLM {
 				// The Claude Files API doesn't support JSON files directly,
 				// so to use them in prompts, we upload them with a text/plain MIME type that Claude supports.
 				// See https://platform.claude.com/docs/en/build-with-claude/files#file-types-and-content-blocks
-				file: await toFile(file, name, { type: "text/plain" }),
+				file: await toFile(new Blob([contents], { type: mimeType }), name, {
+					type: "text/plain",
+				}),
 			},
 			{
 				betas: ["files-api-2025-04-14"],
@@ -39,8 +41,7 @@ export default class Claude extends LLM {
 	}
 
 	async deleteFile (filepath) {
-		let { name } = this.getFileInfo(filepath);
-		let fileId = await this.getFile(name)?.id;
+		let fileId = await this.getFile(filepath)?.id;
 		if (!fileId) {
 			// Not found
 			return;
