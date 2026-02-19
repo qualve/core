@@ -82,38 +82,40 @@ export default class OpenAI extends LLM {
 	}
 
 	async createStream ({ system, prompt, output, input = [] }) {
-		let responseSchema = output?.schema;
 		const storeId = input[0]?.remoteFile?.storeId;
 		const store = await this.getStore(storeId);
+		let responseSchema = output?.schema;
 		let hasRootObject = responseSchema?.schema?.type === "object";
 
-		// All object properties in the response schema must be required.
-		// See https://developers.openai.com/api/docs/guides/structured-outputs#all-fields-must-be-required
-		let obj = hasRootObject ? responseSchema.schema : responseSchema.schema.items;
-		let properties = Object.keys(obj.properties);
-		let notRequired = properties.filter(key => !obj.required.includes(key));
-		if (notRequired.length) {
-			for (let key of notRequired) {
-				// Emulate an optional parameter by using a union type with null
-				obj.properties[key].type = [obj.properties[key].type, "null"];
+		if (responseSchema) {
+			// All object properties in the response schema must be required.
+			// See https://developers.openai.com/api/docs/guides/structured-outputs#all-fields-must-be-required
+			let obj = hasRootObject ? responseSchema.schema : responseSchema.schema.items;
+			let properties = Object.keys(obj.properties);
+			let notRequired = properties.filter(key => !obj.required.includes(key));
+			if (notRequired.length) {
+				for (let key of notRequired) {
+					// Emulate an optional parameter by using a union type with null
+					obj.properties[key].type = [obj.properties[key].type, "null"];
+				}
+				obj.required = properties;
 			}
-			obj.required = properties;
-		}
 
-		// OpenAI requires a name for the response schema and strict mode
-		responseSchema = { strict: true, name: "response", ...responseSchema };
+			// OpenAI requires a name for the response schema and strict mode
+			responseSchema = { strict: true, name: "response", ...responseSchema };
 
-		if (!hasRootObject) {
-			// OpenAI only supports objects at the top level of output schemas.
-			// See https://platform.openai.com/docs/guides/structured-outputs#root-objects-must-not-be-anyof-and-must-be-an-object
-			responseSchema.schema = {
-				type: "object",
-				properties: {
-					data: responseSchema.schema,
-				},
-				required: ["data"],
-				additionalProperties: false,
-			};
+			if (!hasRootObject) {
+				// OpenAI only supports objects at the top level of output schemas.
+				// See https://platform.openai.com/docs/guides/structured-outputs#root-objects-must-not-be-anyof-and-must-be-an-object
+				responseSchema.schema = {
+					type: "object",
+					properties: {
+						data: responseSchema.schema,
+					},
+					required: ["data"],
+					additionalProperties: false,
+				};
+			}
 		}
 
 		const stream = this.client.responses.stream({
@@ -127,13 +129,15 @@ export default class OpenAI extends LLM {
 				...system.map(s => ({ type: "message", role: "system", content: s })),
 				...prompt.map(t => ({ type: "message", role: "user", content: t })),
 			],
-			tools: [
-				{
-					type: "file_search",
-					vector_store_ids: [store.id],
-				},
-			],
-			tool_choice: { type: "file_search" },
+			...(store && {
+				tools: [
+					{
+						type: "file_search",
+						vector_store_ids: [store.id],
+					},
+				],
+				tool_choice: { type: "file_search" },
+			}),
 			text: {
 				verbosity: "low",
 				format: responseSchema,
@@ -144,7 +148,7 @@ export default class OpenAI extends LLM {
 			stream,
 			transformChunk: chunk =>
 				chunk.type === "response.output_text.delta" ? chunk.delta : "",
-			transformResult: result => (hasRootObject ? result : result.data),
+			transformResult: result => (hasRootObject || !responseSchema ? result : result.data),
 		};
 	}
 

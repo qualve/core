@@ -108,7 +108,14 @@ export default class Gemini extends LLM {
 	}
 
 	async createStream ({ system, prompt, output, input = [] }) {
-		let responseSchema = output?.schema;
+		let responseSchema;
+		if (output?.schema) {
+			responseSchema = {
+				responseMimeType: "application/json",
+				responseJsonSchema: output?.schema.schema,
+			};
+		}
+
 		const stream = await this.client.models.generateContentStream({
 			model: this.model,
 			contents: createUserContent([
@@ -118,8 +125,7 @@ export default class Gemini extends LLM {
 			config: {
 				systemInstruction: system?.join("\n"),
 				tools: this.capabilities.webSearch ? [{ googleSearch: {} }] : undefined,
-				responseMimeType: "application/json",
-				responseJsonSchema: responseSchema.schema,
+				...responseSchema,
 				thinkingConfig: {
 					thinkingLevel: this.thinking ?? "high",
 				},

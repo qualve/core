@@ -26,10 +26,18 @@ export default class LLMTask extends Task {
 	}
 
 	async initAsync () {
-		this.llm = await LLM.create(this.llmId, { fresh: this.fresh, model: this.model, thinking: this.thinking });
+		this.llm = await LLM.create(this.llmId, {
+			fresh: this.fresh,
+			model: this.model,
+			thinking: this.thinking,
+		});
 	}
 
 	normalizePrompts (prompts) {
+		if (!prompts) {
+			return [];
+		}
+
 		if (typeof prompts === "function") {
 			prompts = prompts.call(this, this.question);
 		}
