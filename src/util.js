@@ -86,12 +86,14 @@ export function addFilenameSuffix (filepath, suffix) {
 /**
  * Safely handles an async iterable stream of chunks from an LLM response,
  * writing them to a file with proper error handling and cleanup.
+ * When no outputPath is provided, collects the response text in memory and returns it.
  * @param {Object} options
  * @param {AsyncIterable<Object>} options.stream - An async iterable of chunks to be written.
- * @param {string} options.outputPath - The path to the file where chunks will be written.
+ * @param {string} [options.outputPath] - The path to the file where chunks will be written. If omitted, text is collected in memory.
  * @param {(chunk: Object) => string} [options.transformChunk] - An optional transform function to apply to each chunk before writing.
  * @param {(result: Object) => string} [options.transformResult] - An optional transform function to apply to the final result after all chunks have been written and read back.
  * @param {(chunk: Object) => void} [options.onChunk] - An optional callback to handle each chunk as it is processed (e.g. for progress updates).
+ * @returns {Promise<string|undefined>} The collected text when no outputPath is given, otherwise undefined.
  */
 export async function handleStream ({
 	stream,
@@ -100,6 +102,16 @@ export async function handleStream ({
 	transformResult,
 	onChunk = () => {},
 } = {}) {
+	// No output file — collect text in memory
+	if (!outputPath) {
+		let chunks = [];
+		for await (let chunk of stream) {
+			onChunk(chunk);
+			chunks.push(transformChunk ? transformChunk(chunk) : chunk);
+		}
+		return chunks.join("");
+	}
+
 	const tmpFile = addFilenameSuffix(outputPath, ".tmp");
 
 	// Open (create if it doesn't exist) file in append mode
