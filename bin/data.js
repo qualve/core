@@ -20,6 +20,7 @@ const availableOptions = {
 	// Options specific to LLM tasks
 	llm: {},
 	model: {},
+	thinking: {},
 	fresh: {
 		default: false,
 	},
