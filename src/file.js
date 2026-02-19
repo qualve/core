@@ -132,11 +132,15 @@ export default class File {
 	 * @returns {File}
 	 */
 	static get (source, context) {
-		let file = source instanceof File ? source : new File(source, context);
+		if (source instanceof File) {
+			if (!context || source.context === context) {
+				return source;
+			}
 
-		if (context) {
-			file.context = context;
+			// Clone when context differs to avoid shared mutable state
+			return new File(source.source, context);
 		}
-		return file;
+
+		return new File(source, context);
 	}
 }
