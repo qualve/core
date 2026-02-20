@@ -322,15 +322,21 @@ export default class Task {
 
 		if (input) {
 			input = toArray(input);
+			task.input ??= [];
 
 			for (let i = 0; i < input.length; i++) {
-				if (!input[i] || !task.input[i]) {
+				if (!input[i]) {
 					// This way we can provide a falsy value to not override the first input
 					// `-i -i foo` or `-i '' -i foo` don't seem to work but `-i 0 -i foo` does
 					continue;
 				}
 
-				task.input[i].source = input[i];
+				if (task.input[i]) {
+					task.input[i].source = input[i];
+				}
+				else {
+					task.input[i] = File.get(input[i]);
+				}
 			}
 		}
 
