@@ -132,9 +132,52 @@ export default class Gemini extends LLM {
 			},
 		});
 
+		let finishReason;
 		return {
 			stream,
-			transformChunk: chunk => chunk.candidates[0].content.parts[0].text,
+			transformChunk: chunk => {
+				// Filter out thought-parts so thinking text is never written to the output
+				let part = chunk.candidates?.[0]?.content?.parts?.find(p => !p.thought);
+				return part?.text ?? "";
+			},
+			onChunk: chunk => {
+				// See https://googleapis.github.io/js-genai/release_docs/enums/types.FinishReason.html
+				finishReason = chunk.candidates?.[0]?.finishReason ?? finishReason;
+			},
+			onFinish: () => {
+				if (!finishReason) {
+					// No finishReason means no evidence of failure — treat as complete.
+					return { complete: true, reason: LLM.stopReasons.COMPLETE, reasonRaw: null };
+				}
+
+				// Gemini finish reasons → normalized stop reasons.
+				// See https://googleapis.github.io/js-genai/release_docs/enums/types.FinishReason.html
+				// STOP:               Natural stop or configured stop sequence reached.
+				// MAX_TOKENS:         Configured maximum output tokens reached.
+				// SAFETY:             Content potentially contains safety violations.
+				// RECITATION:         Content potentially recites training data.
+				// LANGUAGE:           Unsupported language detected.
+				// BLOCKLIST:          Content contains forbidden terms.
+				// PROHIBITED_CONTENT: Content potentially contains prohibited material.
+				// SPII:               Content potentially contains Sensitive Personally Identifiable Information.
+				let reasons = {
+					STOP: LLM.stopReasons.COMPLETE,
+					MAX_TOKENS: LLM.stopReasons.MAX_TOKENS,
+					SAFETY: LLM.stopReasons.ABORTED,
+					RECITATION: LLM.stopReasons.ABORTED,
+					LANGUAGE: LLM.stopReasons.ABORTED,
+					BLOCKLIST: LLM.stopReasons.ABORTED,
+					PROHIBITED_CONTENT: LLM.stopReasons.ABORTED,
+					SPII: LLM.stopReasons.ABORTED,
+				};
+
+				let normalized = reasons[finishReason] ?? LLM.stopReasons.UNKNOWN;
+				return {
+					complete: normalized === LLM.stopReasons.COMPLETE,
+					reason: normalized,
+					reasonRaw: finishReason,
+				};
+			},
 		};
 	}
 }

@@ -125,12 +125,37 @@ export default class Claude extends LLM {
 			output_format,
 		});
 
+		let stopReason;
 		return {
 			stream,
 			transformChunk: chunk =>
 				chunk.type === "content_block_delta" && chunk.delta?.type === "text_delta"
 					? chunk.delta.text
 					: "",
+			onChunk: chunk => {
+				if (chunk.type === "message_delta") {
+					stopReason = chunk.delta?.stop_reason;
+				}
+			},
+			onFinish: () => {
+				// See https://platform.claude.com/docs/en/agent-sdk/stop-reasons#available-stop-reasons
+				if (!stopReason || ["end_turn", "stop_sequence"].includes(stopReason)) {
+					return {
+						complete: true,
+						reason: LLM.stopReasons.COMPLETE,
+						reasonRaw: stopReason ?? null,
+					};
+				}
+
+				return {
+					complete: false,
+					reason:
+						stopReason === "max_tokens"
+							? LLM.stopReasons.MAX_TOKENS
+							: LLM.stopReasons.UNKNOWN,
+					reasonRaw: stopReason,
+				};
+			},
 		};
 	}
 }

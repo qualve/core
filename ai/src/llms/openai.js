@@ -144,11 +144,37 @@ export default class OpenAI extends LLM {
 			},
 		});
 
+		let incompleteReason;
 		return {
 			stream,
 			transformChunk: chunk =>
 				chunk.type === "response.output_text.delta" ? chunk.delta : "",
 			transformResult: result => (hasRootObject || !responseSchema ? result : result.data),
+			onChunk: chunk => {
+				if (chunk.type === "response.incomplete") {
+					incompleteReason = chunk.response?.incomplete_details?.reason ?? "unknown";
+				}
+			},
+			onFinish: () => {
+				if (!incompleteReason) {
+					return {
+						complete: true,
+						reason: LLM.stopReasons.COMPLETE,
+						reasonRaw: null,
+					};
+				}
+
+				let reasons = {
+					run_length: LLM.stopReasons.MAX_TOKENS,
+					max_output_tokens: LLM.stopReasons.MAX_TOKENS,
+				};
+
+				return {
+					complete: false,
+					reason: reasons[incompleteReason] ?? LLM.stopReasons.UNKNOWN,
+					reasonRaw: incompleteReason,
+				};
+			},
 		};
 	}
 
