@@ -1,11 +1,81 @@
-import LLM from "../llm.js";
+import * as path from "node:path";
+import { readFileSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import Task from "./task.js";
-import { dedent } from "../util.js";
+import { handleStream, ProgressIndicator, addFilenameSuffix, readJSONSync, dedent } from "../util.js";
+import { truncatedIds } from "../question.js";
 import { inputFiles, outputFile } from "../../tasks/_prompts-common.js";
 
 export default class LLMTask extends Task {
+	// Subclass must define these
+	client = null;
+
+	/**
+	 * Normalized stop reason vocabulary, consistent across all providers.
+	 * Each provider subclass maps its own provider-specific stop states to these values.
+	 *
+	 * - `COMPLETE` — The model finished generating its full response.
+	 * - `MAX_TOKENS` — The response was truncated because it hit the output token limit.
+	 * - `ABORTED` — The provider refused to produce output (safety, policy, PII, etc.).
+	 * - `UNKNOWN` — The provider returned a stop state we don't have a mapping for.
+	 * @enum {string}
+	 */
+	static stopReasons = {
+		COMPLETE: "complete",
+		MAX_TOKENS: "max_tokens",
+		ABORTED: "aborted",
+		UNKNOWN: "unknown",
+	};
+
+	/**
+	 * Canonical ordered list of all thinking levels across all providers.
+	 * Subclasses use {@link levelMap} to remap levels they don't natively support.
+	 */
+	static thinkingLevels = ["none", "minimal", "low", "medium", "high", "xhigh"];
+
+	static capabilities = {};
+
+	/**
+	 * Provider subclasses, keyed by ID. Populated by src/task.js at startup
+	 * to avoid a circular import (src/types/llm.js → src/llms/ → src/types/llm.js).
+	 * @type {Record<string, typeof LLMTask>}
+	 */
+	static providers = {};
+
+	/**
+	 * Select and instantiate the right provider subclass based on `task.llm`.
+	 * Overrides the base Task.create factory to add provider dispatch.
+	 */
+	static create (task, ...args) {
+		let id = task.llm ?? "gemini";
+		let Provider = LLMTask.providers[id];
+		if (!Provider) {
+			throw new Error(
+				`Unknown LLM provider: "${id}". Available: ${Object.keys(LLMTask.providers).join(", ")}`,
+			);
+		}
+		return new Provider(task, ...args);
+	}
+
+	get capabilities () {
+		return this.constructor.capabilities;
+	}
+
+	/** Provider display name (e.g., "Gemini"). */
+	get name () {
+		return this.constructor.name;
+	}
+
+	/**
+	 * Provider ID string (e.g., "gemini", "claude").
+	 * This getter also prevents the Task constructor from overwriting `this.llm`
+	 * with the raw string from task config data.
+	 */
+	get llm () {
+		return this.constructor.id;
+	}
+
 	constructor (task, args) {
 		super(task, args);
 
@@ -13,26 +83,162 @@ export default class LLMTask extends Task {
 			loadEnvFile(".env");
 		}
 
-		this.llmId = this.llm ?? "gemini";
-		this.llm = undefined;
-
-		// We do not yet support parallelizing LLM tasks
-		// Since we use logUpdate() to display the progress of the task, it would create a total mess
+		// We do not yet support parallelizing LLM tasks.
+		// Since we use logUpdate() to display the progress of the task, it would create a total mess.
 		let t = this;
 		while (t) {
 			t.parallelize = false;
 			t = t.parent;
 		}
+
+		// Default to the first model in the provider's list, also falling back
+		// if the task's hardcoded model isn't supported by this provider (e.g., when switching providers via --llm).
+		if (!this.constructor.models.includes(this.model)) {
+			this.model = this.constructor.models[0];
+		}
+
+		// Normalize thinking level for this provider, or unset it if not supported.
+		if (
+			this.constructor.capabilities.thinkingLevel &&
+			LLMTask.thinkingLevels.includes(this.thinking)
+		) {
+			this.thinking = this.constructor.levelMap?.[this.thinking] ?? this.thinking;
+		}
+		else {
+			this.thinking = undefined;
+		}
 	}
 
-	async initAsync () {
-		this.llm = await LLM.create(this.llmId, {
-			fresh: this.fresh,
-			model: this.model,
-			thinking: this.thinking,
-		});
+	/**
+	 * Read a file if no contents are provided and prepare it for upload.
+	 * Mainly intended to be used internally.
+	 * @protected
+	 * @param {string} filepath
+	 * @param {object} [options]
+	 * @param {string} [options.mimeType="application/json"] - The MIME type of the file.
+	 * @param {string} [options.contents] - The file contents to upload. Reads filepath if not provided.
+	 */
+	readFile (filepath, options = {}) {
+		options.mimeType ??= "application/json";
+		let isJSON = options.mimeType === "application/json";
+		options.contents ??= isJSON ? readJSONSync(filepath) : readFileSync(filepath);
+
+		if (isJSON && typeof options.contents !== "string") {
+			options.contents = JSON.stringify(options.contents, (k, v) => v ?? undefined);
+		}
+
+		return options;
 	}
 
+	/**
+	 * Read a file, prepare its contents, and upload it to the provider.
+	 * For JSON files, this minifies the data and strips nulls to reduce token usage.
+	 * @param {string} filepath
+	 * @param {object} [options]
+	 * @param {string} [options.mimeType="application/json"] - The MIME type of the file.
+	 * @param {string} [options.contents] - The file contents to upload. Reads filepath if not provided.
+	 */
+	sendData (filepath, options = {}) {
+		options = this.readFile(filepath, options);
+		return this.uploadFile(filepath, options);
+	}
+
+	/**
+	 * Resolve a local filepath to a stable remote filename, namespaced by question.
+	 * @param {string} filepath
+	 * @returns {{ name: string, dirName: string }}
+	 */
+	getFileInfo (filepath) {
+		let dirName = path.basename(path.dirname(filepath));
+		let prefix = truncatedIds[dirName];
+		let name = path.basename(filepath);
+
+		// Make sure the filename is unique per question by prefixing it with the truncated parent directory name.
+		// For other files (e.g., questions, merged codebooks), no prefix is needed since they are already unique and shared across questions.
+		name = (prefix ? prefix + "-" : "") + name;
+		return { name, dirName };
+	}
+
+	/**
+	 * Ensure a file is available on the provider, uploading it if necessary.
+	 * If `this.fresh` is set, delete any existing copy first.
+	 * @param {string} filepath
+	 */
+	async getRemoteFile (filepath) {
+		if (this.fresh) {
+			console.info("Removing previously uploaded file", filepath, "...");
+			await this.deleteFile(filepath);
+		}
+
+		let ret = !this.fresh ? await this.getFile(filepath) : null;
+		if (!ret) {
+			console.info("Uploading", filepath, "...");
+			ret = await this.sendData(filepath);
+		}
+
+		console.info(`Source file ${filepath} ready`);
+		return ret;
+	}
+
+	/**
+	 * Ensure all input files are available on the provider, populating `entry.remoteFile`.
+	 * @param {Array} input
+	 */
+	async getRemoteFiles (input) {
+		await Promise.all(
+			input.map(async entry => {
+				entry.remoteFile ??= await this.getRemoteFile(entry.filePath);
+			}),
+		);
+	}
+
+	// Abstract — subclasses must override
+
+	/**
+	 * Low-level: upload data to the provider.
+	 * Use {@link sendData} for most things instead.
+	 * @protected
+	 * @param {string} filepath
+	 * @param {object} options
+	 * @param {string} options.contents - The file contents to upload.
+	 * @param {string} options.mimeType - The MIME type of the file.
+	 */
+	uploadFile (filepath, options) {
+		throw this.notImplemented();
+	}
+
+	/** Retrieve a previously uploaded file from the provider, or null if not found. */
+	getFile (filepath) {
+		throw this.notImplemented();
+	}
+
+	/** Delete a previously uploaded file from the provider. */
+	deleteFile (filepath) {
+		throw this.notImplemented();
+	}
+
+	/** List all files currently uploaded to the provider. */
+	listFiles () {
+		throw this.notImplemented();
+	}
+
+	/** Create the streaming API call for this task. Returns stream + handler callbacks. */
+	createStream () {
+		throw this.notImplemented();
+	}
+
+	// To be overridden
+
+	/** Extract a human-readable progress message from a streaming chunk. */
+	getMessage (chunk) {}
+
+	/** Count the total input tokens for this task. Returns undefined if unsupported. */
+	async countTokens () {}
+
+	/**
+	 * Normalize a prompts value to a flat array of strings.
+	 * Accepts a string, array, or function (called with the current question).
+	 */
 	normalizePrompts (prompts) {
 		if (!prompts) {
 			return [];
@@ -59,7 +265,7 @@ export default class LLMTask extends Task {
 		this.system = this.normalizePrompts(this.system);
 		this.prompt = this.normalizePrompts(this.prompt);
 
-		const capabilities = this.llm.capabilities;
+		const capabilities = this.capabilities;
 
 		if (
 			this.input?.length > 0 &&
@@ -76,13 +282,13 @@ export default class LLMTask extends Task {
 	}
 
 	async debugInfo () {
-		const [base, tokens] = await Promise.all([super.debugInfo(), this.llm.countTokens(this)]);
+		const [base, tokens] = await Promise.all([super.debugInfo(), this.countTokens()]);
 
 		return {
 			...base,
-			llm: this.llm.name,
-			model: this.llm.model,
-			...(this.llm.thinking !== undefined && { thinking: this.llm.thinking }),
+			llm: this.name,
+			model: this.model,
+			...(this.thinking !== undefined && { thinking: this.thinking }),
 			system: this.system,
 			prompt: this.prompt,
 			...(tokens != undefined && { tokens }),
@@ -90,6 +296,60 @@ export default class LLMTask extends Task {
 	}
 
 	async runTask () {
-		return this.llm.runTask(this);
+		if (this.input) {
+			await this.getRemoteFiles(this.input);
+		}
+
+		let progressIndicator = new ProgressIndicator({
+			status: `${this.title} with ${this.constructor.name} and streaming the response...`,
+		});
+
+		const streamParams = await this.createStream();
+		let chunksReceived = 0;
+
+		let text;
+		try {
+			text = await handleStream({
+				...streamParams,
+				outputPath: this.output?.filePath,
+				onChunk: chunk => {
+					chunksReceived++;
+					let message = this.getMessage(chunk);
+
+					if (message) {
+						progressIndicator.update(`Chunk ${chunksReceived}: ${message}`);
+					}
+					else {
+						// Fallback to generic progress update if getMessage doesn't return a message
+						progressIndicator.update(`${chunksReceived} chunks received...`);
+					}
+
+					// The explicit onChunk above shadows the one from streamParams, so call it manually.
+					streamParams.onChunk?.(chunk);
+				},
+			});
+		}
+		catch (e) {
+			var error = e;
+		}
+
+		progressIndicator.stop();
+
+		if (text !== undefined) {
+			console.log(text);
+		}
+
+		let outputPath = this.output?.filePath;
+
+		if (outputPath && error) {
+			outputPath = addFilenameSuffix(outputPath, ".tmp");
+		}
+
+		return {
+			outputPath,
+			size: chunksReceived,
+			sizeUnit: "chunk",
+			error,
+		};
 	}
 }

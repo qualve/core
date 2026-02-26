@@ -1,7 +1,7 @@
 import OpenAIClient from "openai";
-import LLM from "../llm.js";
+import LLMTask from "../types/llm.js";
 
-export default class OpenAI extends LLM {
+export default class OpenAI extends LLMTask {
 	static models = ["gpt-5.2", "gpt-5-mini", "gpt-5-nano"];
 	static id = "openai";
 	static name = "OpenAI";
@@ -81,7 +81,8 @@ export default class OpenAI extends LLM {
 		await this.client.vectorStores.files.delete(file.id, { vector_store_id: store.id });
 	}
 
-	async createStream ({ system, prompt, output, input = [] }) {
+	async createStream () {
+		let { system, prompt, output, input = [] } = this;
 		const storeId = input[0]?.remoteFile?.storeId;
 		const store = await this.getStore(storeId);
 		let responseSchema = output?.schema;
@@ -159,19 +160,19 @@ export default class OpenAI extends LLM {
 				if (!incompleteReason) {
 					return {
 						complete: true,
-						reason: LLM.stopReasons.COMPLETE,
+						reason: LLMTask.stopReasons.COMPLETE,
 						reasonRaw: null,
 					};
 				}
 
 				let reasons = {
-					run_length: LLM.stopReasons.MAX_TOKENS,
-					max_output_tokens: LLM.stopReasons.MAX_TOKENS,
+					run_length: LLMTask.stopReasons.MAX_TOKENS,
+					max_output_tokens: LLMTask.stopReasons.MAX_TOKENS,
 				};
 
 				return {
 					complete: false,
-					reason: reasons[incompleteReason] ?? LLM.stopReasons.UNKNOWN,
+					reason: reasons[incompleteReason] ?? LLMTask.stopReasons.UNKNOWN,
 					reasonRaw: incompleteReason,
 				};
 			},
@@ -205,7 +206,7 @@ export default class OpenAI extends LLM {
 				message = "Working on the uploaded files...";
 			}
 			else if (item.type === "reasoning") {
-				// If we don't do the model more “talkative” during reasoning, we won't get any additional info to display
+				// If we don't do the model more "talkative" during reasoning, we won't get any additional info to display
 				message = "Thinking...";
 			}
 		}

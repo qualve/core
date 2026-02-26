@@ -1,8 +1,8 @@
-import LLM from "../llm.js";
+import LLMTask from "../types/llm.js";
 import Anthropic, { toFile } from "@anthropic-ai/sdk";
 import { inputFile } from "../../tasks/_prompts-common.js";
 
-export default class Claude extends LLM {
+export default class Claude extends LLMTask {
 	static id = "claude";
 	static name = "Claude";
 	static models = ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-5"];
@@ -63,8 +63,8 @@ export default class Claude extends LLM {
 		return meta;
 	}
 
-	async countTokens (task) {
-		let { system, prompt, input = [] } = task;
+	async countTokens () {
+		let { system, prompt, input = [] } = this;
 		let result = await this.client.messages.countTokens({
 			model: this.model,
 			system: system?.join("\n"),
@@ -75,7 +75,7 @@ export default class Claude extends LLM {
 						...prompt.map(t => ({ type: "text", text: t })),
 						...input.map(f => ({
 							type: "document",
-							context: inputFile.call(task, f),
+							context: inputFile.call(this, f),
 							source: {
 								type: "text",
 								media_type: "text/plain",
@@ -90,8 +90,8 @@ export default class Claude extends LLM {
 		return result.input_tokens;
 	}
 
-	async createStream (task) {
-		let { system, prompt, output, input = [] } = task;
+	async createStream () {
+		let { system, prompt, output, input = [] } = this;
 		let responseSchema = output?.schema;
 		let output_format = responseSchema
 			? {
@@ -111,7 +111,7 @@ export default class Claude extends LLM {
 						...prompt.map(t => ({ type: "text", text: t })),
 						...input.map(f => ({
 							type: "document",
-							context: inputFile.call(task, f),
+							context: inputFile.call(this, f),
 							source: {
 								type: "file",
 								file_id: f.remoteFile.id,
@@ -142,7 +142,7 @@ export default class Claude extends LLM {
 				if (!stopReason || ["end_turn", "stop_sequence"].includes(stopReason)) {
 					return {
 						complete: true,
-						reason: LLM.stopReasons.COMPLETE,
+						reason: LLMTask.stopReasons.COMPLETE,
 						reasonRaw: stopReason ?? null,
 					};
 				}
@@ -151,8 +151,8 @@ export default class Claude extends LLM {
 					complete: false,
 					reason:
 						stopReason === "max_tokens"
-							? LLM.stopReasons.MAX_TOKENS
-							: LLM.stopReasons.UNKNOWN,
+							? LLMTask.stopReasons.MAX_TOKENS
+							: LLMTask.stopReasons.UNKNOWN,
 					reasonRaw: stopReason,
 				};
 			},

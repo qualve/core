@@ -1,7 +1,7 @@
-import LLM from "../llm.js";
+import LLMTask from "../types/llm.js";
 import { createUserContent, createPartFromUri, GoogleGenAI } from "@google/genai";
 
-export default class Gemini extends LLM {
+export default class Gemini extends LLMTask {
 	static id = "gemini";
 	static name = "Gemini";
 	static models = ["gemini-3-pro-preview", "gemini-3-flash-preview"];
@@ -92,8 +92,8 @@ export default class Gemini extends LLM {
 		return [...(await this.client.files.list())];
 	}
 
-	async countTokens (task) {
-		let { system, prompt, input = [] } = task;
+	async countTokens () {
+		let { system, prompt, input = [] } = this;
 		const result = await this.client.models.countTokens({
 			model: this.model,
 			contents: createUserContent([
@@ -107,7 +107,8 @@ export default class Gemini extends LLM {
 		return result.totalTokens;
 	}
 
-	async createStream ({ system, prompt, output, input = [] }) {
+	async createStream () {
+		let { system, prompt, output, input = [] } = this;
 		let responseSchema;
 		if (output?.schema) {
 			responseSchema = {
@@ -147,7 +148,7 @@ export default class Gemini extends LLM {
 			onFinish: () => {
 				if (!finishReason) {
 					// No finishReason means no evidence of failure — treat as complete.
-					return { complete: true, reason: LLM.stopReasons.COMPLETE, reasonRaw: null };
+					return { complete: true, reason: LLMTask.stopReasons.COMPLETE, reasonRaw: null };
 				}
 
 				// Gemini finish reasons → normalized stop reasons.
@@ -161,19 +162,19 @@ export default class Gemini extends LLM {
 				// PROHIBITED_CONTENT: Content potentially contains prohibited material.
 				// SPII:               Content potentially contains Sensitive Personally Identifiable Information.
 				let reasons = {
-					STOP: LLM.stopReasons.COMPLETE,
-					MAX_TOKENS: LLM.stopReasons.MAX_TOKENS,
-					SAFETY: LLM.stopReasons.ABORTED,
-					RECITATION: LLM.stopReasons.ABORTED,
-					LANGUAGE: LLM.stopReasons.ABORTED,
-					BLOCKLIST: LLM.stopReasons.ABORTED,
-					PROHIBITED_CONTENT: LLM.stopReasons.ABORTED,
-					SPII: LLM.stopReasons.ABORTED,
+					STOP: LLMTask.stopReasons.COMPLETE,
+					MAX_TOKENS: LLMTask.stopReasons.MAX_TOKENS,
+					SAFETY: LLMTask.stopReasons.ABORTED,
+					RECITATION: LLMTask.stopReasons.ABORTED,
+					LANGUAGE: LLMTask.stopReasons.ABORTED,
+					BLOCKLIST: LLMTask.stopReasons.ABORTED,
+					PROHIBITED_CONTENT: LLMTask.stopReasons.ABORTED,
+					SPII: LLMTask.stopReasons.ABORTED,
 				};
 
-				let normalized = reasons[finishReason] ?? LLM.stopReasons.UNKNOWN;
+				let normalized = reasons[finishReason] ?? LLMTask.stopReasons.UNKNOWN;
 				return {
-					complete: normalized === LLM.stopReasons.COMPLETE,
+					complete: normalized === LLMTask.stopReasons.COMPLETE,
 					reason: normalized,
 					reasonRaw: finishReason,
 				};
