@@ -229,8 +229,8 @@ export default class LLMTask extends Task {
 
 	// To be overridden
 
-	/** Extract a human-readable progress message from a streaming chunk. */
-	getMessage (chunk) {}
+	/** Extract a human-readable status message from a streaming chunk. */
+	getStatus (chunk) {}
 
 	/** Count the total input tokens for this task. Returns undefined if unsupported. */
 	async countTokens () {}
@@ -314,13 +314,13 @@ export default class LLMTask extends Task {
 				outputPath: this.output?.filePath,
 				onChunk: chunk => {
 					chunksReceived++;
-					let message = this.getMessage(chunk);
+					let status = this.getStatus(chunk);
 
-					if (message) {
-						progressIndicator.update(`Chunk ${chunksReceived}: ${message}`);
+					if (status) {
+						progressIndicator.update(`Chunk ${chunksReceived}: ${status}`);
 					}
 					else {
-						// Fallback to generic progress update if getMessage doesn't return a message
+						// Fallback to generic progress update if getStatus doesn't return a status message
 						progressIndicator.update(`${chunksReceived} chunks received...`);
 					}
 

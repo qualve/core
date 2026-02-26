@@ -190,7 +190,7 @@ export default class OpenAI extends LLMTask {
 		return ret;
 	}
 
-	getMessage (chunk) {
+	getStatus (chunk) {
 		// All supported events: https://platform.openai.com/docs/api-reference/responses-streaming
 		let { type, item } = chunk;
 		type = type.replace("response.", "");
