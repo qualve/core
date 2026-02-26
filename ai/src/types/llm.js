@@ -3,7 +3,13 @@ import { readFileSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import Task from "./task.js";
-import { handleStream, ProgressIndicator, addFilenameSuffix, readJSONSync, dedent } from "../util.js";
+import {
+	handleStream,
+	ProgressIndicator,
+	addFilenameSuffix,
+	readJSONSync,
+	dedent,
+} from "../util.js";
 import { truncatedIds } from "../question.js";
 import { inputFiles, outputFile } from "../../tasks/_prompts-common.js";
 

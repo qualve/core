@@ -148,7 +148,11 @@ export default class Gemini extends LLMTask {
 			onFinish: () => {
 				if (!finishReason) {
 					// No finishReason means no evidence of failure — treat as complete.
-					return { complete: true, reason: LLMTask.stopReasons.COMPLETE, reasonRaw: null };
+					return {
+						complete: true,
+						reason: LLMTask.stopReasons.COMPLETE,
+						reasonRaw: null,
+					};
 				}
 
 				// Gemini finish reasons → normalized stop reasons.
