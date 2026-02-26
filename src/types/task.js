@@ -258,13 +258,6 @@ export default class Task {
 		return new Error("Not implemented in " + this.constructor.name);
 	}
 
-	/**
-	 * Factory method to create the right task subclass based on the task type.
-	 */
-	static create (task, ...args) {
-		return new (TaskTypes[task.type] ?? Task)(task, ...args);
-	}
-
 	static #ids = null;
 	static get ids () {
 		if (!this.#ids) {
@@ -352,9 +345,12 @@ export default class Task {
 		return Task.create(task, { questionIds, force });
 	}
 
-	// To be overridden
+	/**
+	 * Polymorphic factory: create an instance of whatever class this is called on.
+	 * Subclasses that need custom factory logic (e.g. provider selection) override this.
+	 */
 	static create (task, ...args) {
-		return new Task(task, ...args);
+		return new this(task, ...args);
 	}
 }
 
