@@ -21,21 +21,20 @@ export default class OpenAI extends LLMTask {
 			return null;
 		}
 
-		if (!this.stores[name]) {
-			const vectorStores = await this.client.vectorStores.list();
-
-			// First, let's try to find an existing vector store
-			for await (const store of vectorStores) {
+		// Store the Promise immediately so concurrent callers awaiting the same name
+		// all get the same in-flight Promise rather than racing to create duplicate stores.
+		// On failure, clear the cache so the next call can retry instead of replaying the rejection.
+		this.stores[name] ??= (async () => {
+			for await (const store of await this.client.vectorStores.list()) {
 				if (store.name === name) {
 					return store;
 				}
 			}
-
-			// If not found, create a new one
-			this.stores[name] = this.client.vectorStores
-				.create({ name })
-				.then(store => (this.stores[name] = store));
-		}
+			return this.client.vectorStores.create({ name });
+		})().catch(e => {
+			delete this.stores[name];
+			throw e;
+		});
 
 		return this.stores[name];
 	}
@@ -49,7 +48,7 @@ export default class OpenAI extends LLMTask {
 
 		let store = await this.getStore(dirName);
 		await this.client.vectorStores.files.createAndPoll(store.id, { file_id: file.id });
-		return file;
+		return { ...file, storeId: store.id };
 	}
 
 	async listFiles () {
@@ -83,8 +82,7 @@ export default class OpenAI extends LLMTask {
 
 	async createStream () {
 		let { system, prompt, output, input = [] } = this;
-		const storeId = input[0]?.remoteFile?.storeId;
-		const store = await this.getStore(storeId);
+		const storeId = input.find(f => f.remoteFile?.storeId)?.remoteFile?.storeId;
 		let responseSchema = output?.schema;
 		let hasRootObject = responseSchema?.schema?.type === "object";
 
@@ -130,11 +128,11 @@ export default class OpenAI extends LLMTask {
 				...system.map(s => ({ type: "message", role: "system", content: s })),
 				...prompt.map(t => ({ type: "message", role: "user", content: t })),
 			],
-			...(store && {
+			...(storeId && {
 				tools: [
 					{
 						type: "file_search",
-						vector_store_ids: [store.id],
+						vector_store_ids: [storeId],
 					},
 				],
 				tool_choice: { type: "file_search" },
@@ -177,17 +175,6 @@ export default class OpenAI extends LLMTask {
 				};
 			},
 		};
-	}
-
-	async getRemoteFile (filepath) {
-		let ret = await super.getRemoteFile(filepath);
-
-		if (ret) {
-			let { dirName } = this.getFileInfo(filepath);
-			ret.storeId = dirName;
-		}
-
-		return ret;
 	}
 
 	getStatus (chunk) {
