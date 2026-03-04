@@ -41,7 +41,7 @@ export default class Claude extends LLMTask {
 	}
 
 	async deleteFile (filepath) {
-		let fileId = await this.getFile(filepath)?.id;
+		let fileId = (await this.getFile(filepath))?.id;
 		if (!fileId) {
 			// Not found
 			return;
