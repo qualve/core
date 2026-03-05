@@ -123,8 +123,7 @@ export async function handleStream ({
 
 	const tmpFile = addFilenameSuffix(outputPath, ".tmp");
 
-	// Open (create if it doesn't exist) file in append mode
-	const ws = createWriteStream(tmpFile, { flags: "a" });
+	const ws = createWriteStream(tmpFile);
 
 	let writeError;
 	ws.on("error", err => {
@@ -186,15 +185,41 @@ export async function handleStream ({
 	}
 }
 
-export async function mapAsync (arr, fn, { parallelize = false } = {}) {
-	if (parallelize) {
+/**
+ * Map over an array with concurrency control.
+ * @param {Array} arr
+ * @param {Function} fn - Async mapping function (element, index, array) => result.
+ * @param {object} [options]
+ * @param {number} [options.concurrency] - Max concurrent invocations.
+ *   Omit or set to `1` for sequential execution. Use `Infinity` for unlimited parallelism.
+ */
+export async function mapAsync (arr, fn, { concurrency } = {}) {
+	if (!concurrency || concurrency <= 1) {
+		let results = [];
+		for (let i = 0; i < arr.length; i++) {
+			results.push(await fn(arr[i], i, arr));
+		}
+		return results;
+	}
+
+	if (concurrency >= arr.length) {
 		return Promise.all(arr.map(fn));
 	}
 
-	let results = [];
-	for (let i = 0; i < arr.length; i++) {
-		results.push(await fn(arr[i], i, arr));
-	}
+	// Worker-pool pattern: N workers pull from a shared index counter.
+	// Results are stored by index so output order matches input order.
+	let results = new Array(arr.length);
+	let next = 0;
+
+	await Promise.all(
+		Array.from({ length: concurrency }, async () => {
+			while (next < arr.length) {
+				let i = next++;
+				results[i] = await fn(arr[i], i, arr);
+			}
+		}),
+	);
+
 	return results;
 }
 

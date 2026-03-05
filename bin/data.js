@@ -21,6 +21,12 @@ const availableOptions = {
 	llm: {},
 	model: {},
 	thinking: {},
+	itemsPerPage: {
+		long: "pp",
+		parse: Number,
+		// 0 disables batching (overrides task-level default)
+		validate: v => Number.isInteger(v) && v >= 0,
+	},
 	fresh: {
 		default: false,
 	},
@@ -90,6 +96,12 @@ catch (e) {
 		let indent = "  ".repeat(depth);
 		let text = (cause.stack ?? String(cause)).replaceAll("\n", "\n" + indent);
 		console.error(indent + "Caused by", text);
+		if (cause instanceof AggregateError) {
+			console.error(indent + "  Details:");
+			for (let inner of cause.errors) {
+				console.error(indent + "    -", inner.message);
+			}
+		}
 	}
 
 	process.exit(1);

@@ -99,12 +99,49 @@ export default class File {
 		return this.resolveValue(this.source.description);
 	}
 
+	get contents () {
+		return this.resolveValue(this.source?.contents);
+	}
+
 	get schema () {
 		return this.source.schema;
 	}
 
+	/**
+	 * Normalizes the two schema formats (`{ type: "array" }` vs `{ schema: { type: "array" } }`)
+	 * to a plain type string.
+	 */
+	get schemaType () {
+		return this.schema?.schema?.type ?? this.schema?.type;
+	}
+
+	/** Whether this file should be re-uploaded fresh, bypassing the provider cache. */
+	get fresh () {
+		return this.source.fresh ?? false;
+	}
+
 	get suffix () {
 		return this.resolveValue(this.source.suffix) ?? "";
+	}
+
+	/**
+	 * If truthy, this file's data can be paginated when the task sets `itemsPerPage`.
+	 * - `true` means the top-level value is the array.
+	 * - An array of strings (e.g. `["responses", "items"]`) is a property path to the nested array.
+	 */
+	get paginate () {
+		return this.source.paginate ?? false;
+	}
+
+	/**
+	 * Whether this file is a temporary intermediate (e.g. a batch slice output)
+	 * that should be deleted after its contents are merged into the parent's output.
+	 * This is a file lifecycle marker, not a general scoping system.
+	 * A broader file scope mechanism (survey-wide, per-question, per-task) could
+	 * supersede this in the future if more granular cleanup/caching policies are needed.
+	 */
+	get temporary () {
+		return this.source.temporary ?? false;
 	}
 
 	debugInfo () {
@@ -120,6 +157,10 @@ export default class File {
 
 		if (this.schema) {
 			info.schema = this.schema;
+		}
+
+		if (this.paginate) {
+			info.paginate = this.paginate;
 		}
 
 		return info;
