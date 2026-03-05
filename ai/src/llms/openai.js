@@ -84,7 +84,7 @@ export default class OpenAI extends LLMTask {
 		let { system, prompt, output, input = [] } = this;
 		const storeId = input.find(f => f.remoteFile?.storeId)?.remoteFile?.storeId;
 		let responseSchema = output?.schema;
-		let hasRootObject = responseSchema?.schema?.type === "object";
+		let hasRootObject = output?.schemaType === "object";
 
 		if (responseSchema) {
 			// All object properties in the response schema must be required.

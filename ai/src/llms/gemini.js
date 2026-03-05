@@ -100,7 +100,9 @@ export default class Gemini extends LLMTask {
 				// FIXME: Correctly pass system instructions via `config.systemInstruction` instead of including them in contents once countTokens supports it.
 				...system,
 				...prompt,
-				...input.map(f => this.readFile(f.filePath)?.contents).filter(Boolean),
+				...input
+					.map(f => this.readFile(f.filePath, { contents: f.contents })?.contents)
+					.filter(Boolean),
 			]),
 		});
 

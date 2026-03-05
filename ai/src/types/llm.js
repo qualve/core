@@ -82,19 +82,20 @@ export default class LLMTask extends Task {
 		return this.constructor.id;
 	}
 
+	/**
+	 * LLM tasks default to sequential for question expansion and bounded for batch,
+	 * to avoid overwhelming the provider API.
+	 * Task definitions can override this by setting `concurrency` explicitly.
+	 */
+	get concurrency () {
+		return this.task.concurrency ?? (this.batched ? 5 : 1);
+	}
+
 	constructor (task, args) {
 		super(task, args);
 
 		if (existsSync(".env")) {
 			loadEnvFile(".env");
-		}
-
-		// We do not yet support parallelizing LLM tasks.
-		// Since we use logUpdate() to display the progress of the task, it would create a total mess.
-		let t = this;
-		while (t) {
-			t.parallelize = false;
-			t = t.parent;
 		}
 
 		// Default to the first model in the provider's list, also falling back
@@ -122,7 +123,7 @@ export default class LLMTask extends Task {
 	 * @param {string} filepath
 	 * @param {object} [options]
 	 * @param {string} [options.mimeType="application/json"] - The MIME type of the file.
-	 * @param {string} [options.contents] - The file contents to upload. Reads filepath if not provided.
+	 * @param {string|object|Array} [options.contents] - The file contents to upload. Reads filepath if not provided.
 	 */
 	readFile (filepath, options = {}) {
 		options.mimeType ??= "application/json";
@@ -142,7 +143,7 @@ export default class LLMTask extends Task {
 	 * @param {string} filepath
 	 * @param {object} [options]
 	 * @param {string} [options.mimeType="application/json"] - The MIME type of the file.
-	 * @param {string} [options.contents] - The file contents to upload. Reads filepath if not provided.
+	 * @param {string|object|Array} [options.contents] - The file contents to upload. Reads filepath if not provided.
 	 */
 	sendData (filepath, options = {}) {
 		options = this.readFile(filepath, options);
@@ -167,22 +168,27 @@ export default class LLMTask extends Task {
 
 	/**
 	 * Ensure a file is available on the provider, uploading it if necessary.
-	 * If `this.fresh` is set, delete any existing copy first.
+	 * Freshness is determined by the file-level `fresh` option, falling back to the task-level `this.fresh`.
 	 * @param {string} filepath
+	 * @param {object} [options]
+	 * @param {string|object|Array} [options.contents] - In-memory file contents. Skips disk read when provided.
+	 * @param {boolean} [options.fresh] - Force re-upload for this specific file.
 	 */
-	async getRemoteFile (filepath) {
-		if (this.fresh) {
-			console.info("Removing previously uploaded file", filepath, "...");
+	async getRemoteFile (filepath, options = {}) {
+		let fresh = options.fresh ?? this.fresh;
+
+		if (fresh) {
+			this.info(`Removing previously uploaded file ${filepath} ...`);
 			await this.deleteFile(filepath);
 		}
 
-		let ret = !this.fresh ? await this.getFile(filepath) : null;
+		let ret = !fresh ? await this.getFile(filepath) : null;
 		if (!ret) {
-			console.info("Uploading", filepath, "...");
-			ret = await this.sendData(filepath);
+			this.info(`Uploading ${filepath} ...`);
+			ret = await this.sendData(filepath, options);
 		}
 
-		console.info(`Source file ${filepath} ready`);
+		this.info(`Source file ${filepath} ready`);
 		return ret;
 	}
 
@@ -193,7 +199,10 @@ export default class LLMTask extends Task {
 	async getRemoteFiles (input) {
 		await Promise.all(
 			input.map(async entry => {
-				entry.remoteFile ??= await this.getRemoteFile(entry.filePath);
+				entry.remoteFile ??= await this.getRemoteFile(entry.filePath, {
+					contents: entry.contents,
+					fresh: entry.fresh,
+				});
 			}),
 		);
 	}
@@ -288,13 +297,17 @@ export default class LLMTask extends Task {
 	}
 
 	async debugInfo () {
-		const [base, tokens] = await Promise.all([super.debugInfo(), this.countTokens()]);
+		const [base, tokens] = await Promise.all([
+			super.debugInfo(),
+			this.batched ? undefined : this.countTokens(),
+		]);
 
 		return {
 			...base,
 			llm: this.name,
 			model: this.model,
 			...(this.thinking !== undefined && { thinking: this.thinking }),
+			...(this.batched && { itemsPerPage: this.itemsPerPage }),
 			system: this.system,
 			prompt: this.prompt,
 			...(tokens != undefined && { tokens }),
@@ -306,9 +319,15 @@ export default class LLMTask extends Task {
 			await this.getRemoteFiles(this.input);
 		}
 
-		let progressIndicator = new ProgressIndicator({
-			status: `${this.title} with ${this.constructor.name} and streaming the response...`,
-		});
+		// If no progress indicator exists (standalone task, not part of a multiple run),
+		// install one so chunk status gets logUpdate-based in-place display.
+		// Subtasks in a multiple run already have an indicator (child of the coordinator's).
+		let ownedIndicator = !this.progressIndicator;
+		if (ownedIndicator) {
+			this.progressIndicator = new ProgressIndicator({
+				status: `${this.title} with ${this.name}...`,
+			});
+		}
 
 		const streamParams = await this.createStream();
 		let chunksReceived = 0;
@@ -321,14 +340,10 @@ export default class LLMTask extends Task {
 				onChunk: chunk => {
 					chunksReceived++;
 					let status = this.getStatus(chunk);
-
-					if (status) {
-						progressIndicator.update(`Chunk ${chunksReceived}: ${status}`);
-					}
-					else {
-						// Fallback to generic progress update if getStatus doesn't return a status message
-						progressIndicator.update(`${chunksReceived} chunks received...`);
-					}
+					status = status
+						? `Chunk ${chunksReceived}: ${status}`
+						: `${chunksReceived} chunks received...`;
+					this.info(status);
 
 					// The explicit onChunk above shadows the one from streamParams, so call it manually.
 					streamParams.onChunk?.(chunk);
@@ -336,13 +351,18 @@ export default class LLMTask extends Task {
 			});
 		}
 		catch (e) {
+			// var hoists `error` out of the catch block so it's accessible after the finally.
 			var error = e;
 		}
-
-		progressIndicator.stop();
+		finally {
+			if (ownedIndicator) {
+				this.progressIndicator?.stop();
+				this.progressIndicator = null;
+			}
+		}
 
 		if (text !== undefined) {
-			console.log(text);
+			this.info(text);
 		}
 
 		let outputPath = this.output?.filePath;
