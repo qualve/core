@@ -52,7 +52,9 @@ export default class Gemini extends LLMTask {
 	}
 
 	/**
-	 * Execute a file operation with shared error handling for 403/not-found cases.
+	 * Execute a file operation with shared error handling for not-found cases.
+	 * Gemini returns 403 (not 404) when a file doesn't exist, so we disambiguate
+	 * by listing files to check whether it's a real permission error.
 	 * @param {string} filepath - The local file path (used for name resolution and error messages).
 	 * @param {"get" | "delete"} method - The method name on `this.client.files` to call.
 	 * @returns {Promise<object|null>} The operation result, or null if the file was not found.
@@ -66,21 +68,18 @@ export default class Gemini extends LLMTask {
 			return await this.client.files[method]({ name });
 		}
 		catch (e) {
-			let message = JSON.parse(e.message);
-			if (message?.error?.code === 403) {
-				// Check if the file exists but we don't have permission to access it
-				let files = await this.client.files.list();
-				for await (let file of files) {
-					if (file.name === name) {
-						var ret = file;
+			if (e.status === 403 || e.status === 404) {
+				// 403 can mean "not found" on Gemini — verify by listing files.
+				// 404 is a straightforward not-found.
+				if (e.status === 403) {
+					let files = await this.client.files.list();
+					for await (let file of files) {
+						if (file.name === name) {
+							throw new Error(`You don't have permission to access file ${filepath}`, {
+								cause: e,
+							});
+						}
 					}
-				}
-
-				if (ret) {
-					// Permission denied. This shouldn't happen, abort
-					throw new Error(`You don't have permission to access file ${filepath}`, {
-						cause: e,
-					});
 				}
 			}
 			else {
