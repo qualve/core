@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import LLMTask from "../types/llm.js";
 import { createUserContent, createPartFromUri, GoogleGenAI } from "@google/genai";
 
@@ -26,8 +27,19 @@ export default class Gemini extends LLMTask {
 	getFileInfo (filepath) {
 		let { name, dirName } = super.getFileInfo(filepath);
 		let displayName = name;
-		// Important: File name may only contain lowercase alphanumeric characters or dashes (-) and cannot begin or end with a dash.
+
+		// Gemini file ID: lowercase alphanumeric or dashes, no leading/trailing dashes.
 		name = name.replace(/[_.]/g, "-").replace(/^-|-$/g, "");
+
+		// Gemini file IDs are limited to 40 chars.
+		// Batch slice inputs can exceed this (e.g. "ba-answers-normalized-unique-500-999-json").
+		// Truncate with a hash suffix to preserve uniqueness.
+		let maxLength = 40;
+		if (name.length > maxLength) {
+			let hash = createHash("sha256").update(name).digest("hex").slice(0, 6);
+			name = name.slice(0, maxLength - 7) + "-" + hash;
+		}
+
 		return { name, dirName, displayName };
 	}
 
