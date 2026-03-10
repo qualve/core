@@ -117,7 +117,7 @@ export default class File {
 
 	/** Whether this file should be re-uploaded fresh, bypassing the provider cache. */
 	get fresh () {
-		return this.source.fresh ?? false;
+		return this.source.fresh;
 	}
 
 	get suffix () {
