@@ -1,5 +1,6 @@
 import OpenAIClient from "openai";
 import LLMTask from "../types/llm.js";
+import { inputFile } from "../../tasks/_prompts-common.js";
 
 export default class OpenAI extends LLMTask {
 	static models = ["gpt-5.2", "gpt-5-mini", "gpt-5-nano"];
@@ -14,41 +15,13 @@ export default class OpenAI extends LLMTask {
 		apiKey: process.env.OPENAI_API_KEY,
 		timeout: 30 * 60_000, // 30 minutes — LLM tasks with thinking can be very slow
 	});
-	stores = {};
-
-	async getStore (name) {
-		if (!name) {
-			return null;
-		}
-
-		// Store the Promise immediately so concurrent callers awaiting the same name
-		// all get the same in-flight Promise rather than racing to create duplicate stores.
-		// On failure, clear the cache so the next call can retry instead of replaying the rejection.
-		this.stores[name] ??= (async () => {
-			for await (const store of await this.client.vectorStores.list()) {
-				if (store.name === name) {
-					return store;
-				}
-			}
-			return this.client.vectorStores.create({ name });
-		})().catch(e => {
-			delete this.stores[name];
-			throw e;
-		});
-
-		return this.stores[name];
-	}
 
 	async uploadFile (filepath, { mimeType, contents }) {
-		let { name, dirName } = this.getFileInfo(filepath);
-		let file = await this.client.files.create({
+		let { name } = this.getFileInfo(filepath);
+		return this.client.files.create({
 			file: new File([contents], name, { type: mimeType }),
 			purpose: "user_data",
 		});
-
-		let store = await this.getStore(dirName);
-		await this.client.vectorStores.files.createAndPoll(store.id, { file_id: file.id });
-		return { ...file, storeId: store.id };
 	}
 
 	async listFiles () {
@@ -74,15 +47,10 @@ export default class OpenAI extends LLMTask {
 			return null;
 		}
 		await this.client.files.delete(file.id);
-
-		let { dirName } = this.getFileInfo(filepath);
-		let store = await this.getStore(dirName);
-		await this.client.vectorStores.files.delete(file.id, { vector_store_id: store.id });
 	}
 
 	async createStream () {
 		let { system, prompt, output, input = [] } = this;
-		const storeId = input.find(f => f.remoteFile?.storeId)?.remoteFile?.storeId;
 		let responseSchema = output?.schema;
 		let hasRootObject = output?.schemaType === "object";
 
@@ -126,17 +94,21 @@ export default class OpenAI extends LLMTask {
 			},
 			input: [
 				...system.map(s => ({ type: "message", role: "system", content: s })),
-				...prompt.map(t => ({ type: "message", role: "user", content: t })),
+				{
+					type: "message",
+					role: "user",
+					content: [
+						...prompt.map(t => ({ type: "input_text", text: t })),
+
+						// Include uploaded files as direct input_file blocks,
+						// giving the model complete access to file contents (unlike file_search which returns chunks)
+						...input.flatMap(f => [
+							{ type: "input_text", text: inputFile.call(this, f) },
+							{ type: "input_file", file_id: f.remoteFile.id },
+						]),
+					],
+				},
 			],
-			...(storeId && {
-				tools: [
-					{
-						type: "file_search",
-						vector_store_ids: [storeId],
-					},
-				],
-				tool_choice: { type: "file_search" },
-			}),
 			text: {
 				verbosity: "low",
 				format: responseSchema,
@@ -189,10 +161,7 @@ export default class OpenAI extends LLMTask {
 			message = "Working on the response...";
 		}
 		else if (type.startsWith("output_item")) {
-			if (item.type === "file_search_call") {
-				message = "Working on the uploaded files...";
-			}
-			else if (item.type === "reasoning") {
+			if (item.type === "reasoning") {
 				// If we don't do the model more "talkative" during reasoning, we won't get any additional info to display
 				message = "Thinking...";
 			}
