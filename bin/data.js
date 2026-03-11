@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { prettyPrint, confirm, readArgs } from "./util.js";
+import { prettyPrint, printError, confirm, readArgs } from "./util.js";
 import Task from "../src/task.js";
 import Question, { ids as questionIds } from "../src/question.js";
 
@@ -89,20 +89,6 @@ try {
 	}
 }
 catch (e) {
-	console.error(e.stack);
-
-	let depth = 1;
-	for (let cause = e.cause; cause; cause = cause.cause, depth++) {
-		let indent = "  ".repeat(depth);
-		let text = (cause.stack ?? String(cause)).replaceAll("\n", "\n" + indent);
-		console.error(indent + "Caused by", text);
-		if (cause instanceof AggregateError) {
-			console.error(indent + "  Details:");
-			for (let inner of cause.errors) {
-				console.error(indent + "    -", inner.message);
-			}
-		}
-	}
-
+	printError(e);
 	process.exit(1);
 }
