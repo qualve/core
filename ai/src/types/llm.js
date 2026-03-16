@@ -361,10 +361,6 @@ export default class LLMTask extends Task {
 			}
 		}
 
-		if (text !== undefined) {
-			this.info(text);
-		}
-
 		let outputPath = this.output?.filePath;
 
 		if (outputPath && error) {
@@ -376,6 +372,7 @@ export default class LLMTask extends Task {
 			size: chunksReceived,
 			sizeUnit: "chunk",
 			error,
+			result: text,
 		};
 	}
 }
