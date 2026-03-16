@@ -85,7 +85,10 @@ if (task.scope === "question") {
 try {
 	let result = await task.run({ dryRun });
 	if (dryRun) {
-		console.info(prettyPrint(result));
+		prettyPrint(result);
+	}
+	else if (!result?.outputPath && result?.result !== undefined) {
+		prettyPrint(result.result);
 	}
 }
 catch (e) {
