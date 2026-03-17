@@ -448,6 +448,11 @@ export default class Task {
 			: rawData;
 		let batchSize = this.itemsPerPage;
 
+		// Short-circuit: no need to batch if the data fits in a single page
+		if (batchableData.length <= batchSize) {
+			return [];
+		}
+
 		let subtasks = [];
 		let rawInputs = toArray(this.task.input);
 		let batchableRaw = rawInputs[this.input.indexOf(batchableInput)];
