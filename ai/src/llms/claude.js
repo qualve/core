@@ -5,7 +5,7 @@ import { inputFile } from "../../tasks/_prompts-common.js";
 export default class Claude extends LLMTask {
 	static id = "claude";
 	static name = "Claude";
-	static models = ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-5"];
+	static models = ["claude-sonnet-4-6", "claude-haiku-4-6", "claude-opus-4-5"];
 	static capabilities = {
 		inputDescriptions: true,
 		outputSchema: true,

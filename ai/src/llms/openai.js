@@ -3,7 +3,7 @@ import LLMTask from "../types/llm.js";
 import { inputFile } from "../../tasks/_prompts-common.js";
 
 export default class OpenAI extends LLMTask {
-	static models = ["gpt-5.2", "gpt-5-mini", "gpt-5-nano"];
+	static models = ["gpt-5.4", "gpt-5-mini", "gpt-5-nano"];
 	static id = "openai";
 	static name = "OpenAI";
 	static capabilities = {

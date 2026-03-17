@@ -5,7 +5,11 @@ import { createUserContent, createPartFromUri, GoogleGenAI } from "@google/genai
 export default class Gemini extends LLMTask {
 	static id = "gemini";
 	static name = "Gemini";
-	static models = ["gemini-3-pro-preview", "gemini-3-flash-preview"];
+	static models = [
+		"gemini-3.1-pro-preview",
+		"gemini-3.1-flash-preview",
+		"gemini-3.1-flash-lite-preview",
+	];
 	static levelMap = { none: "minimal", xhigh: "high" };
 	static capabilities = {
 		outputSchema: true,
@@ -75,9 +79,12 @@ export default class Gemini extends LLMTask {
 					let files = await this.client.files.list();
 					for await (let file of files) {
 						if (file.name === name) {
-							throw new Error(`You don't have permission to access file ${filepath}`, {
-								cause: e,
-							});
+							throw new Error(
+								`You don't have permission to access file ${filepath}`,
+								{
+									cause: e,
+								},
+							);
 						}
 					}
 				}
