@@ -11,7 +11,6 @@ import { pathToFileURL, URL } from "node:url";
 import { once } from "node:events";
 
 export { default as dedent } from "dedent";
-export * from "./util/csv.js";
 export * from "./util/format.js";
 export * from "./util/progress-indicator.js";
 
