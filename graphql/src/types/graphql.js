@@ -1,6 +1,6 @@
 import { writeJSONSync } from "../util.js";
 import survey from "../../survey.js";
-import Task from "./task.js";
+import Task from "../task.js";
 
 const ENDPOINT = "https://api.devographics.com/graphql";
 
