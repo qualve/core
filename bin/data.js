@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { prettyPrint, printError, confirm, readArgs } from "./util.js";
-import Task from "../src/task.js";
+import Task from "../src/index.js";
 import Question, { ids as questionIds } from "../src/question.js";
 
 const availableOptions = {

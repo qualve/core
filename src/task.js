@@ -8,11 +8,11 @@ import {
 	mapAsync,
 	toArray,
 	importCwd,
-} from "../util.js";
-import Question from "../question.js";
-import File from "../file.js";
+} from "./util.js";
+import Question from "./question.js";
+import File from "./file.js";
 import { existsSync, rmSync } from "node:fs";
-import { ProgressIndicator } from "../util.js";
+import { ProgressIndicator } from "./util.js";
 
 export default class Task {
 	constructor (task, { parent = null, questionIds, info, force } = {}) {

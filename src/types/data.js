@@ -1,7 +1,7 @@
 import { globSync } from "node:fs";
 import path from "node:path";
 import { readJSONSync, writeJSONSync } from "../util.js";
-import Task from "./task.js";
+import Task from "../task.js";
 
 export default class DataTask extends Task {
 	static type = "data";
