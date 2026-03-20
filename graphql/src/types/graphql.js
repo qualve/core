@@ -1,5 +1,4 @@
 import { writeJSONSync } from "../util.js";
-import survey from "../../survey.js";
 import Task from "../task.js";
 
 const ENDPOINT = "https://api.devographics.com/graphql";
@@ -9,6 +8,7 @@ export default class GraphQLTask extends Task {
 	/** Build the full GraphQL query string from `this.fields` and scope. */
 	get query () {
 		let query = this.fields;
+		let { survey } = this.config;
 
 		if (this.scope === "survey" || this.scope === "question") {
 			if (this.scope === "question") {
@@ -31,6 +31,7 @@ export default class GraphQLTask extends Task {
 
 	async runTask () {
 		let query = this.query;
+		let { survey } = this.config;
 		let result = await runQuery(query);
 
 		if (result) {
