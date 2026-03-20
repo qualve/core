@@ -5,6 +5,7 @@ import Task from "./task.js";
 const ENDPOINT = "https://api.devographics.com/graphql";
 
 export default class GraphQLTask extends Task {
+	static type = "graphql";
 	/** Build the full GraphQL query string from `this.fields` and scope. */
 	get query () {
 		let query = this.fields;
@@ -103,3 +104,5 @@ export async function runQuery (query, endpoint = ENDPOINT) {
 
 	return json;
 }
+
+Task.register(GraphQLTask);
