@@ -179,3 +179,5 @@ export default class OpenAI extends LLMTask {
 		return message;
 	}
 }
+
+LLMTask.register(OpenAI);

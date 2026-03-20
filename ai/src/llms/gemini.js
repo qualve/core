@@ -206,3 +206,5 @@ export default class Gemini extends LLMTask {
 		};
 	}
 }
+
+LLMTask.register(Gemini);

@@ -40,14 +40,20 @@ export default class LLMTask extends Task {
 	 */
 	static thinkingLevels = ["none", "minimal", "low", "medium", "high", "xhigh"];
 
+	static type = "llm";
 	static capabilities = {};
 
+	static #registry = new Map();
+
 	/**
-	 * Provider subclasses, keyed by ID. Populated by src/task.js at startup
-	 * to avoid a circular import (src/types/llm.js → src/llms/ → src/types/llm.js).
-	 * @type {Record<string, typeof LLMTask>}
+	 * Register an LLM provider so LLMTask.create() can dispatch to it by `task.llm`.
+	 * Reads `SubClass.id` as the registry key.
+	 * Each provider calls this after its own definition to self-register.
+	 * @param {typeof LLMTask} SubClass
 	 */
-	static providers = {};
+	static register (SubClass) {
+		LLMTask.#registry.set(SubClass.id, SubClass);
+	}
 
 	/**
 	 * Select and instantiate the right provider subclass based on `task.llm`.
@@ -55,10 +61,10 @@ export default class LLMTask extends Task {
 	 */
 	static create (task, ...args) {
 		let id = task.llm ?? "gemini";
-		let Provider = LLMTask.providers[id];
+		let Provider = LLMTask.#registry.get(id);
 		if (!Provider) {
 			throw new Error(
-				`Unknown LLM provider: "${id}". Available: ${Object.keys(LLMTask.providers).join(", ")}`,
+				`Unknown LLM provider: "${id}". Available: ${[...LLMTask.#registry.keys()].join(", ")}`,
 			);
 		}
 		return new Provider(task, ...args);
@@ -376,3 +382,5 @@ export default class LLMTask extends Task {
 		};
 	}
 }
+
+Task.register(LLMTask);

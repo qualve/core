@@ -161,3 +161,5 @@ export default class Claude extends LLMTask {
 		};
 	}
 }
+
+LLMTask.register(Claude);
