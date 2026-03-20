@@ -4,6 +4,7 @@ import { readJSONSync, writeJSONSync } from "../util.js";
 import Task from "./task.js";
 
 export default class DataTask extends Task {
+	static type = "data";
 	async runTask () {
 		let globs = this.input.map(input => input.filename);
 
@@ -29,3 +30,5 @@ export default class DataTask extends Task {
 		return { inputs: files, result, outputPath, size };
 	}
 }
+
+Task.register(DataTask);

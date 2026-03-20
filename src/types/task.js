@@ -717,12 +717,32 @@ export default class Task {
 		return Task.create(task, { questionIds, force });
 	}
 
+	static #registry = new Map();
+
 	/**
-	 * Polymorphic factory: create an instance of whatever class this is called on.
-	 * Subclasses that need custom factory logic (e.g. provider selection) override this.
+	 * Register a task type so Task.create() can dispatch to it by `task.type`.
+	 * Reads `SubClass.type` as the registry key.
+	 * Each subclass calls this after its own definition to self-register.
+	 * @param {typeof Task} SubClass
+	 */
+	static register (SubClass) {
+		Task.#registry.set(SubClass.type, SubClass);
+	}
+
+	/**
+	 * Polymorphic factory: dispatch to the registered subclass for `task.type`.
+	 * Subclasses that need a further level of dispatch (e.g. LLMTask for providers)
+	 * override this; others fall through to `new Type(task, ...args)`.
 	 */
 	static create (task, ...args) {
-		return new this(task, ...args);
+		let Type = Task.#registry.get(task.type);
+		if (!Type) {
+			return new Task(task, ...args);
+		}
+		if (Type.create !== this.create) {
+			return Type.create(task, ...args);
+		}
+		return new Type(task, ...args);
 	}
 }
 
