@@ -2,7 +2,7 @@ import * as path from "node:path";
 import { readFileSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
-import Task from "./task.js";
+import Task from "../task.js";
 import {
 	handleStream,
 	ProgressIndicator,
