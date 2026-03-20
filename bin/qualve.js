@@ -37,6 +37,9 @@ const availableOptions = {
 	dryRun: {
 		long: "dry-run",
 	},
+	config: {
+		short: "c",
+	},
 };
 
 const args = readArgs(process.argv.slice(2), availableOptions);

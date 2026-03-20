@@ -13,9 +13,10 @@ import Question from "./question.js";
 import File from "./file.js";
 import { existsSync, rmSync } from "node:fs";
 import { ProgressIndicator } from "./util.js";
+import { resolveConfig } from "./config.js";
 
 export default class Task {
-	constructor (task, { parent = null, questionIds, info, force } = {}) {
+	constructor (task, { parent = null, questionIds, info, force, config } = {}) {
 		this.task = task instanceof Task ? task.task : task;
 
 		for (let key in task) {
@@ -24,9 +25,10 @@ export default class Task {
 			}
 		}
 
-		normalizeFiles(this);
-
 		this.parent = parent;
+		this.config = config ?? this.parent?.config ?? {};
+
+		normalizeFiles(this);
 		this.customInfo = info;
 
 		if (questionIds) {
@@ -640,7 +642,7 @@ export default class Task {
 		return this.#ids;
 	}
 
-	static async fromId (taskId, { questionIds, ...overrides } = {}) {
+	static async fromId (taskId, { questionIds, config, ...overrides } = {}) {
 		let task;
 
 		if (!taskId) {
@@ -714,7 +716,8 @@ export default class Task {
 			task[key] = overrides[key] ?? task[key];
 		}
 
-		return Task.create(task, { questionIds, force });
+		config = await resolveConfig(config);
+		return Task.create(task, { questionIds, force, config });
 	}
 
 	static #registry = new Map();
