@@ -1,8 +1,6 @@
 import { writeJSONSync } from "../util.js";
 import Task from "../task.js";
 
-const ENDPOINT = "https://api.devographics.com/graphql";
-
 export default class GraphQLTask extends Task {
 	static type = "graphql";
 	/** Build the full GraphQL query string from `this.fields` and scope. */
@@ -24,7 +22,7 @@ export default class GraphQLTask extends Task {
 	async debugInfo () {
 		return {
 			...(await super.debugInfo()),
-			endpoint: ENDPOINT,
+			endpoint: this.config.graphql?.endpoint,
 			query: this.query,
 		};
 	}
@@ -32,7 +30,7 @@ export default class GraphQLTask extends Task {
 	async runTask () {
 		let query = this.query;
 		let { survey } = this.config;
-		let result = await runQuery(query);
+		let result = await runQuery(query, this.config.graphql?.endpoint);
 
 		if (result) {
 			result = result?.data;
@@ -79,7 +77,7 @@ export function stringifyQuery (value, key) {
 	return value;
 }
 
-export async function runQuery (query, endpoint = ENDPOINT) {
+async function runQuery (query, endpoint) {
 	const response = await fetch(endpoint, {
 		method: "POST",
 		headers: {
