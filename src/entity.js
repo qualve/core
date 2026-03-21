@@ -5,6 +5,12 @@
 export default class Entity {
 	constructor (data) {
 		this.data = data;
+
+		for (let key in data) {
+			if (!(key in this)) {
+				this[key] = data[key];
+			}
+		}
 	}
 
 	get id () {
