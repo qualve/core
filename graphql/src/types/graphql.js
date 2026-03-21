@@ -3,20 +3,26 @@ import Task from "../task.js";
 
 export default class GraphQLTask extends Task {
 	static type = "graphql";
-	/** Build the full GraphQL query string from `this.fields` and scope. */
-	get query () {
-		let query = this.fields;
-		let { survey } = this.config;
+	path = [];
+
+	async postInit () {
+		await super.postInit();
 
 		if (this.scope === "survey" || this.scope === "question") {
+			const { survey } = this.config;
+
+			this.path.push("surveys", survey.name, survey.id);
+
 			if (this.scope === "question") {
-				query = { [this.question.section]: { [this.question.id]: query } };
+				this.path.push(this.question.section, this.question.id);
 			}
-
-			query = { surveys: { [survey.name]: { [survey.id]: query } } };
 		}
+	}
 
-		return stringifyQuery(query, "query");
+	/** Build the full GraphQL query string by wrapping `this.fields` in `this.path`. */
+	get query () {
+		let fields = this.path.reduceRight((acc, key) => ({ [key]: acc }), this.fields);
+		return stringifyQuery(fields, "query");
 	}
 
 	async debugInfo () {
@@ -29,20 +35,10 @@ export default class GraphQLTask extends Task {
 
 	async runTask () {
 		let query = this.query;
-		let { survey } = this.config;
 		let result = await runQuery(query, this.config.graphql?.endpoint);
 
 		if (result) {
-			result = result?.data;
-
-			if (this.scope === "survey" || this.scope === "question") {
-				result = result.surveys[survey.name][survey.id];
-
-				if (this.scope === "question") {
-					result = result[this.question.section][this.question.id];
-				}
-			}
-
+			result = this.path.reduce((acc, key) => acc[key], result.data);
 			result = this.handleResult?.(result) ?? result;
 
 			var outputPath = this.output?.filePath;
