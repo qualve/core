@@ -13,7 +13,7 @@ import Question from "./question.js";
 import File from "./file.js";
 import { existsSync, rmSync } from "node:fs";
 import { ProgressIndicator } from "./util.js";
-import { resolveConfig } from "./config.js";
+import Config from "./config.js";
 
 export default class Task {
 	constructor (task, { parent = null, questionIds, info, force, config } = {}) {
@@ -26,7 +26,7 @@ export default class Task {
 		}
 
 		this.parent = parent;
-		this.config = config ?? this.parent?.config ?? {};
+		this.config = config ?? this.parent?.config ?? new Config({});
 
 		normalizeFiles(this);
 		this.customInfo = info;
@@ -695,7 +695,7 @@ export default class Task {
 			task[key] = overrides[key] ?? task[key];
 		}
 
-		config = await resolveConfig(config);
+		config = await Config.from(config);
 		return Task.create(task, { questionIds, force, config });
 	}
 
