@@ -10,7 +10,7 @@ import {
 	readJSONSync,
 	dedent,
 } from "../util.js";
-import { truncatedIds } from "../question.js";
+import Question from "../question.js";
 import { inputFiles, outputFile } from "../../tasks/_prompts-common.js";
 
 export default class LLMTask extends Task {
@@ -163,7 +163,7 @@ export default class LLMTask extends Task {
 	 */
 	getFileInfo (filepath) {
 		let dirName = path.basename(path.dirname(filepath));
-		let prefix = truncatedIds[dirName];
+		let prefix = Question.truncatedIds[dirName];
 		let name = path.basename(filepath);
 
 		// Make sure the filename is unique per question by prefixing it with the truncated parent directory name.
