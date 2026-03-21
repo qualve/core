@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { prettyPrint, printError, confirm, readArgs } from "./util.js";
 import Task from "../src/index.js";
-import Question, { ids as questionIds } from "../src/question.js";
+import Question from "../src/question.js";
 
 const availableOptions = {
 	questionId: {
@@ -65,7 +65,7 @@ if (questionId) {
 	}
 }
 
-let task = await Task.fromId(taskId, { questionIds: questionId || questionIds, ...overrides });
+let task = await Task.fromId(taskId, { questionIds: questionId || Question.ids, ...overrides });
 
 if (task.scope === "question") {
 	if (!questionId) {
@@ -79,7 +79,7 @@ if (task.scope === "question") {
 					: true;
 		if (!allQuestions) {
 			throw new Error(
-				`Please provide a question ID via the -q/--question flag. Available ids: ${questionIds.join(", ")}`,
+				`Please provide a question ID via the -q/--question flag. Available ids: ${Question.ids.join(", ")}`,
 			);
 		}
 	}
