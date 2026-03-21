@@ -6,10 +6,6 @@ export default class Question extends Entity {
 		return this.data.description;
 	}
 
-	get filePath () {
-		return `data/${this.id}`;
-	}
-
 	get text () {
 		if (!this.prompt) {
 			return this.description;
