@@ -31,9 +31,7 @@ export default class Task {
 		normalizeFiles(this);
 		this.customInfo = info;
 
-		if (questionIds) {
-			this.questionIds = questionIds;
-		}
+		this.questionIds = questionIds ? toArray(questionIds) : this.parent?.questionIds;
 
 		this.force = force ?? this.parent?.force ?? false;
 
@@ -99,15 +97,6 @@ export default class Task {
 		}
 
 		return ret;
-	}
-
-	#questionIds;
-	get questionIds () {
-		return this.#questionIds ?? this.parent?.questionIds;
-	}
-	set questionIds (questionIds) {
-		questionIds = Array.isArray(questionIds) ? questionIds : [questionIds];
-		this.#questionIds = questionIds;
 	}
 
 	get questionId () {
