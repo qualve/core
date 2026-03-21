@@ -35,9 +35,7 @@ export default class Task {
 			this.questionIds = questionIds;
 		}
 
-		if (force !== undefined) {
-			this.force = force;
-		}
+		this.force = force ?? this.parent?.force ?? false;
 
 		this.subtasks = task.subtasks?.map(t => this.createSubtask(t));
 
@@ -110,14 +108,6 @@ export default class Task {
 	set questionIds (questionIds) {
 		questionIds = Array.isArray(questionIds) ? questionIds : [questionIds];
 		this.#questionIds = questionIds;
-	}
-
-	#force;
-	get force () {
-		return this.#force ?? this.parent?.force ?? false;
-	}
-	set force (value) {
-		this.#force = value;
 	}
 
 	get questionId () {
