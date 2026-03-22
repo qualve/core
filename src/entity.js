@@ -25,6 +25,53 @@ export default class Entity {
 		return this.all[id];
 	}
 
+	static from (data) {
+		if (!data) {
+			throw new Error(`Cannot create ${this.name} from ${data}`);
+		}
+
+		if (typeof data === "string") {
+			return this.fromId(data);
+		}
+
+		let id = data.id;
+
+		if (!this.all[id]) {
+			this.all[id] = new this(data);
+
+			if (Object.hasOwn(this, "truncatedIds") && this !== Entity) {
+				// Cached truncatedIds are now invalid
+				delete this.truncatedIds;
+			}
+		}
+
+		return this.all[id];
+	}
+
+	static fromAll (data) {
+		// Two formats for multiple entries:
+		// 1. Array of objects with id, OR
+		// 2. Object literal with ids as key
+		// We canonicalize to the latter for this.all
+		this.all ??= {};
+		let entities = {};
+
+		if (Array.isArray(data)) {
+			for (let entry of data) {
+				entities[entry.id] = this.from(entry);
+			}
+		}
+		else {
+			for (let id in data) {
+				let entry = data[id];
+				entry.id ??= id;
+				entities[entry.id] = this.from(entry);
+			}
+		}
+
+		return entities;
+	}
+
 	static get ids () {
 		return Object.keys(this.all);
 	}

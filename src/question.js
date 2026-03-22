@@ -14,5 +14,7 @@ export default class Question extends Entity {
 		return `${this.description} ${this.prompt}`;
 	}
 
-	static all = Object.fromEntries(questionData.map(q => [q.id, new Question(q)]));
+	static {
+		this.fromAll(questionData);
+	}
 }
