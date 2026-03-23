@@ -1,0 +1,40 @@
+{
+  "name": "qualve",
+  "version": "0.0.1",
+  "description": "Pluggable data processing framework",
+  "type": "module",
+  "engines": {
+    "node": ">=23"
+  },
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./cli": "./bin/qualve.js",
+    "./options": "./src/options.js",
+    "./util": "./src/util.js",
+    "./task": "./src/task.js",
+    "./task/data": "./src/types/data.js",
+    "./entity": "./src/entity.js"
+  },
+  "bin": {
+    "qualve": "bin/qualve.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qualve/core.git"
+  },
+  "author": "Lea Verou",
+  "contributors": [
+    "Dmitry Sharabin"
+  ],
+  "devDependencies": {
+    "prettier": "^3.8.1",
+    "prettier-plugin-brace-style": "^0.10.0",
+    "prettier-plugin-merge": "^0.10.0",
+    "prettier-plugin-space-before-function-paren": "^0.1.0"
+  },
+  "dependencies": {
+    "log-update": "^6.1.0",
+    "minimist": "^1.2.8"
+  }
+}
