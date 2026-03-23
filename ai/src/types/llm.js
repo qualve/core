@@ -10,8 +10,15 @@ import {
 	readJSONSync,
 	dedent,
 } from "../util.js";
-import Question from "../question.js";
 import { inputFiles, outputFile } from "../../tasks/_prompts-common.js";
+import options from "../options.js";
+
+Object.assign(options, {
+	// Options specific to LLM tasks
+	llm: {},
+	model: {},
+	thinking: {},
+});
 
 export default class LLMTask extends Task {
 	// Subclass must define these
@@ -120,6 +127,13 @@ export default class LLMTask extends Task {
 		else {
 			this.thinking = undefined;
 		}
+
+		Object.assign(this.debug, {
+			llm: this.name,
+			model: this.model,
+			thinking: this.thinking,
+			itemsPerPage: this.itemsPerPage,
+		});
 	}
 
 	/**
@@ -157,17 +171,19 @@ export default class LLMTask extends Task {
 	}
 
 	/**
-	 * Resolve a local filepath to a stable remote filename, namespaced by question.
+	/**
+	 * Resolve a local filepath to a stable remote filename, namespaced by entity.
 	 * @param {string} filepath
 	 * @returns {{ name: string, dirName: string }}
 	 */
 	getFileInfo (filepath) {
+		// FIXME there is an implicit assumption here that dirName is equal to an id, which is not always the case
 		let dirName = path.basename(path.dirname(filepath));
-		let prefix = Question.truncatedIds[dirName];
+		let prefix = this.entityModel?.truncatedIds?.[dirName];
 		let name = path.basename(filepath);
 
-		// Make sure the filename is unique per question by prefixing it with the truncated parent directory name.
-		// For other files (e.g., questions, merged codebooks), no prefix is needed since they are already unique and shared across questions.
+		// Make sure the filename is unique per entity by prefixing it with the truncated parent directory name.
+		// For other files (e.g., shared data), no prefix is needed since they are already unique.
 		name = (prefix ? prefix + "-" : "") + name;
 		return { name, dirName };
 	}
@@ -258,7 +274,7 @@ export default class LLMTask extends Task {
 
 	/**
 	 * Normalize a prompts value to a flat array of strings.
-	 * Accepts a string, array, or function (called with the current question).
+	 * Accepts a string, array, or function (called with the current entity).
 	 */
 	normalizePrompts (prompts) {
 		if (!prompts) {
@@ -266,7 +282,7 @@ export default class LLMTask extends Task {
 		}
 
 		if (typeof prompts === "function") {
-			prompts = prompts.call(this, this.question);
+			prompts = prompts.call(this, this.entity);
 		}
 
 		// Do not convert to else if, function may return a string or an array
@@ -300,27 +316,19 @@ export default class LLMTask extends Task {
 		if (this.output) {
 			this.prompt.push(outputFile.call(this, this.output));
 		}
-	}
 
-	async debugInfo () {
-		const [base, tokens] = await Promise.all([
-			super.debugInfo(),
-			this.batched ? undefined : this.countTokens(),
-		]);
-
-		return {
-			...base,
-			llm: this.name,
-			model: this.model,
-			...(this.thinking !== undefined && { thinking: this.thinking }),
-			...(this.batched && { itemsPerPage: this.itemsPerPage }),
-			system: this.system,
-			prompt: this.prompt,
-			...(tokens != undefined && { tokens }),
-		};
+		Object.assign(this.debug, { system: this.system, prompt: this.prompt });
 	}
 
 	async runTask () {
+		if (this.dryRun) {
+			if (!this.batched) {
+				this.debug.tokens = await this.countTokens();
+			}
+
+			return;
+		}
+
 		if (this.input) {
 			await this.getRemoteFiles(this.input);
 		}
