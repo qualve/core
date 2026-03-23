@@ -621,44 +621,45 @@ export default class Task {
 		return this.#ids;
 	}
 
-	static async fromId (taskId, { questionIds, config, ...overrides } = {}) {
+	static async resolve (taskId) {
+		if (!taskId || typeof taskId === "object") {
+			return taskId;
+		}
+
 		let task;
+		let taskPath = `tasks/${taskId}.js`;
 
-		if (!taskId) {
-			throw new Error(`No task provided. Available tasks: ${this.ids.join(", ")}`);
+		if (!existsSync(taskPath)) {
+			throw new Error(`Invalid task ID “${taskId}”. Available tasks: ${this.ids.join(", ")}`);
 		}
 
-		if (typeof taskId === "object") {
-			task = taskId;
-			taskId = task.id;
+		try {
+			task = await importCwd(taskPath).then(m => {
+				m.id = taskId;
+				return m;
+			});
 		}
-		else {
-			let taskPath = `tasks/${taskId}.js`;
+		catch (e) {
+			throw new Error(`Task ${taskId} at ${taskPath} is invalid.`, { cause: e });
+		}
 
-			if (!existsSync(taskPath)) {
-				throw new Error(
-					`Invalid task ID “${taskId}”. Available tasks: ${this.ids.join(", ")}`,
-				);
-			}
-
-			try {
-				task = await importCwd(taskPath).then(m => {
-					m.id = taskId;
-					return m;
-				});
-			}
-			catch (e) {
-				throw new Error(`Task ${taskId} at ${taskPath} is invalid.`, { cause: e });
-			}
-
-			if (!task) {
-				throw new Error(`Task ${taskId} at ${taskPath} is empty.`);
-			}
+		if (!task) {
+			throw new Error(`Task ${taskId} at ${taskPath} is empty.`);
 		}
 
 		if (task instanceof Task) {
 			task = task.task;
 		}
+
+		return task;
+	}
+
+	static async fromId (taskId, { questionIds, config, ...overrides } = {}) {
+		if (!taskId) {
+			throw new Error(`No task provided. Available tasks: ${this.ids.join(", ")}`);
+		}
+
+		let task = await this.resolve(taskId);
 
 		task = { ...task };
 
