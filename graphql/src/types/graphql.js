@@ -3,20 +3,17 @@ import Task from "../task.js";
 
 export default class GraphQLTask extends Task {
 	static type = "graphql";
-	path = [];
 
 	async postInit () {
 		await super.postInit();
 
-		if (this.scope === "survey" || this.scope === "question") {
-			const { survey } = this.config;
+		this.debug.endpoint = this.config.graphql?.endpoint;
+	}
 
-			this.path.push("surveys", survey.name, survey.id);
-
-			if (this.scope === "question") {
-				this.path.push(this.question.section, this.question.id);
-			}
-		}
+	get path () {
+		let path = this.config.graphql?.getPath?.call(this) ?? [];
+		Object.defineProperty(this, "path", { value: path, configurable: true });
+		return this.path;
 	}
 
 	/** Build the full GraphQL query string by wrapping `this.fields` in `this.path`. */
@@ -25,23 +22,21 @@ export default class GraphQLTask extends Task {
 		return stringifyQuery(fields, "query");
 	}
 
-	async debugInfo () {
-		return {
-			...(await super.debugInfo()),
-			endpoint: this.config.graphql?.endpoint,
-			query: this.query,
-		};
-	}
-
 	async runTask () {
 		let query = this.query;
+		let outputPath = this.output?.filePath;
+
+		if (this.dryRun) {
+			Object.assign(this.debug, { query, outputPath });
+			return;
+		}
+
 		let result = await runQuery(query, this.config.graphql?.endpoint);
 
 		if (result) {
 			result = this.path.reduce((acc, key) => acc[key], result.data);
 			result = this.handleResult?.(result) ?? result;
 
-			var outputPath = this.output?.filePath;
 			var size = outputPath ? writeJSONSync(outputPath, result)?.length : undefined;
 		}
 
