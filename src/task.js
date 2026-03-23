@@ -62,7 +62,8 @@ export default class Task {
 		}
 
 		if (this.subtasks) {
-			let scopes = new Set(this.subtasks.map(t => t.scope));
+			let scopes = Task.getScopes(this.subtasks);
+
 			if (scopes.has("question")) {
 				return "question";
 			}
@@ -73,6 +74,15 @@ export default class Task {
 
 			return [...scopes][0];
 		}
+	}
+
+	static getScopes (tasks) {
+		if (!Array.isArray(tasks)) {
+			let scope = tasks?.scope;
+			return new Set(scope ? [scope] : []);
+		}
+
+		return new Set(tasks.flatMap(t => t.scope).filter(Boolean));
 	}
 
 	get level () {
