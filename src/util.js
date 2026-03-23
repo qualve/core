@@ -248,3 +248,11 @@ export async function importCwd (modulePath) {
 	let m = await import(url);
 	return Object.keys(m).length === 1 && m.default ? m.default : m;
 }
+
+export function capitalize (str) {
+	if (!str) {
+		return str;
+	}
+
+	return str[0].toUpperCase() + str.slice(1);
+}

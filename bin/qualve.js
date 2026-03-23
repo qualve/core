@@ -1,11 +1,27 @@
 #!/usr/bin/env node
-import { prettyPrint, printError, confirm, readArgs } from "./util.js";
+import { prettyPrint, printError } from "./util/pretty-print.js";
+import { confirm } from "./util/ask.js";
+import ArgsReader from "./util/args.js";
 import Task from "../src/index.js";
-import Question from "../src/question.js";
+import Config from "../src/config.js";
 import availableOptions from "../src/options.js";
 
-const args = readArgs(process.argv.slice(2), availableOptions);
-let { questionId, dryRun, _: positional, ...overrides } = args;
+// First pass: base options
+const argsReader = new ArgsReader(process.argv.slice(2), availableOptions);
+let args = argsReader.args;
+const config = await Config.from(args.config);
+
+for (let name in config.model) {
+	let model = config.model[name];
+	if (model.option) {
+		availableOptions[name] = model.option;
+	}
+}
+
+// Second pass: re-parse with entity options included, if needed
+args = argsReader.args;
+
+let { dryRun, _: positional, ...overrides } = args;
 const taskId = positional[0];
 
 if (!taskId) {
@@ -13,42 +29,53 @@ if (!taskId) {
 	process.exit(1);
 }
 
-if (questionId) {
-	questionId = Question.resolveId(questionId);
+// Resolve truncated ids
+for (let name in config.model) {
+	let model = config.model[name];
+	let rawId = args[name];
 
-	if (questionId !== args.questionId && process.stdin.isTTY) {
-		if (
-			!(await confirm({
-				prompt: `Did you mean "${questionId}" instead of "${args.questionId}"?`,
-			}))
-		) {
-			process.exit(1);
+	if (rawId) {
+		let resolvedId = model.resolveId(rawId);
+		if (resolvedId !== rawId) {
+			if (
+				!(await confirm({ prompt: `Did you mean "${resolvedId}" instead of "${rawId}"?` }))
+			) {
+				process.exit(1);
+			}
 		}
+		args[name] = resolvedId;
 	}
 }
 
-let task = await Task.fromId(taskId, { questionIds: questionId || Question.ids, ...overrides });
+// Confirm when running an entity-scoped task for all entities
+let resolved = await Task.resolve(taskId);
+let scopes = Task.getScopes(resolved.subtasks ?? resolved);
 
-if (task.scope === "question") {
-	if (!questionId) {
-		let allQuestions =
-			task.type === "llm"
-				? false
-				: confirm
-					? await confirm({
-							prompt: `Are you sure you want to run the task for all questions?`,
-						})
-					: true;
-		if (!allQuestions) {
+for (let scope of scopes) {
+	let model = config.model?.[scope];
+	if (model?.multiple && !args[scope]) {
+		let runAll = await confirm({
+			prompt: `Are you sure you want to run the task for all ${model.plural}?`,
+		});
+		if (!runAll) {
 			throw new Error(
-				`Please provide a question ID via the -q/--question flag. Available ids: ${Question.ids.join(", ")}`,
+				`Please provide a ${model.name} ID${model.flag ? ` via the ${model.flag} flag` : ""}. Available ids: ${model.ids.join(", ")}`,
 			);
 		}
 	}
 }
 
+let entityIds = {};
+for (let name in config.model) {
+	if (args[name]) {
+		entityIds[name] = args[name];
+	}
+}
+
+let task = await Task.fromId(taskId, { entityIds, dryRun, config, ...overrides });
+
 try {
-	let result = await task.run({ dryRun });
+	let result = await task.run();
 	if (dryRun) {
 		prettyPrint(result);
 	}

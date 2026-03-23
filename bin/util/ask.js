@@ -30,7 +30,7 @@ export async function ask (options = {}) {
 		invalidMessage,
 	} = options;
 	try {
-		let answer = (await rl.question(prompt + "\n")).trim();
+		let answer = process.stdin.isTTY ? (await rl.question(prompt + "\n")).trim() : undefined;
 
 		if (!answer) {
 			answer = defaultValue;

@@ -1,4 +1,5 @@
 import { importCwd } from "./util.js";
+import Model from "./model.js";
 
 const DEFAULT_CONFIG_FILE = "qualve.config.js";
 
@@ -10,6 +11,12 @@ export default class Config {
 			if (!(key in this)) {
 				this[key] = spec[key];
 			}
+		}
+
+		if (this.model) {
+			this.model = Object.fromEntries(
+				Object.entries(this.model).map(([name, entry]) => [name, new Model(name, entry)]),
+			);
 		}
 	}
 

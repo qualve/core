@@ -9,14 +9,13 @@ import {
 	toArray,
 	importCwd,
 } from "./util.js";
-import Question from "./question.js";
 import File from "./file.js";
 import { existsSync, rmSync } from "node:fs";
 import { ProgressIndicator } from "./util.js";
 import Config from "./config.js";
 
 export default class Task {
-	constructor (task, { parent = null, questionIds, info, force, config } = {}) {
+	constructor (task, { parent = null, entityIds, info, force, dryRun, config } = {}) {
 		this.task = task instanceof Task ? task.task : task;
 
 		for (let key in task) {
@@ -31,15 +30,29 @@ export default class Task {
 		normalizeFiles(this);
 		this.customInfo = info;
 
-		this.questionIds = questionIds ? toArray(questionIds) : this.parent?.questionIds;
+		this.rawEntityIds = entityIds ?? this.parent?.rawEntityIds;
 
 		this.force = force ?? this.parent?.force ?? false;
+		this.dryRun = dryRun ?? this.parent?.dryRun ?? false;
 
 		this.subtasks = task.subtasks?.map(t => this.createSubtask(t));
+
+		// Resolve after subtasks so this.scope is available for compound tasks
+		let ids = this.rawEntityIds;
+		if (ids && typeof ids === "object" && !Array.isArray(ids)) {
+			ids = ids[this.scope];
+		}
+		this.entityIds = ids ? toArray(ids) : this.entityModel?.ids;
+
+		this.debug = { title: this.prefix, type: this.type ?? "compound", scope: this.scope };
 
 		this.ready = Promise.resolve()
 			.then(() => this.initAsync())
 			.then(() => this.postInit());
+	}
+
+	get entityModel () {
+		return this.config.model?.[this.scope];
 	}
 
 	createSubtask (subtask = this.task, args = {}) {
@@ -64,12 +77,11 @@ export default class Task {
 		if (this.subtasks) {
 			let scopes = Task.getScopes(this.subtasks);
 
-			if (scopes.has("question")) {
-				return "question";
-			}
-
-			if (scopes.has("survey")) {
-				return "survey";
+			// Prefer scopes with multiple entities — those drive entity selection
+			for (let scope of scopes) {
+				if (this.config.model?.[scope]?.multiple) {
+					return scope;
+				}
 			}
 
 			return [...scopes][0];
@@ -92,31 +104,29 @@ export default class Task {
 	get prefix () {
 		let ret = this.title;
 
-		if (this.scope === "question") {
+		if (this.entityModel?.multiple) {
 			ret += " for ";
-			if (this.questionIds?.length === 1) {
-				if (this.parent && this.parent.questionIds) {
+			if (this.entityIds?.length === 1) {
+				if (this.parent && this.parent.entityIds) {
 					ret = "";
 				}
 
-				ret += this.questionIds[0];
+				ret += this.entityIds[0];
 			}
 			else {
-				ret += `${this.questionIds.length} questions`;
+				ret += `${this.entityIds.length} ${this.entityModel.plural}`;
 			}
 		}
 
 		return ret;
 	}
 
-	get questionId () {
-		return this.scope === "question" && this.questionIds?.length === 1
-			? this.questionIds[0]
-			: undefined;
+	get entityId () {
+		return this.entityModel && this.entityIds?.length === 1 ? this.entityIds[0] : undefined;
 	}
 
-	get question () {
-		return this.questionId ? Question.fromId(this.questionId) : undefined;
+	get entity () {
+		return this.entityId ? this.entityModel?.fromId(this.entityId) : undefined;
 	}
 
 	/** Whether this task splits its input into batches (i.e. `itemsPerPage > 0`). */
@@ -126,7 +136,7 @@ export default class Task {
 
 	/**
 	 * The effective list of child tasks for this run, regardless of source
-	 * (explicit subtasks, per-question expansion, or batch pagination).
+	 * (explicit subtasks, per-entity expansion, or batch pagination).
 	 * Memoized on first access — subsequent reads return the cached array.
 	 * Empty array for leaf tasks.
 	 */
@@ -139,12 +149,15 @@ export default class Task {
 		else if (this.subtasks) {
 			value = this.subtasks;
 		}
-		else if (this.scope === "question" && this.questionIds?.length > 1) {
-			value = this.questionIds.map(qid =>
-				this.createSubtask(this.task, { questionIds: [qid] }));
+		else if (this.entityModel?.multiple && !this.entityId) {
+			value = this.entityIds.map(id => this.createSubtask(this.task, { entityIds: [id] }));
 		}
 		else {
 			value = [];
+		}
+
+		if (value.length > 0) {
+			this.debug.subtasks = value.map(t => t.debug);
 		}
 
 		Object.defineProperty(this, "computedSubtasks", { value });
@@ -169,7 +182,12 @@ export default class Task {
 	}
 
 	get cwd () {
-		return "data/" + (this.questionId ? `${this.questionId}/` : "");
+		if (!this.entityModel) {
+			return "";
+		}
+
+		let { path } = this.entityModel;
+		return typeof path === "function" ? path(this.entityId) : path;
 	}
 
 	getMessage (args = {}) {
@@ -203,10 +221,12 @@ export default class Task {
 	async postInit () {
 		if (this.input) {
 			this.input = toArray(this.input).map(input => File.get(input, this));
+			this.debug.input = this.input.map(f => f.debugInfo());
 		}
 
 		if (this.output) {
 			this.output = File.get(this.output, this);
+			this.debug.output = this.output.debugInfo();
 		}
 	}
 
@@ -325,22 +345,20 @@ export default class Task {
 		return computedSubtasks.map(t => t.result);
 	}
 
-	async run ({ dryRun } = {}) {
+	async run () {
 		await this.ready;
 
 		let startTime = performance.now();
-		let debugInfo = dryRun ? await this.debugInfo() : undefined;
 		let result;
 
 		// Skip if the output already exists.
-		// Batch tasks: the parent's merged output is checked here — no children are spawned.
-		// Question-expansion / explicit-subtask tasks: typically have no parent-level output,
-		// so this passes through and each child handles its own skip check.
 		let outputPath = this.output?.filePath;
 		if (!this.force && outputPath && existsSync(outputPath)) {
 			this.skipped = true;
-			if (dryRun) {
-				debugInfo.skipped = true;
+			this.debug.skipped = true;
+
+			if (this.dryRun) {
+				return this.debug;
 			}
 			else if (this.progressIndicator) {
 				this.progressIndicator.status = "Skipped — output exists";
@@ -352,19 +370,17 @@ export default class Task {
 				);
 			}
 
-			if (!dryRun) {
-				return;
-			}
+			return;
 		}
 
 		let { computedSubtasks } = this;
 
 		if (computedSubtasks.length > 0) {
-			if (dryRun) {
-				debugInfo.subtasks = await Promise.all(
-					computedSubtasks.map(t => t.run({ dryRun })),
-				);
-				return debugInfo;
+			if (this.dryRun) {
+				// Subtask debug objects are already linked via computedSubtasks;
+				// just run each subtask so they populate their own debug
+				await Promise.all(computedSubtasks.map(t => t.run()));
+				return this.debug;
 			}
 
 			this.info(this.getMessage("..."));
@@ -379,11 +395,12 @@ export default class Task {
 			this.info(message);
 		}
 		else {
-			if (debugInfo) {
-				return debugInfo;
+			result = await this.runTask();
+
+			if (this.dryRun) {
+				return this.debug;
 			}
 
-			result = await this.runTask();
 			let message = this.getMessage({ ...result, startTime });
 
 			if (result.error) {
@@ -594,29 +611,6 @@ export default class Task {
 		};
 	}
 
-	/**
-	 * Return the fully resolved state of this task as a plain object.
-	 * Base returns common info (title, type, scope, input files, output).
-	 * Subclasses override and spread super to add type-specific details.
-	 */
-	async debugInfo () {
-		let info = {
-			title: this.prefix,
-			type: this.type ?? "compound",
-			scope: this.scope,
-		};
-
-		if (this.input?.length > 0) {
-			info.input = this.input.map(f => f.debugInfo());
-		}
-
-		if (this.output) {
-			info.output = this.output.debugInfo();
-		}
-
-		return info;
-	}
-
 	notImplemented () {
 		return new Error("Not implemented in " + this.constructor.name);
 	}
@@ -664,7 +658,7 @@ export default class Task {
 		return task;
 	}
 
-	static async fromId (taskId, { questionIds, config, ...overrides } = {}) {
+	static async fromId (taskId, { entityIds, config, dryRun, ...overrides } = {}) {
 		if (!taskId) {
 			throw new Error(`No task provided. Available tasks: ${this.ids.join(", ")}`);
 		}
@@ -707,7 +701,7 @@ export default class Task {
 		}
 
 		config = await Config.from(config);
-		return Task.create(task, { questionIds, force, config });
+		return Task.create(task, { entityIds, force, dryRun, config });
 	}
 
 	static #registry = new Map();

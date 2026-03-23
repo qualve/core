@@ -1,21 +1,14 @@
 export default {
-	questionId: {
-		long: "question",
-		short: "q",
+	config: {
+		short: "c",
 	},
-
-	// Options specific to data tasks
-	input: {
-		short: "i",
+	force: {
+		default: false,
+		short: "f",
 	},
-	output: {
-		short: "o",
+	dryRun: {
+		long: "dry-run",
 	},
-
-	// Options specific to LLM tasks
-	llm: {},
-	model: {},
-	thinking: {},
 	itemsPerPage: {
 		long: "pp",
 		parse: Number,
@@ -25,14 +18,10 @@ export default {
 	fresh: {
 		default: false,
 	},
-	force: {
-		default: false,
-		short: "f",
+	input: {
+		short: "i",
 	},
-	dryRun: {
-		long: "dry-run",
-	},
-	config: {
-		short: "c",
+	output: {
+		short: "o",
 	},
 };
