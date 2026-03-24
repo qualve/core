@@ -3,7 +3,7 @@ import { prettyPrint, printError } from "./util/pretty-print.js";
 import { confirm } from "./util/ask.js";
 import ArgsReader from "./util/args.js";
 import qualve from "../src/qualve.js";
-import Task from "../src/index.js";
+import { Task } from "../src/index.js";
 import Config from "../src/config.js";
 import availableOptions from "../src/options.js";
 

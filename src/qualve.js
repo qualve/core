@@ -1,4 +1,4 @@
-import Task from "./index.js";
+import { Task } from "./index.js";
 import Config from "./config.js";
 import { resolveOptions } from "./options.js";
 
