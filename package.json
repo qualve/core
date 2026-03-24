@@ -27,11 +27,15 @@
   "contributors": [
     "Dmitry Sharabin"
   ],
+  "scripts": {
+    "release": "npm login && release-it"
+  },
   "devDependencies": {
     "prettier": "^3.8.1",
     "prettier-plugin-brace-style": "^0.10.0",
     "prettier-plugin-merge": "^0.10.0",
-    "prettier-plugin-space-before-function-paren": "^0.1.0"
+    "prettier-plugin-space-before-function-paren": "^0.1.0",
+    "release-it": "^19.2.4"
   },
   "dependencies": {
     "log-update": "^6.1.0",
