@@ -15,6 +15,9 @@
   "contributors": [
     "Dmitry Sharabin"
   ],
+  "scripts": {
+    "release": "npm login && release-it"
+  },
   "devDependencies": {
     "prettier": "^3.8.1",
     "prettier-plugin-brace-style": "^0.10.0",
@@ -23,5 +26,8 @@
   },
   "peerDependencies": {
     "qualve": "*"
+  },
+  "dependencies": {
+    "release-it": "^19.2.4"
   }
 }
