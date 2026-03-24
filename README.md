@@ -12,8 +12,9 @@ npm install qualve
 ## Usage
 
 Via the CLI:
+
 ```sh
-qualve <task-id> [...options]
+npx qualve <task-id> [...options]
 ```
 
 Programmatically:
@@ -53,8 +54,25 @@ export default {
 
 You can chain tasks together to create custom data processing pipelines.
 
-## Running tasks
+## Configuration
 
-There are two ways to run tasks:
-1. Via the CLI tool
-2. Programmatically
+Qualve can be configured with a `qualve.config.js` file in your CWD.
+To use a different config file, you can pass the `--config`/`-c` option to the CLI or the `config` option to the programmatic API.
+
+The config file is a JavaScript file that exports an object with the following properties:
+- `model`: An object that defines any entities specific to the use case (e.g. a qualtiative analysis tool for a survey may have a `survey` entity and a `question` entity)
+- (Any plugin-specific options)
+
+Also, the config file is the place to import any plugins you need.
+
+## Options
+
+| Name | CLI? | Programmatic? | Description |
+|------|------|--------------|-------------|
+| `--config`/`-c` | ✅ | ✅ | The path to the config file. |
+| `--dry-run` | ✅ | ✅ | Whether to dry run the task. |
+| `--force`/`-f` | ✅ | ✅ | Whether to force the task to run even if the output file already exists. |
+| `--items-per-page`/`--pp` | ✅ | ✅ | The number of items to process per page. |
+| `--fresh` | ✅ | ✅ | Whether to run the task from scratch. |
+| `--input`/`-i` | ✅ | ✅ | The input file or glob pattern. |
+| `--output`/`-o` | ✅ | ✅ | The output file. |
