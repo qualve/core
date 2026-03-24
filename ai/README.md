@@ -1,54 +1,68 @@
-# @qualve/llm
+# @qualve/ai
 
-[Qualve](https://npmjs.com/package/qualve) plugin that adds support for LLM tasks.
-This plugin adds the `llm` task type and an `LLMTask` class.
-Use separate [plugins](#plugins) for each LLM provider to add support for specific models/providers such as Gemini, OpenAI, and Claude.
+Meta-package for [Qualve](https://npmjs.com/package/qualve) LLM support.
+Installs the core LLM framework and all official provider adapters in one go.
 
 ## Setup
 
 Requires **Node.js v23+**.
 
 ```sh
-npm install @qualve/llm
+npm install @qualve/ai
 ```
 
-### API Keys
+This installs:
+- [@qualve/llm](https://npmjs.com/package/@qualve/llm) — Core LLM task framework
+- [@qualve/anthropic](https://npmjs.com/package/@qualve/anthropic) — Claude provider
+- [@qualve/openai](https://npmjs.com/package/@qualve/openai) — OpenAI provider
+- [@qualve/googleai](https://npmjs.com/package/@qualve/googleai) — Gemini provider
 
-Copy `template.env` to `.env` and add API keys for the LLM providers you want to use:
-
-- Gemini: https://aistudio.google.com/api-keys
-- OpenAI: https://platform.openai.com/api-keys
-- Claude: https://platform.claude.com/settings/keys
+If you only need specific providers, install them individually instead (each pulls in `@qualve/llm` automatically).
 
 ## Usage
 
 ```js
-import "@qualve/llm";
+import "@qualve/ai";
 ```
 
-Importing the package registers all three LLM providers (Gemini, OpenAI, Claude) with the Qualve task system.
+Importing the package registers all three providers with the Qualve task system.
 
-## LLM Tasks
+You can also import individual providers via sub-paths:
 
-LLM tasks extend the base Qualve `Task` class, adding:
-- Provider dispatch via `task.llm` (e.g., `"gemini"`, `"openai"`, `"claude"`)
-- File upload/download for each provider
-- Streaming response handling with progress indicators
-- Structured output via JSON schemas
-- Configurable thinking/reasoning levels
+```js
+import "@qualve/ai/anthropic";
+import "@qualve/ai/openai";
+import "@qualve/ai/googleai";
+```
 
-### Options
+Or import the core framework:
 
-| Option | Flag | Description |
-| --- | --- | --- |
-| `llm` | `--llm` | Provider to use (`gemini`, `openai`, `claude`) |
-| `model` | `--model` | Model name (see table below) |
-| `thinking` | `--thinking` | Reasoning effort level |
-| `fresh` | `--fresh` | Force re-upload of input files |
+```js
+import { LLMTask } from "@qualve/ai/core";
+```
 
-### Models
+## API Keys
 
-| LLM | Model | Context window | Max output |
+Create a `.env` file with API keys for the providers you want to use:
+
+```sh
+GEMINI_API_KEY=...     # https://aistudio.google.com/api-keys
+OPENAI_API_KEY=...     # https://platform.openai.com/api-keys
+ANTHROPIC_API_KEY=...  # https://platform.claude.com/settings/keys
+```
+
+## Packages
+
+| Package | Description |
+| --- | --- |
+| [@qualve/llm](https://npmjs.com/package/@qualve/llm) | Core LLM task framework (`LLMTask` class) |
+| [@qualve/anthropic](https://npmjs.com/package/@qualve/anthropic) | Claude adapter |
+| [@qualve/openai](https://npmjs.com/package/@qualve/openai) | OpenAI adapter |
+| [@qualve/googleai](https://npmjs.com/package/@qualve/googleai) | Gemini adapter |
+
+## Models
+
+| Provider | Model | Context window | Max output |
 | --- | --- | --- | --- |
 | Gemini | `gemini-3.1-pro-preview`\* | 1,048,576 | 65,536 |
 | Gemini | `gemini-3.1-flash-preview` | 1,048,576 | 65,536 |
@@ -58,15 +72,24 @@ LLM tasks extend the base Qualve `Task` class, adding:
 | OpenAI | `gpt-5-nano` | 400K | 128K |
 | Claude | `claude-sonnet-4-6`\* | 1M | 64K |
 | Claude | `claude-haiku-4-6` | 200K | 64K |
-| Claude | `claude-opus-4-6` | 1M | 128K |
+| Claude | `claude-opus-4-5` | 1M | 128K |
 
 \* Default
+
+## Options
+
+| Option | Flag | Description |
+| --- | --- | --- |
+| `llm` | `--llm` | Provider to use (`gemini`, `openai`, `claude`) |
+| `model` | `--model` | Model name (see table above) |
+| `thinking` | `--thinking` | Reasoning effort level |
+| `fresh` | `--fresh` | Force re-upload of input files |
 
 ### Thinking levels
 
 Control reasoning effort via `--thinking <LEVEL>` or the `thinking` task property.
 
-| LLM | Accepted values |
+| Provider | Accepted values |
 | --- | --- |
 | [Gemini](https://ai.google.dev/gemini-api/docs/thinking) | `minimal`, `low`, `medium`, `high`\* |
 | [OpenAI](https://platform.openai.com/docs/guides/reasoning) | `none`, `minimal`, `low`, `medium`\*, `high`, `xhigh` |

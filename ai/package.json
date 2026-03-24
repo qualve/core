@@ -1,5 +1,5 @@
 {
-  "name": "@qualve/llms",
+  "name": "@qualve/ai",
   "version": "0.0.1",
   "description": "LLM task plugin for Qualve, with adapters for Gemini, OpenAI, and Claude.",
   "type": "module",
