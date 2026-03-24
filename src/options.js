@@ -10,7 +10,8 @@ const availableOptions = {
 		long: "dry-run",
 	},
 	itemsPerPage: {
-		long: "pp",
+		long: "items-per-page",
+		short: "pp",
 		parse: Number,
 		// 0 disables batching (overrides task-level default)
 		validate: v => Number.isInteger(v) && v >= 0,
