@@ -92,3 +92,8 @@ Note that plugins may add additional options.
 ## Plugins
 
 - [@qualve/graphql](https://www.npmjs.com/package/@qualve/graphql) - GraphQL inputs for Qualve Tasks
+- [@qualve/ai](https://www.npmjs.com/package/@qualve/ai) - LLM tasks (all providers)
+- [@qualve/llm](https://www.npmjs.com/package/@qualve/llm) - Core LLM task framework
+- [@qualve/anthropic](https://www.npmjs.com/package/@qualve/anthropic) - Claude provider
+- [@qualve/openai](https://www.npmjs.com/package/@qualve/openai) - OpenAI provider
+- [@qualve/googleai](https://www.npmjs.com/package/@qualve/googleai) - Gemini provider
