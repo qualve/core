@@ -1,6 +1,8 @@
 # @qualve/llm
 
-LLM task plugin for [Qualve](https://github.com/qualve/core), with adapters for Gemini, OpenAI, and Claude.
+[Qualve](https://npmjs.com/package/qualve) plugin that adds support for LLM tasks.
+This plugin adds the `llm` task type and an `LLMTask` class.
+Use separate [plugins](#plugins) for each LLM provider to add support for specific models/providers such as Gemini, OpenAI, and Claude.
 
 ## Setup
 
