@@ -692,7 +692,12 @@ export default class Task {
 		}
 
 		if (output) {
-			task.output.source = output;
+			if (task.output) {
+				task.output.source = output;
+			}
+			else {
+				task.output = File.get(output);
+			}
 		}
 
 		for (let key in otherOverrides) {
