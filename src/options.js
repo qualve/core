@@ -26,19 +26,27 @@ const availableOptions = {
 	},
 };
 
+/**
+ * Resolve raw option values against available option definitions.
+ * Applies parsing, validation, and defaults.
+ * @param {object} options - Raw option key-value pairs
+ * @returns {object} Resolved options
+ */
 export function resolveOptions (options) {
 	let ret = {};
 
 	for (let key in availableOptions) {
+		let option = availableOptions[key];
+		let value;
+
 		if (key in options) {
-			let value = options[key];
+			value = options[key];
 
 			if (option.parse) {
 				value = option.parse(value);
 			}
 
 			if (option.validate && !option.validate(value)) {
-				// Ignore invalid values
 				value = undefined;
 			}
 		}

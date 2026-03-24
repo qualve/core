@@ -2,6 +2,7 @@
 import { prettyPrint, printError } from "./util/pretty-print.js";
 import { confirm } from "./util/ask.js";
 import ArgsReader from "./util/args.js";
+import qualve from "../src/qualve.js";
 import Task from "../src/index.js";
 import Config from "../src/config.js";
 import availableOptions from "../src/options.js";
@@ -21,7 +22,7 @@ for (let name in config.model) {
 // Second pass: re-parse with entity options included, if needed
 args = argsReader.args;
 
-let { dryRun, _: positional, ...overrides } = args;
+let { _: positional, ...options } = args;
 const taskId = positional[0];
 
 if (!taskId) {
@@ -32,7 +33,7 @@ if (!taskId) {
 // Resolve truncated ids
 for (let name in config.model) {
 	let model = config.model[name];
-	let rawId = args[name];
+	let rawId = options[name];
 
 	if (rawId) {
 		let resolvedId = model.resolveId(rawId);
@@ -43,7 +44,7 @@ for (let name in config.model) {
 				process.exit(1);
 			}
 		}
-		args[name] = resolvedId;
+		options[name] = resolvedId;
 	}
 }
 
@@ -53,7 +54,7 @@ let scopes = Task.getScopes(resolved.subtasks ?? resolved);
 
 for (let scope of scopes) {
 	let model = config.model?.[scope];
-	if (model?.multiple && !args[scope]) {
+	if (model?.multiple && !options[scope]) {
 		let runAll = await confirm({
 			prompt: `Are you sure you want to run the task for all ${model.plural}?`,
 		});
@@ -62,21 +63,14 @@ for (let scope of scopes) {
 				`Please provide a ${model.name} ID${model.flag ? ` via the ${model.flag} flag` : ""}. Available ids: ${model.ids.join(", ")}`,
 			);
 		}
+
+		options[scope] = model.ids;
 	}
 }
-
-let entityIds = {};
-for (let name in config.model) {
-	if (args[name]) {
-		entityIds[name] = args[name];
-	}
-}
-
-let task = await Task.fromId(taskId, { entityIds, dryRun, config, ...overrides });
 
 try {
-	let result = await task.run();
-	if (dryRun) {
+	let result = await qualve(taskId, { ...options, config });
+	if (options.dryRun) {
 		prettyPrint(result);
 	}
 	else if (!result?.outputPath && result?.result !== undefined) {

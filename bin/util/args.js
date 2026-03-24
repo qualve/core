@@ -29,25 +29,11 @@ export default class ArgsReader {
 	}
 
 	#readOption (key) {
-		let option = this.options[key];
 		let keyUsed = this.#getKeyUsed(key);
-		let value;
 
 		if (keyUsed !== undefined) {
-			value = this.#rawParsedArgs[keyUsed];
-
-			if (option.parse) {
-				value = option.parse(value);
-			}
-
-			if (option.validate && !option.validate(value)) {
-				// Ignore invalid values
-				value = undefined;
-			}
+			this.#args[key] = this.#rawParsedArgs[keyUsed];
 		}
-
-		value ??= option.default;
-		this.#args[key] = value;
 	}
 
 	get #optionsChanged () {
