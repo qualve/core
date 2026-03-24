@@ -1,4 +1,4 @@
-export default {
+const availableOptions = {
 	config: {
 		short: "c",
 	},
@@ -25,3 +25,28 @@ export default {
 		short: "o",
 	},
 };
+
+export function resolveOptions (options) {
+	let ret = {};
+
+	for (let key in availableOptions) {
+		if (key in options) {
+			let value = options[key];
+
+			if (option.parse) {
+				value = option.parse(value);
+			}
+
+			if (option.validate && !option.validate(value)) {
+				// Ignore invalid values
+				value = undefined;
+			}
+		}
+
+		ret[key] = value ?? option.default;
+	}
+
+	return ret;
+}
+
+export default availableOptions;
