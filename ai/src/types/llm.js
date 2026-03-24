@@ -10,7 +10,7 @@ import {
 	readJSONSync,
 	dedent,
 } from "../util.js";
-import { inputFiles, outputFile } from "../../tasks/_prompts-common.js";
+import { inputFiles, outputFile } from "../prompts.js";
 import options from "../options.js";
 
 Object.assign(options, {
