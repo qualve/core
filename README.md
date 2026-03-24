@@ -89,3 +89,6 @@ Note that plugins may add additional options.
 | `--input`/`-i` | string | The input file or glob pattern. |
 
 
+## Plugins
+
+- [@qualve/graphql](https://www.npmjs.com/package/@qualve/graphql) - GraphQL inputs for Qualve Tasks
