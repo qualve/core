@@ -1,0 +1,28 @@
+{
+  "name": "@qualve/llm",
+  "version": "0.0.1",
+  "description": "Core LLM task framework for Qualve.",
+  "type": "module",
+  "engines": {
+    "node": ">=23"
+  },
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qualve/llm.git",
+    "directory": "core"
+  },
+  "author": "Lea Verou",
+  "contributors": [
+    "Dmitry Sharabin"
+  ],
+  "peerDependencies": {
+    "qualve": "*"
+  },
+  "dependencies": {
+    "dedent": "^1.7.2"
+  }
+}

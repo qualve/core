@@ -5,7 +5,7 @@ import { loadEnvFile } from "node:process";
 import Task from "qualve/task";
 import { ProgressIndicator, addFilenameSuffix, readJSONSync } from "qualve/util";
 import { handleStream, dedent } from "../util.js";
-import { inputFiles, outputFile } from "../prompts.js";
+import * as prompts from "../prompts.js";
 import options from "qualve/options";
 
 Object.assign(options, {
@@ -267,6 +267,21 @@ export default class LLMTask extends Task {
 	/** Count the total input tokens for this task. Returns undefined if unsupported. */
 	async countTokens () {}
 
+	/** Describe a single input file for inclusion in the prompt. */
+	inputFile (file) {
+		return prompts.inputFile.call(this, file);
+	}
+
+	/** Describe all input files for inclusion in the prompt. */
+	inputFiles (files) {
+		return prompts.inputFiles.call(this, files);
+	}
+
+	/** Describe the expected output file for inclusion in the prompt. */
+	outputFile (file) {
+		return prompts.outputFile.call(this, file);
+	}
+
 	/**
 	 * Normalize a prompts value to a flat array of strings.
 	 * Accepts a string, array, or function (called with the current entity).
@@ -305,11 +320,11 @@ export default class LLMTask extends Task {
 			!capabilities.inputDescriptions
 		) {
 			// Incorporate file descriptions and schemas into the prompt
-			this.prompt.push(inputFiles.call(this, this.input));
+			this.prompt.push(this.inputFiles(this.input));
 		}
 
 		if (this.output) {
-			this.prompt.push(outputFile.call(this, this.output));
+			this.prompt.push(this.outputFile(this.output));
 		}
 
 		Object.assign(this.debug, { system: this.system, prompt: this.prompt });

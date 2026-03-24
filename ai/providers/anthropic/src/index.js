@@ -1,6 +1,5 @@
-import LLMTask from "../types/llm.js";
+import { LLMTask } from "@qualve/llm";
 import Anthropic, { toFile } from "@anthropic-ai/sdk";
-import { inputFile } from "../prompts.js";
 
 export default class Claude extends LLMTask {
 	static id = "claude";
@@ -75,7 +74,7 @@ export default class Claude extends LLMTask {
 						...prompt.map(t => ({ type: "text", text: t })),
 						...input.map(f => ({
 							type: "document",
-							context: inputFile.call(this, f),
+							context: this.inputFile(f),
 							source: {
 								type: "text",
 								media_type: "text/plain",
@@ -113,7 +112,7 @@ export default class Claude extends LLMTask {
 						...prompt.map(t => ({ type: "text", text: t })),
 						...input.map(f => ({
 							type: "document",
-							context: inputFile.call(this, f),
+							context: this.inputFile(f),
 							source: {
 								type: "file",
 								file_id: f.remoteFile.id,

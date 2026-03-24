@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import LLMTask from "../types/llm.js";
+import { LLMTask } from "@qualve/llm";
 import { createUserContent, createPartFromUri, GoogleGenAI } from "@google/genai";
 
 export default class Gemini extends LLMTask {

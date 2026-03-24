@@ -1,6 +1,5 @@
 import OpenAIClient from "openai";
-import LLMTask from "../types/llm.js";
-import { inputFile } from "../prompts.js";
+import { LLMTask } from "@qualve/llm";
 
 export default class OpenAI extends LLMTask {
 	static models = ["gpt-5.4", "gpt-5-mini", "gpt-5-nano"];
@@ -103,7 +102,7 @@ export default class OpenAI extends LLMTask {
 						// Include uploaded files as direct input_file blocks,
 						// giving the model complete access to file contents (unlike file_search which returns chunks)
 						...input.flatMap(f => [
-							{ type: "input_text", text: inputFile.call(this, f) },
+							{ type: "input_text", text: this.inputFile(f) },
 							{ type: "input_file", file_id: f.remoteFile.id },
 						]),
 					],

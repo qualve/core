@@ -1,0 +1,29 @@
+{
+  "name": "@qualve/openai",
+  "version": "0.0.1",
+  "description": "OpenAI provider for Qualve LLM tasks.",
+  "type": "module",
+  "engines": {
+    "node": ">=23"
+  },
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qualve/llm.git",
+    "directory": "providers/openai"
+  },
+  "contributors": [
+    "Dmitry Sharabin",
+    "Lea Verou"
+  ],
+  "peerDependencies": {
+    "qualve": "*"
+  },
+  "dependencies": {
+    "@qualve/llm": "latest",
+    "openai": "^6.31.0"
+  }
+}
