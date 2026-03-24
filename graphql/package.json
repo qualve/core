@@ -1,0 +1,27 @@
+{
+  "name": "@qualve/graphql",
+  "version": "0.0.1",
+  "description": "GraphQL inputs for Qualve Tasks",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qualve/graphql.git"
+  },
+  "author": "Lea Verou",
+  "contributors": [
+    "Dmitry Sharabin"
+  ],
+  "devDependencies": {
+    "prettier": "^3.8.1",
+    "prettier-plugin-brace-style": "^0.10.0",
+    "prettier-plugin-merge": "^0.10.0",
+    "prettier-plugin-space-before-function-paren": "^0.1.0"
+  },
+  "peerDependencies": {
+    "qualve": "*"
+  }
+}
