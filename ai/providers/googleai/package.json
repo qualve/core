@@ -23,7 +23,7 @@
     "qualve": "*"
   },
   "dependencies": {
-    "@qualve/llm": "latest",
+    "@qualve/llm": "*",
     "@google/genai": "^1.45.0"
   }
 }

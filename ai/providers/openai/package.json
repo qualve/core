@@ -23,7 +23,7 @@
     "qualve": "*"
   },
   "dependencies": {
-    "@qualve/llm": "latest",
+    "@qualve/llm": "*",
     "openai": "^6.31.0"
   }
 }

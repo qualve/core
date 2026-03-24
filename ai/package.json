@@ -7,6 +7,10 @@
     "node": ">=23"
   },
   "main": "src/index.js",
+  "workspaces": [
+    "core",
+    "providers/*"
+  ],
   "exports": {
     ".": "./src/index.js",
     "./anthropic": "./src/anthropic.js",
@@ -32,9 +36,9 @@
     "prettier-plugin-space-before-function-paren": "^0.1.0"
   },
   "dependencies": {
-    "@qualve/llm": "latest",
-    "@qualve/anthropic": "latest",
-    "@qualve/openai": "latest",
-    "@qualve/googleai": "latest"
+    "@qualve/llm": "*",
+    "@qualve/anthropic": "*",
+    "@qualve/openai": "*",
+    "@qualve/googleai": "*"
   }
 }

@@ -23,7 +23,7 @@
     "qualve": "*"
   },
   "dependencies": {
-    "@qualve/llm": "latest",
+    "@qualve/llm": "*",
     "@anthropic-ai/sdk": "^0.79.0"
   }
 }
