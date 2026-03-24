@@ -35,7 +35,8 @@ export async function ask (options = {}) {
 		if (!answer) {
 			answer = defaultValue;
 		}
-		else if (validate) {
+
+		if (validate) {
 			let isValid = validate.call(options, answer);
 			if (!isValid) {
 				if (reprompt && reprompts > 0) {
