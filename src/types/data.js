@@ -18,6 +18,11 @@ export default class DataTask extends Task {
 			return;
 		}
 
+		if (files.length === 0) {
+			// No files matched — not an error, just a no-op
+			return {};
+		}
+
 		files = files.map(file => {
 			let ret = { path: path.join(file.parentPath, file.name), name: file.name };
 			ret.contents = readJSONSync(ret.path);

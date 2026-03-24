@@ -692,7 +692,12 @@ export default class Task {
 		}
 
 		if (output) {
-			task.output.source = output;
+			if (task.output) {
+				task.output.source = output;
+			}
+			else {
+				task.output = File.get(output);
+			}
 		}
 
 		for (let key in otherOverrides) {
@@ -724,6 +729,12 @@ export default class Task {
 	static create (task, ...args) {
 		let Type = Task.#registry.get(task.type);
 		if (!Type) {
+			if (task.type) {
+				throw new Error(
+					`Unknown task type: "${task.type}". Registered types: ${[...Task.#registry.keys()].join(", ") || "(none)"}`,
+				);
+			}
+
 			return new Task(task, ...args);
 		}
 		if (Type.create !== this.create) {

@@ -6,12 +6,24 @@ import { inspect } from "node:util";
  *   - `AggregateError.errors[]` entries (each recursed fully)
  *
  * Never throws — falls back to inspect(error) for non-standard shapes.
+ * Circular error references are detected and short-circuited.
  *
  * @param {unknown} error - The error to print.
- * @param {string} [indent=""] - Whitespace prepended to every line of output.
- * @param {string} [header=""] - Label prepended to the first line only (e.g. "Caused by ").
+ * @param {object} [options]
+ * @param {string} [options.indent=""] - Whitespace prepended to every line of output.
+ * @param {string} [options.header=""] - Label prepended to the first line only (e.g. "Caused by ").
+ * @param {WeakSet} [options.seen] - Tracks visited errors to prevent circular recursion.
  */
-export function printError (error, indent = "", header = "") {
+export function printError (error, { indent = "", header = "", seen = new WeakSet() } = {}) {
+	if (error && typeof error === "object") {
+		if (seen.has(error)) {
+			console.error(indent + header + "[Circular error reference]");
+			return;
+		}
+
+		seen.add(error);
+	}
+
 	let lines = (error?.stack ?? inspect(error, { depth: null, colors: true })).split("\n");
 	// Label appears only on the first line; subsequent stack-frame lines get indent only.
 	console.error(indent + header + lines[0]);
@@ -22,12 +34,12 @@ export function printError (error, indent = "", header = "") {
 	if (error instanceof AggregateError) {
 		console.error(indent + "  Details:");
 		for (let inner of error.errors) {
-			printError(inner, indent + "    ");
+			printError(inner, { indent: indent + "    ", seen });
 		}
 	}
 
 	if (error?.cause) {
-		printError(error.cause, indent + "  ", "Caused by ");
+		printError(error.cause, { indent: indent + "  ", header: "Caused by ", seen });
 	}
 }
 
