@@ -1,6 +1,6 @@
 import OpenAIClient from "openai";
 import LLMTask from "../types/llm.js";
-import { inputFile } from "../../tasks/_prompts-common.js";
+import { inputFile } from "../prompts.js";
 
 export default class OpenAI extends LLMTask {
 	static models = ["gpt-5.4", "gpt-5-mini", "gpt-5-nano"];

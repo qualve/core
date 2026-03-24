@@ -1,6 +1,6 @@
 import LLMTask from "../types/llm.js";
 import Anthropic, { toFile } from "@anthropic-ai/sdk";
-import { inputFile } from "../../tasks/_prompts-common.js";
+import { inputFile } from "../prompts.js";
 
 export default class Claude extends LLMTask {
 	static id = "claude";

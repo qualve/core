@@ -2,16 +2,11 @@ import * as path from "node:path";
 import { readFileSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
-import Task from "../task.js";
-import {
-	handleStream,
-	ProgressIndicator,
-	addFilenameSuffix,
-	readJSONSync,
-	dedent,
-} from "../util.js";
+import Task from "qualve/task";
+import { ProgressIndicator, addFilenameSuffix, readJSONSync } from "qualve/util";
+import { handleStream, dedent } from "../util.js";
 import { inputFiles, outputFile } from "../prompts.js";
-import options from "../options.js";
+import options from "qualve/options";
 
 Object.assign(options, {
 	// Options specific to LLM tasks
