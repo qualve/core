@@ -67,12 +67,25 @@ Also, the config file is the place to import any plugins you need.
 
 ## Options
 
-| Name | CLI? | Programmatic? | Description |
-|------|------|--------------|-------------|
-| `--config`/`-c` | ✅ | ✅ | The path to the config file. |
-| `--dry-run` | ✅ | ✅ | Whether to dry run the task. |
-| `--force`/`-f` | ✅ | ✅ | Whether to force the task to run even if the output file already exists. |
-| `--items-per-page`/`--pp` | ✅ | ✅ | The number of items to process per page. |
-| `--fresh` | ✅ | ✅ | Whether to run the task from scratch. |
-| `--input`/`-i` | ✅ | ✅ | The input file or glob pattern. |
-| `--output`/`-o` | ✅ | ✅ | The output file. |
+These options can be passed as either CLI flags or as options to the programmatic API.
+
+### All tasks
+
+| Name | Type | Description |
+|------|-----------------|-------------|
+| `--config`/`-c` | string | The path to the config file. |
+| `--dry-run` | boolean | Whether to dry run the task. |
+| `--force`/`-f` | boolean | Whether to force the task to run even if the output file already exists. |
+| `--items-per-page`/`--pp` | number | The number of items to process per page if batching is desired. |
+| `--input`/`-i` | string, array, or object | The input file or glob pattern. |
+| `--output`/`-o` | string or object | The output file. |
+
+Note that plugins may add additional options.
+
+### Data tasks
+
+| Name | Type | Description |
+|------|-----------------|-------------|
+| `--input`/`-i` | string | The input file or glob pattern. |
+
+
