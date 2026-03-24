@@ -1,6 +1,6 @@
 {
   "name": "qualve",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Pluggable data processing framework",
   "type": "module",
   "engines": {
