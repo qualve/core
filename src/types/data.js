@@ -7,11 +7,11 @@ export default class DataTask extends Task {
 	static type = "data";
 
 	async runTask () {
-		let globs = this.input.map(input => input.filename);
 		let outputPath = this.output?.filePath;
 
-		let files = globSync(globs, { cwd: this.cwd, withFileTypes: true }).filter(file =>
-			file.isFile());
+		let files = this.input.flatMap(input =>
+			globSync(input.filename, { cwd: this.cwd, withFileTypes: true }).filter(file =>
+				file.isFile()));
 
 		if (this.dryRun) {
 			Object.assign(this.debug, { resultType: this.resultType, outputPath, files });
