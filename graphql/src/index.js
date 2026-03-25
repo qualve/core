@@ -35,7 +35,7 @@ export default class GraphQLTask extends Task {
 		let result = await runQuery(query, this.config.graphql?.endpoint);
 
 		if (result) {
-			result = this.path.reduce((acc, key) => acc[key], result.data);
+			result = this.path.reduce((acc, key) => acc?.[key], result.data);
 			result = this.handleResult?.(result) ?? result;
 
 			var size = outputPath ? writeJSONSync(outputPath, result)?.length : undefined;
