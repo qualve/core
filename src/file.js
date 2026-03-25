@@ -99,8 +99,27 @@ export default class File {
 		return this.resolveValue(this.source.description);
 	}
 
+	#contents = {};
 	get contents () {
-		return this.resolveValue(this.source?.contents);
+		if ("value" in this.#contents) {
+			return this.#contents.value;
+		}
+
+		if ("pending" in this.#contents) {
+			return this.#contents.pending;
+		}
+
+		let ret = this.resolveValue(this.source?.contents);
+
+		if (typeof ret?.then === "function") {
+			// Async, update when resolved
+			return this.#contents.pending = ret.then(resolvedContents => {
+				delete this.#contents.pending;
+				return this.#contents.value = this.resolveValue(resolvedContents);
+			});
+		}
+
+		return this.#contents.value = ret;
 	}
 
 	get schema () {
