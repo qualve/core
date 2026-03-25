@@ -221,6 +221,7 @@ export default class Task {
 	async postInit () {
 		if (this.input) {
 			this.input = toArray(this.input).map(input => File.get(input, this));
+			await Promise.all(this.input.map(f => f.resolveContents()));
 			this.debug.input = this.input.map(f => f.debugInfo());
 		}
 

@@ -103,6 +103,28 @@ export default class File {
 		return this.resolveValue(this.source?.contents);
 	}
 
+	/**
+	 * If `contents` is a promise (or a function that returns one), await it and
+	 * replace the source value with the resolved data. No-op for sync values.
+	 */
+	async resolveContents () {
+		let value = this.contents;
+
+		if (value != null && typeof value.then === "function") {
+			try {
+				this.source.contents = await value;
+			}
+			catch (e) {
+				throw new Error(
+					`Failed to resolve contents for "${this.name}": ${e.message ?? e}`,
+					{
+						cause: e,
+					},
+				);
+			}
+		}
+	}
+
 	get schema () {
 		return this.source.schema;
 	}
