@@ -12,8 +12,6 @@ export default class File {
 	/** Original glob pattern, set on children and collapsed single-match globs. */
 	fromGlob;
 
-	#children; // undefined = not resolved, null = leaf, [] = glob with 0-1 matches, File[] = glob with >1 matches
-
 	constructor (source, context) {
 		this.source = source;
 		this.context = context;
@@ -132,54 +130,53 @@ export default class File {
 	 * @returns {File[] | null}
 	 */
 	get children () {
-		if (this.#children !== undefined) {
-			return this.#children;
-		}
+		let value;
 
 		if (!this.isGlob || !this.context) {
-			this.#children = null;
-			return this.#children;
+			value = null;
 		}
+		else {
+			let cwd = this.context.cwd || ".";
 
-		this.#children = [];
-
-		let cwd = this.context.cwd || ".";
-
-		// Try literal path first — a filename with special chars (e.g., `report[1].json`)
-		// may not actually be a glob
-		if (existsSync(path.join(cwd, this.filename))) {
-			return this.#children;
-		}
-
-		// Literal doesn't exist — try glob expansion
-		let matches = globSync(this.filename, { cwd, withFileTypes: true })
-			.filter(entry => entry.isFile())
-			.map(entry => {
-				let full = path.join(entry.parentPath, entry.name);
-				return path.relative(cwd, full);
-			});
-
-		let originalPattern = this.filename;
-
-		if (matches.length <= 1) {
-			// Collapse: adopt matched filename (if any), no children
-			if (matches.length === 1) {
-				this.source = { ...this.source, filename: matches[0] };
-				this.fromGlob = originalPattern;
+			// Try literal path first — a filename with special chars (e.g., `report[1].json`)
+			// may not actually be a glob
+			if (existsSync(path.join(cwd, this.filename))) {
+				value = [];
 			}
-			return this.#children;
+			else {
+				// Literal doesn't exist — try glob expansion
+				let matches = globSync(this.filename, { cwd, withFileTypes: true })
+					.filter(entry => entry.isFile())
+					.map(entry => {
+						let full = path.join(entry.parentPath, entry.name);
+						return path.relative(cwd, full);
+					});
+
+				let originalPattern = this.filename;
+
+				if (matches.length <= 1) {
+					// Collapse: adopt matched filename (if any), no children
+					if (matches.length === 1) {
+						this.source = { ...this.source, filename: matches[0] };
+						this.fromGlob = originalPattern;
+					}
+					value = [];
+				}
+				else {
+					// Multiple matches → create child Files
+					value = matches.map(fn => {
+						let childSource = { ...this.source, filename: fn };
+						let child = File.get(childSource, this.context);
+						child.fromGlob = originalPattern;
+						child.literal = true;
+						return child;
+					});
+				}
+			}
 		}
 
-		// Multiple matches → create child Files
-		this.#children = matches.map(fn => {
-			let childSource = { ...this.source, filename: fn };
-			let child = File.get(childSource, this.context);
-			child.fromGlob = originalPattern;
-			child.literal = true;
-			return child;
-		});
-
-		return this.#children;
+		Object.defineProperty(this, "children", { value, writable: true });
+		return value;
 	}
 
 	/**
