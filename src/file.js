@@ -9,7 +9,10 @@ export default class File {
 	/** When true, treat filename literally — no glob expansion. */
 	literal = false;
 
-	/** Original glob pattern, set on children and collapsed single-match globs. */
+	/** Parent File, set on children created by glob expansion. */
+	parent;
+
+	/** Original glob pattern, set on collapsed single-match globs (where the filename was replaced). */
 	fromGlob;
 
 	constructor (source, context) {
@@ -167,7 +170,7 @@ export default class File {
 					value = matches.map(fn => {
 						let childSource = { ...this.source, filename: fn };
 						let child = File.get(childSource, this.context);
-						child.fromGlob = originalPattern;
+						child.parent = this;
 						child.literal = true;
 						return child;
 					});
@@ -295,7 +298,10 @@ export default class File {
 			filePath: this.filePath,
 		};
 
-		if (this.fromGlob) {
+		if (this.parent) {
+			info.glob = this.parent.filename;
+		}
+		else if (this.fromGlob) {
 			info.fromGlob = this.fromGlob;
 		}
 
