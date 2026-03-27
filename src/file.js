@@ -12,9 +12,6 @@ export default class File {
 	/** Parent File, set on children created by glob expansion. */
 	parent;
 
-	/** Original glob pattern, set on collapsed single-match globs (where the filename was replaced). */
-	fromGlob;
-
 	constructor (source, context) {
 		this.source = source;
 		this.context = context;
@@ -58,8 +55,9 @@ export default class File {
 		}
 
 		if (this.source.filename) {
-			let { name, ext } = path.parse(this.source.filename);
-			return ext ? name : this.source.filename;
+			let filename = this.resolveValue(this.source.filename);
+			let { name, ext } = path.parse(filename);
+			return ext ? name : filename;
 		}
 
 		if (this !== this.context?.input?.[0]) {
@@ -158,10 +156,9 @@ export default class File {
 				let originalPattern = this.filename;
 
 				if (matches.length <= 1) {
-					// Collapse: adopt matched filename (if any), no children
+					// Collapse: adopt matched filename, no children
 					if (matches.length === 1) {
-						this.source = { ...this.source, filename: matches[0] };
-						this.fromGlob = originalPattern;
+						Object.defineProperty(this, "filename", { value: matches[0], writable: true });
 					}
 					value = [];
 				}
@@ -300,9 +297,6 @@ export default class File {
 
 		if (this.parent) {
 			info.glob = this.parent.filename;
-		}
-		else if (this.fromGlob) {
-			info.fromGlob = this.fromGlob;
 		}
 
 		if (this.children?.length > 0) {
