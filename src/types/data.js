@@ -8,7 +8,7 @@ export default class DataTask extends Task {
 		let outputPath = this.output?.filePath;
 
 		// Flatten: each input File may have children from glob expansion
-		let files = this.input.flatMap(f => f.children.length > 0 ? f.children : [f]);
+		let files = this.input.flatMap(f => f.children?.length > 0 ? f.children : [f]);
 
 		if (this.dryRun) {
 			Object.assign(this.debug, { resultType: this.resultType, outputPath, files: files.map(f => f.debugInfo()) });

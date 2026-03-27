@@ -12,7 +12,7 @@ export default class File {
 	/** Original glob pattern, set on children and collapsed single-match globs. */
 	fromGlob;
 
-	#children; // undefined = not resolved, [] = leaf/resolved-no-children
+	#children; // undefined = not resolved, null = leaf, [] = glob with 0-1 matches, File[] = glob with >1 matches
 
 	constructor (source, context) {
 		this.source = source;
@@ -124,21 +124,24 @@ export default class File {
 
 	/**
 	 * Child File objects from glob expansion.
-	 * Empty array for leaf files. Populated lazily for glob files with >1 match.
+	 * - `null` for leaf files (not a glob)
+	 * - `[]` for globs that matched 0-1 files (collapsed)
+	 * - `File[]` for globs with multiple matches
 	 * Tries the literal filename first (in case special chars aren't actually glob syntax),
 	 * then falls back to glob expansion.
-	 * @returns {File[]}
+	 * @returns {File[] | null}
 	 */
 	get children () {
 		if (this.#children !== undefined) {
 			return this.#children;
 		}
 
-		this.#children = [];
-
 		if (!this.isGlob || !this.context) {
+			this.#children = null;
 			return this.#children;
 		}
+
+		this.#children = [];
 
 		let cwd = this.context.cwd || ".";
 
@@ -184,7 +187,7 @@ export default class File {
 	 * 1 for leaf files, children.length for parents.
 	 */
 	get length () {
-		return this.children.length || 1;
+		return this.children?.length || 1;
 	}
 
 	/**
@@ -192,7 +195,7 @@ export default class File {
 	 * @returns {Array}
 	 */
 	toArray () {
-		if (this.children.length > 0) {
+		if (this.children?.length > 0) {
 			return this.children.map(c => c.contents);
 		}
 		return [this.contents];
@@ -204,7 +207,7 @@ export default class File {
 	 * @returns {Object}
 	 */
 	toJSON () {
-		if (this.children.length > 0) {
+		if (this.children?.length > 0) {
 			return Object.fromEntries(this.children.map(c => [c.name, c.contents]));
 		}
 		return { [this.name]: this.contents };
@@ -217,7 +220,7 @@ export default class File {
 	#contents = {};
 	get contents () {
 		// Files with children don't have their own contents
-		if (this.children.length > 0) {
+		if (this.children?.length > 0) {
 			return undefined;
 		}
 
@@ -299,7 +302,7 @@ export default class File {
 			info.fromGlob = this.fromGlob;
 		}
 
-		if (this.children.length > 0) {
+		if (this.children?.length > 0) {
 			info.children = this.children.length;
 		}
 
