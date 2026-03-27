@@ -448,7 +448,7 @@ export default class Task {
 			}
 		}
 
-		let rawData = readJSONSync(batchableInput.filePath);
+		let rawData = batchableInput.contents;
 		// paginate: true (or auto-detected) means top-level array;
 		// an array of strings is a property path to a nested array.
 		let batchableData = Array.isArray(batchableInput.paginate)

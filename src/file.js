@@ -1,9 +1,18 @@
+import { existsSync, globSync } from "node:fs";
 import path from "node:path";
-import { addFilenameSuffix, getExtension } from "./util.js";
+import { addFilenameSuffix, getExtension, readJSONSync } from "./util.js";
 
 export default class File {
 	#source;
 	context;
+
+	/** When true, treat filename literally — no glob expansion. */
+	literal = false;
+
+	/** Original glob pattern, set on children and collapsed single-match globs. */
+	fromGlob;
+
+	#children; // undefined = not resolved, [] = leaf/resolved-no-children
 
 	constructor (source, context) {
 		this.source = source;
@@ -95,12 +104,123 @@ export default class File {
 		return path.join(this.context?.cwd ?? "", this.filename);
 	}
 
+	/** Alias for filePath. */
+	get path () {
+		return this.filePath;
+	}
+
+	/**
+	 * Whether this filename looks like a glob pattern.
+	 * Based on syntax only (unescaped *, ?, [, {) — does not trigger resolution.
+	 * Note: may report true for literal filenames with special chars (e.g., `report[1].json`).
+	 * The children getter handles this by trying the literal path first.
+	 */
+	get isGlob () {
+		if (this.literal) {
+			return false;
+		}
+		return /(?<!\\)[*?\[{]/.test(this.filename);
+	}
+
+	/**
+	 * Child File objects from glob expansion.
+	 * Empty array for leaf files. Populated lazily for glob files with >1 match.
+	 * Tries the literal filename first (in case special chars aren't actually glob syntax),
+	 * then falls back to glob expansion.
+	 * @returns {File[]}
+	 */
+	get children () {
+		if (this.#children !== undefined) {
+			return this.#children;
+		}
+
+		this.#children = [];
+
+		if (!this.isGlob || !this.context) {
+			return this.#children;
+		}
+
+		let cwd = this.context.cwd || ".";
+
+		// Try literal path first — a filename with special chars (e.g., `report[1].json`)
+		// may not actually be a glob
+		if (existsSync(path.join(cwd, this.filename))) {
+			return this.#children;
+		}
+
+		// Literal doesn't exist — try glob expansion
+		let matches = globSync(this.filename, { cwd, withFileTypes: true })
+			.filter(entry => entry.isFile())
+			.map(entry => {
+				let full = path.join(entry.parentPath, entry.name);
+				return path.relative(cwd, full);
+			});
+
+		let originalPattern = this.filename;
+
+		if (matches.length <= 1) {
+			// Collapse: adopt matched filename (if any), no children
+			if (matches.length === 1) {
+				this.source = { ...this.source, filename: matches[0] };
+				this.fromGlob = originalPattern;
+			}
+			return this.#children;
+		}
+
+		// Multiple matches → create child Files
+		this.#children = matches.map(fn => {
+			let childSource = { ...this.source, filename: fn };
+			let child = File.get(childSource, this.context);
+			child.fromGlob = originalPattern;
+			child.literal = true;
+			return child;
+		});
+
+		return this.#children;
+	}
+
+	/**
+	 * Number of files this File represents.
+	 * 1 for leaf files, children.length for parents.
+	 */
+	get length () {
+		return this.children.length || 1;
+	}
+
+	/**
+	 * Array of contents from children (for parents) or just this file's contents (for leaves).
+	 * @returns {Array}
+	 */
+	toArray () {
+		if (this.children.length > 0) {
+			return this.children.map(c => c.contents);
+		}
+		return [this.contents];
+	}
+
+	/**
+	 * Object mapping names to contents. Leverages the JSON.stringify protocol —
+	 * JSON.stringify(file) produces this object.
+	 * @returns {Object}
+	 */
+	toJSON () {
+		if (this.children.length > 0) {
+			return Object.fromEntries(this.children.map(c => [c.name, c.contents]));
+		}
+		return { [this.name]: this.contents };
+	}
+
 	get description () {
 		return this.resolveValue(this.source.description);
 	}
 
 	#contents = {};
 	get contents () {
+		// Files with children don't have their own contents
+		if (this.children.length > 0) {
+			return undefined;
+		}
+
 		if ("value" in this.#contents) {
 			return this.#contents.value;
 		}
@@ -110,6 +230,11 @@ export default class File {
 		}
 
 		let ret = this.resolveValue(this.source?.contents);
+
+		// Fallback: read from disk if no contents provided and file has a path
+		if (ret == null && this.source?.filename) {
+			ret = readJSONSync(this.path);
+		}
 
 		if (typeof ret?.then === "function") {
 			// Async, update when resolved
@@ -169,6 +294,14 @@ export default class File {
 			filename: this.filename,
 			filePath: this.filePath,
 		};
+
+		if (this.fromGlob) {
+			info.fromGlob = this.fromGlob;
+		}
+
+		if (this.children.length > 0) {
+			info.children = this.children.length;
+		}
 
 		if (this.description) {
 			info.description = this.description;
