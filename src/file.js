@@ -6,8 +6,14 @@ export default class File {
 	#source;
 	context;
 
-	/** When true, treat filename literally — no glob expansion. */
-	literal = false;
+	/** When true, treat filename literally — no glob expansion. Also read from source. */
+	get literal () {
+		return this.#literal ?? this.source?.literal ?? false;
+	}
+	set literal (value) {
+		this.#literal = value;
+	}
+	#literal;
 
 	/** Parent File, set on children created by glob expansion. */
 	parent;
@@ -18,6 +24,10 @@ export default class File {
 	}
 
 	get source () {
+		if (this.parent) {
+			let { name, filename, contents, ...inherited } = this.parent.source;
+			return { ...inherited, ...this.#source };
+		}
 		return this.#source;
 	}
 	set source (source) {
@@ -159,14 +169,14 @@ export default class File {
 					// Collapse: adopt matched filename, no children
 					if (matches.length === 1) {
 						Object.defineProperty(this, "filename", { value: matches[0], writable: true });
+						this.literal = true;
 					}
 					value = [];
 				}
 				else {
 					// Multiple matches → create child Files
 					value = matches.map(fn => {
-						let childSource = { ...this.source, filename: fn };
-						let child = File.get(childSource, this.context);
+						let child = File.get({ filename: fn }, this.context);
 						child.parent = this;
 						child.literal = true;
 						return child;
@@ -232,7 +242,7 @@ export default class File {
 		let ret = this.resolveValue(this.source?.contents);
 
 		// Fallback: read from disk if no contents provided and file has a path
-		if (ret == null && this.source?.filename) {
+		if (ret == null && (this.source?.filename || this.source?.name)) {
 			ret = readJSONSync(this.path);
 		}
 
