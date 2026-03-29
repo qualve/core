@@ -105,17 +105,18 @@ export default class File {
 	/**
 	 * The glob pattern for this file, or null if not a glob.
 	 * Can be set explicitly in source (`{ glob: "coding-*" }`) or auto-detected
-	 * from filename syntax (unescaped *, ?, [, {).
-	 * Cached on first access — must be resolved before filename is overridden.
-	 * The children getter handles this by trying the literal path first.
+	 * from string sources (which become source.name).
+	 * Object sources should use `glob` instead of putting patterns in `filename`.
 	 * @returns {string | null}
 	 */
 	get glob () {
 		let value = null;
 
 		if (!this.literal) {
+			// Explicit glob in source, or auto-detect from source.name (string sources only).
+			// source.filename is always treated as literal — use source.glob for object definitions.
 			value = this.source?.glob
-				?? (/(?<!\\)[*?\[{]/.test(this.filename) ? this.filename : null);
+				?? (this.source?.name && /(?<!\\)[*?\[{]/.test(this.source.name) ? this.filename : null);
 		}
 
 		Object.defineProperty(this, "glob", { value, writable: true, configurable: true });
