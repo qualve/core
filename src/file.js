@@ -37,18 +37,9 @@ export default class File {
 
 		if (typeof source === "object") {
 			this.#source = { ...source };
-			return;
-		}
-
-		let type = getExtension(source) ? "filename" : "name";
-
-		if (this.#source) {
-			// Override, we want to preserve schema, description, etc.
-			delete this.#source.name;
-			delete this.#source.filename;
-			this.#source[type] = source;
 		}
 		else {
+			let type = getExtension(source) ? "filename" : "name";
 			this.#source = { [type]: source };
 		}
 	}
@@ -76,13 +67,6 @@ export default class File {
 
 		return this.context?.id;
 	}
-	set name (value) {
-		this.source.name = value;
-
-		if (this.source.filename) {
-			delete this.source.filename;
-		}
-	}
 
 	get filename () {
 		if (this.source.filename) {
@@ -96,17 +80,6 @@ export default class File {
 		}
 
 		return this.name + this.suffix + ".json";
-	}
-	set filename (value) {
-		this.source.filename = value;
-
-		if (this.source.name) {
-			delete this.source.name;
-		}
-
-		if (this.source.suffix) {
-			delete this.source.suffix;
-		}
 	}
 
 	get filePath () {

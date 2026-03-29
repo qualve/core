@@ -683,7 +683,8 @@ export default class Task {
 				}
 
 				if (task.input[i]) {
-					task.input[i].source = input[i];
+					let { name, filename, contents, ...metadata } = task.input[i].source;
+					task.input[i] = File.get({ ...metadata, ...File.get(input[i]).source });
 				}
 				else {
 					task.input[i] = File.get(input[i]);
@@ -693,7 +694,8 @@ export default class Task {
 
 		if (output) {
 			if (task.output) {
-				task.output.source = output;
+				let { name, filename, contents, ...metadata } = task.output.source;
+				task.output = File.get({ ...metadata, ...File.get(output).source });
 			}
 			else {
 				task.output = File.get(output);
