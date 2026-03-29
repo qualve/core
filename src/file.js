@@ -51,39 +51,50 @@ export default class File {
 	}
 
 	get name () {
+		let value;
+
 		if (this.source.name) {
-			return this.resolveValue(this.source.name);
+			value = this.resolveValue(this.source.name);
+		}
+		else if (this.source.filename) {
+			// Safe to call this.filename here — when source.filename is set,
+			// the filename getter returns directly without calling name.
+			let { name, ext } = path.parse(this.filename);
+			value = ext ? name : this.filename;
+		}
+		else if (this !== this.context?.input?.[0]) {
+			value = this.context?.input?.[0]?.name;
+		}
+		else {
+			value = this.context?.id;
 		}
 
-		if (this.source.filename) {
-			let filename = this.resolveValue(this.source.filename);
-			let { name, ext } = path.parse(filename);
-			return ext ? name : filename;
-		}
-
-		if (this !== this.context?.input?.[0]) {
-			return this.context?.input?.[0]?.name;
-		}
-
-		return this.context?.id;
+		Object.defineProperty(this, "name", { value, writable: true, configurable: true });
+		return value;
 	}
 
 	get filename () {
+		let value;
+
 		if (this.source.filename) {
-			let filename = this.resolveValue(this.source.filename);
+			value = this.resolveValue(this.source.filename);
 
 			if (this.suffix) {
-				filename = addFilenameSuffix(filename, this.suffix);
+				value = addFilenameSuffix(value, this.suffix);
 			}
-
-			return filename;
+		}
+		else {
+			value = this.name + this.suffix + ".json";
 		}
 
-		return this.name + this.suffix + ".json";
+		Object.defineProperty(this, "filename", { value, writable: true, configurable: true });
+		return value;
 	}
 
 	get filePath () {
-		return path.join(this.context?.cwd ?? "", this.filename);
+		let value = path.join(this.context?.cwd ?? "", this.filename);
+		Object.defineProperty(this, "filePath", { value, writable: true, configurable: true });
+		return value;
 	}
 
 	/** Alias for filePath. */
@@ -136,12 +147,10 @@ export default class File {
 						return path.relative(cwd, full);
 					});
 
-				let originalPattern = this.filename;
-
 				if (matches.length <= 1) {
 					// Collapse: adopt matched filename, no children
 					if (matches.length === 1) {
-						Object.defineProperty(this, "filename", { value: matches[0], writable: true });
+						Object.defineProperty(this, "filename", { value: matches[0], writable: true, configurable: true });
 						this.literal = true;
 					}
 					value = [];
@@ -158,7 +167,7 @@ export default class File {
 			}
 		}
 
-		Object.defineProperty(this, "children", { value, writable: true });
+		Object.defineProperty(this, "children", { value, writable: true, configurable: true });
 		return value;
 	}
 
@@ -194,7 +203,9 @@ export default class File {
 	}
 
 	get description () {
-		return this.resolveValue(this.source.description);
+		let value = this.resolveValue(this.source.description);
+		Object.defineProperty(this, "description", { value, writable: true, configurable: true });
+		return value;
 	}
 
 	#contents = {};
@@ -248,7 +259,9 @@ export default class File {
 	}
 
 	get suffix () {
-		return this.resolveValue(this.source.suffix) ?? "";
+		let value = this.resolveValue(this.source.suffix) ?? "";
+		Object.defineProperty(this, "suffix", { value, writable: true, configurable: true });
+		return value;
 	}
 
 	/**
