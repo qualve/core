@@ -103,16 +103,23 @@ export default class File {
 	}
 
 	/**
-	 * Whether this filename looks like a glob pattern.
-	 * Based on syntax only (unescaped *, ?, [, {) — does not trigger resolution.
-	 * Note: may report true for literal filenames with special chars (e.g., `report[1].json`).
+	 * The glob pattern for this file, or null if not a glob.
+	 * Can be set explicitly in source (`{ glob: "coding-*" }`) or auto-detected
+	 * from filename syntax (unescaped *, ?, [, {).
+	 * Cached on first access — must be resolved before filename is overridden.
 	 * The children getter handles this by trying the literal path first.
+	 * @returns {string | null}
 	 */
-	get isGlob () {
-		if (this.literal) {
-			return false;
+	get glob () {
+		let value = null;
+
+		if (!this.literal) {
+			value = this.source?.glob
+				?? (/(?<!\\)[*?\[{]/.test(this.filename) ? this.filename : null);
 		}
-		return /(?<!\\)[*?\[{]/.test(this.filename);
+
+		Object.defineProperty(this, "glob", { value, writable: true, configurable: true });
+		return value;
 	}
 
 	/**
@@ -127,7 +134,7 @@ export default class File {
 	get children () {
 		let value;
 
-		if (!this.isGlob || !this.context) {
+		if (!this.glob || !this.context) {
 			value = null;
 		}
 		else {
@@ -140,7 +147,7 @@ export default class File {
 			}
 			else {
 				// Literal doesn't exist — try glob expansion
-				let matches = globSync(this.filename, { cwd, withFileTypes: true })
+				let matches = globSync(this.glob, { cwd, withFileTypes: true })
 					.filter(entry => entry.isFile())
 					.map(entry => {
 						let full = path.join(entry.parentPath, entry.name);
@@ -292,7 +299,10 @@ export default class File {
 		};
 
 		if (this.parent) {
-			info.glob = this.parent.filename;
+			info.glob = this.parent.glob;
+		}
+		else if (this.glob) {
+			info.glob = this.glob;
 		}
 
 		if (this.children?.length > 0) {
