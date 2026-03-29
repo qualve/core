@@ -176,7 +176,7 @@ export default class File {
 	 * 1 for leaf files, children.length for parents.
 	 */
 	get length () {
-		return this.children?.length || 1;
+		return this.children?.length ?? 1;
 	}
 
 	/**
