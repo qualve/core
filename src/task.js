@@ -564,9 +564,7 @@ export default class Task {
 				`-${completed.length}of${subtasks.length}`,
 			);
 			// Remove any stale complete output so it doesn't coexist with the partial one.
-			if (this.output.exists()) {
-				this.output.delete();
-			}
+			this.output.delete();
 		}
 
 		writeJSONSync(outputPath, merged);
