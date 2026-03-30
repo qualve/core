@@ -521,7 +521,7 @@ export default class Task {
 
 		for (let subtask of subtasks) {
 			if (subtask.output.exists()) {
-				merged.push(...toArray(readJSONSync(subtask.output.path)));
+				merged.push(...toArray(subtask.output.contents));
 				completed.push(subtask);
 			}
 		}
