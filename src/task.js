@@ -352,7 +352,6 @@ export default class Task {
 		let result;
 
 		// Skip if the output already exists on disk (from a prior run).
-		let outputPath = this.output?.path;
 		if (!this.force && this.output?.exists()) {
 			this.skipped = true;
 			this.debug.skipped = true;
@@ -366,7 +365,7 @@ export default class Task {
 			else {
 				this.info(
 					this.prefix +
-						` skipped (output already exists: ${outputPath}). Use -f to force.`,
+						` skipped (output already exists: ${this.output.path}). Use -f to force.`,
 				);
 			}
 
