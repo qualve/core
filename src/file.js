@@ -1,6 +1,6 @@
-import { existsSync, globSync } from "node:fs";
+import { existsSync, globSync, rmSync } from "node:fs";
 import path from "node:path";
-import { addFilenameSuffix, getExtension, readJSONSync } from "./util.js";
+import { addFilenameSuffix, getExtension, readJSONSync, writeJSONSync } from "./util.js";
 
 export default class File {
 	#source;
@@ -247,6 +247,29 @@ export default class File {
 		}
 
 		return this.#contents.value = ret;
+	}
+
+	/** Check if this file exists on disk. */
+	exists () {
+		return existsSync(this.path);
+	}
+
+	/**
+	 * Write data to this file on disk.
+	 * Updates the contents cache and returns the serialized byte length.
+	 * @param {*} data
+	 * @returns {number | undefined} byte length of the written content
+	 */
+	write (data) {
+		let size = writeJSONSync(this.path, data)?.length;
+		this.#contents.value = data;
+		return size;
+	}
+
+	/** Remove this file from disk. */
+	delete () {
+		rmSync(this.path);
+		delete this.#contents.value;
 	}
 
 	get schema () {

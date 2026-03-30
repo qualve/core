@@ -10,7 +10,7 @@ import {
 	importCwd,
 } from "./util.js";
 import File from "./file.js";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { ProgressIndicator } from "./util.js";
 import Config from "./config.js";
 
@@ -351,9 +351,9 @@ export default class Task {
 		let startTime = performance.now();
 		let result;
 
-		// Skip if the output already exists.
-		let outputPath = this.output?.filePath;
-		if (!this.force && outputPath && existsSync(outputPath)) {
+		// Skip if the output already exists on disk (from a prior run).
+		let outputPath = this.output?.path;
+		if (!this.force && this.output?.exists()) {
 			this.skipped = true;
 			this.debug.skipped = true;
 
@@ -521,8 +521,8 @@ export default class Task {
 		let completed = [];
 
 		for (let subtask of subtasks) {
-			if (existsSync(subtask.output.filePath)) {
-				merged.push(...toArray(readJSONSync(subtask.output.filePath)));
+			if (subtask.output.exists()) {
+				merged.push(...toArray(readJSONSync(subtask.output.path)));
 				completed.push(subtask);
 			}
 		}
@@ -536,7 +536,7 @@ export default class Task {
 					? `First subtask failed; ${notRun} not run (fail-fast) — no outputs to merge`
 					: "All subtasks failed — no outputs to merge";
 			return {
-				outputPath: this.output.filePath,
+				outputPath: this.output.path,
 				size: 0,
 				sizeUnit: "items",
 				error: new AggregateError(
@@ -557,16 +557,16 @@ export default class Task {
 		let outputPath;
 
 		if (allComplete) {
-			outputPath = this.output.filePath;
+			outputPath = this.output.path;
 		}
 		else {
 			outputPath = addFilenameSuffix(
-				this.output.filePath,
+				this.output.path,
 				`-${completed.length}of${subtasks.length}`,
 			);
 			// Remove any stale complete output so it doesn't coexist with the partial one.
-			if (existsSync(this.output.filePath)) {
-				rmSync(this.output.filePath);
+			if (this.output.exists()) {
+				this.output.delete();
 			}
 		}
 
@@ -600,7 +600,7 @@ export default class Task {
 		// On full success, clean up any temporary subtask outputs — they're now merged into the final file.
 		for (let subtask of completed) {
 			if (subtask.output.temporary) {
-				rmSync(subtask.output.filePath);
+				subtask.output.delete();
 			}
 		}
 

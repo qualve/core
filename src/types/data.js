@@ -1,17 +1,14 @@
-import { writeJSONSync } from "../util.js";
 import Task from "../task.js";
 
 export default class DataTask extends Task {
 	static type = "data";
 
 	async runTask () {
-		let outputPath = this.output?.filePath;
-
 		// Flatten: each input File may have children from glob expansion
 		let files = this.input.flatMap(f => f.children?.length > 0 ? f.children : [f]);
 
 		if (this.dryRun) {
-			Object.assign(this.debug, { resultType: this.resultType, outputPath, files: files.map(f => f.debugInfo()) });
+			Object.assign(this.debug, { resultType: this.resultType, outputPath: this.output?.path, files: files.map(f => f.debugInfo()) });
 			return;
 		}
 
@@ -27,9 +24,9 @@ export default class DataTask extends Task {
 					: files[0].contents;
 		let result = this.handleResult?.(input) ?? input;
 
-		let size = outputPath ? writeJSONSync(outputPath, result)?.length : undefined;
+		let size = this.output?.write(result);
 
-		return { inputs: files, result, outputPath, size };
+		return { inputs: files, result, outputPath: this.output?.path, size };
 	}
 }
 
