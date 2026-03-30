@@ -268,7 +268,7 @@ export default class File {
 
 	/** Remove this file from disk. */
 	delete () {
-		rmSync(this.path);
+		rmSync(this.path, { force: true });
 		delete this.#contents.value;
 	}
 
