@@ -1,45 +1,32 @@
-import { globSync } from "node:fs";
-import path from "node:path";
-import { readJSONSync, writeJSONSync } from "../util.js";
 import Task from "../task.js";
 
 export default class DataTask extends Task {
 	static type = "data";
 
 	async runTask () {
-		let globs = this.input.map(input => input.filename);
-		let outputPath = this.output?.filePath;
-
-		let files = globSync(globs, { cwd: this.cwd, withFileTypes: true }).filter(file =>
-			file.isFile());
+		// Flatten: each input File may have children from glob expansion
+		let files = this.input.flatMap(f => f.children?.length > 0 ? f.children : [f]);
 
 		if (this.dryRun) {
-			Object.assign(this.debug, { resultType: this.resultType, outputPath, files });
+			Object.assign(this.debug, { resultType: this.resultType, outputPath: this.output?.path, files: files.map(f => f.debugInfo()) });
 			return;
 		}
 
 		if (files.length === 0) {
-			// No files matched — not an error, just a no-op
 			return {};
 		}
 
-		files = files.map(file => {
-			let ret = { path: path.join(file.parentPath, file.name), name: file.name };
-			ret.contents = readJSONSync(ret.path);
-			return ret;
-		});
-
 		let input =
 			this.resultType === "array"
-				? files.map(file => file.contents)
+				? files.map(f => f.contents)
 				: this.resultType === "files"
 					? files
 					: files[0].contents;
 		let result = this.handleResult?.(input) ?? input;
 
-		let size = outputPath ? writeJSONSync(outputPath, result)?.length : undefined;
+		let size = this.output?.write(result);
 
-		return { inputs: files, result, outputPath, size };
+		return { inputs: files, result, outputPath: this.output?.path, size };
 	}
 }
 

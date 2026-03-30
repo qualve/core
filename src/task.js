@@ -10,7 +10,7 @@ import {
 	importCwd,
 } from "./util.js";
 import File from "./file.js";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { ProgressIndicator } from "./util.js";
 import Config from "./config.js";
 
@@ -351,9 +351,8 @@ export default class Task {
 		let startTime = performance.now();
 		let result;
 
-		// Skip if the output already exists.
-		let outputPath = this.output?.filePath;
-		if (!this.force && outputPath && existsSync(outputPath)) {
+		// Skip if the output already exists on disk (from a prior run).
+		if (!this.force && this.output?.exists()) {
 			this.skipped = true;
 			this.debug.skipped = true;
 
@@ -366,7 +365,7 @@ export default class Task {
 			else {
 				this.info(
 					this.prefix +
-						` skipped (output already exists: ${outputPath}). Use -f to force.`,
+						` skipped (output already exists: ${this.output.path}). Use -f to force.`,
 				);
 			}
 
@@ -448,7 +447,7 @@ export default class Task {
 			}
 		}
 
-		let rawData = readJSONSync(batchableInput.filePath);
+		let rawData = batchableInput.contents;
 		// paginate: true (or auto-detected) means top-level array;
 		// an array of strings is a property path to a nested array.
 		let batchableData = Array.isArray(batchableInput.paginate)
@@ -521,8 +520,8 @@ export default class Task {
 		let completed = [];
 
 		for (let subtask of subtasks) {
-			if (existsSync(subtask.output.filePath)) {
-				merged.push(...toArray(readJSONSync(subtask.output.filePath)));
+			if (subtask.output.exists()) {
+				merged.push(...toArray(subtask.output.contents));
 				completed.push(subtask);
 			}
 		}
@@ -536,7 +535,7 @@ export default class Task {
 					? `First subtask failed; ${notRun} not run (fail-fast) — no outputs to merge`
 					: "All subtasks failed — no outputs to merge";
 			return {
-				outputPath: this.output.filePath,
+				outputPath: this.output.path,
 				size: 0,
 				sizeUnit: "items",
 				error: new AggregateError(
@@ -557,17 +556,15 @@ export default class Task {
 		let outputPath;
 
 		if (allComplete) {
-			outputPath = this.output.filePath;
+			outputPath = this.output.path;
 		}
 		else {
 			outputPath = addFilenameSuffix(
-				this.output.filePath,
+				this.output.path,
 				`-${completed.length}of${subtasks.length}`,
 			);
 			// Remove any stale complete output so it doesn't coexist with the partial one.
-			if (existsSync(this.output.filePath)) {
-				rmSync(this.output.filePath);
-			}
+			this.output.delete();
 		}
 
 		writeJSONSync(outputPath, merged);
@@ -600,7 +597,7 @@ export default class Task {
 		// On full success, clean up any temporary subtask outputs — they're now merged into the final file.
 		for (let subtask of completed) {
 			if (subtask.output.temporary) {
-				rmSync(subtask.output.filePath);
+				subtask.output.delete();
 			}
 		}
 
@@ -683,7 +680,8 @@ export default class Task {
 				}
 
 				if (task.input[i]) {
-					task.input[i].source = input[i];
+					let { name, filename, contents, ...metadata } = task.input[i].source;
+					task.input[i] = File.get({ ...metadata, ...File.get(input[i]).source });
 				}
 				else {
 					task.input[i] = File.get(input[i]);
@@ -693,7 +691,8 @@ export default class Task {
 
 		if (output) {
 			if (task.output) {
-				task.output.source = output;
+				let { name, filename, contents, ...metadata } = task.output.source;
+				task.output = File.get({ ...metadata, ...File.get(output).source });
 			}
 			else {
 				task.output = File.get(output);
