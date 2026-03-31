@@ -1,5 +1,7 @@
 import { Task } from "../src/index.js";
 
+const __dirname = new URL(".", import.meta.url).pathname;
+
 export default {
 	name: "DataTask",
 	/**
@@ -47,6 +49,43 @@ export default {
 				handleResult: data => data.map(n => n * 2),
 			},
 			expect: [2, 4, 6],
+		},
+		{
+			name: "Plain text file passthrough",
+			arg: { input: [{ contents: "Hello, world!", filename: "greeting.txt" }] },
+			expect: "Hello, world!",
+		},
+		{
+			name: "Array of mixed file types",
+			arg: {
+				resultType: "array",
+				input: [
+					{ contents: { a: 1 }, filename: "data.json" },
+					{ contents: "plain text", filename: "note.txt" },
+					{ contents: "key=value", filename: "config.ini" },
+				],
+			},
+			expect: [{ a: 1 }, "plain text", "key=value"],
+		},
+		{
+			name: "Reads non-JSON files from disk",
+			description: "Text files read from test/files/ should return their raw string contents",
+			arg: { input: [{ filename: __dirname + "files/greeting.txt" }] },
+			expect: "Hello, world!",
+		},
+		{
+			name: "Reads multiple non-JSON files from disk",
+			arg: {
+				resultType: "array",
+				input: [
+					{ filename: __dirname + "files/greeting.txt" },
+					{ filename: __dirname + "files/notes.txt" },
+				],
+			},
+			expect: [
+				"Hello, world!",
+				"These are some plain text notes.\nThey span multiple lines.\nThat's all.",
+			],
 		},
 		{
 			name: "Empty input",
