@@ -1,13 +1,16 @@
 const availableOptions = {
 	config: {
 		short: "c",
+		description: "Path to config file",
 	},
 	force: {
 		default: false,
 		short: "f",
+		description: "Force overwrite of existing output",
 	},
 	dryRun: {
 		long: "dry-run",
+		description: "Preview changes without writing files",
 	},
 	itemsPerPage: {
 		long: "items-per-page",
@@ -15,15 +18,22 @@ const availableOptions = {
 		parse: Number,
 		// 0 disables batching (overrides task-level default)
 		validate: v => Number.isInteger(v) && v >= 0,
+		description: "Number of items per batch (0 to disable)",
 	},
 	fresh: {
 		default: false,
+		description: "Ignore cached data and reprocess",
 	},
 	input: {
 		short: "i",
+		description: "Input file or directory",
 	},
 	output: {
 		short: "o",
+		description: "Output file or directory",
+	},
+	help: {
+		description: "Show this help message",
 	},
 };
 

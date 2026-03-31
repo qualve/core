@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { prettyPrint, printError } from "./util/pretty-print.js";
+import { printHelp } from "./util/help.js";
 import { confirm } from "./util/ask.js";
 import ArgsReader from "./util/args.js";
 import qualve from "../src/qualve.js";
@@ -21,6 +22,11 @@ for (let name in config.model) {
 
 // Second pass: re-parse with entity options included, if needed
 args = argsReader.args;
+
+if (args.help) {
+	printHelp(availableOptions, Task.ids);
+	process.exit(0);
+}
 
 let { _: positional, ...options } = args;
 const taskId = positional[0];
