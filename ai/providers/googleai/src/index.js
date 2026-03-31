@@ -184,7 +184,7 @@ export default class Gemini extends LLMTask {
 				// LANGUAGE:           Unsupported language detected.
 				// BLOCKLIST:          Content contains forbidden terms.
 				// PROHIBITED_CONTENT: Content potentially contains prohibited material.
-				// SPII:               Content potentially contains Sensitive Personally Identifiable Information.
+				// SPII:              Content potentially contains Sensitive Personally Identifiable Information.
 				let reasons = {
 					STOP: LLMTask.stopReasons.COMPLETE,
 					MAX_TOKENS: LLMTask.stopReasons.MAX_TOKENS,
