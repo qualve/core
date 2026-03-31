@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import Task from "qualve/task";
+import File from "qualve/file";
 import { ProgressIndicator, addFilenameSuffix, readJSONSync } from "qualve/util";
 import { handleStream, dedent } from "../util.js";
 import * as prompts from "../prompts.js";
@@ -216,8 +217,12 @@ export default class LLMTask extends Task {
 	async getRemoteFiles (input) {
 		await Promise.all(
 			input.map(async entry => {
+				let contents = entry.contents;
+				if (contents?.then) {
+					contents = await contents;
+				}
 				entry.remoteFile ??= await this.getRemoteFile(entry.filePath, {
-					contents: entry.contents,
+					contents,
 					fresh: entry.fresh,
 				});
 			}),
