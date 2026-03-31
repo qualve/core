@@ -9,4 +9,9 @@ export default class Entity {
 			}
 		}
 	}
+
+	/** Shortest unique prefix for this entity's ID among all siblings. */
+	get uniquePrefix () {
+		return this.type.truncateId(this.id);
+	}
 }
