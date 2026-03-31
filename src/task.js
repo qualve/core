@@ -15,6 +15,8 @@ import { ProgressIndicator } from "./util.js";
 import Config from "./config.js";
 
 export default class Task {
+	static File = File;
+
 	constructor (task, { parent = null, entityIds, info, force, dryRun, config } = {}) {
 		this.task = task instanceof Task ? task.task : task;
 
@@ -219,6 +221,8 @@ export default class Task {
 	async initAsync () {}
 
 	async postInit () {
+		let { File } = this.constructor;
+
 		if (this.input) {
 			this.input = toArray(this.input).map(input => File.get(input, this));
 			this.debug.input = this.input.map(f => f.debugInfo());
@@ -745,6 +749,7 @@ export default class Task {
 
 function normalizeFiles (task) {
 	let context = task instanceof Task ? task : undefined;
+	let { File } = context?.constructor ?? Task;
 
 	if (task.input) {
 		task.input = toArray(task.input).map(file => File.get(file, context));

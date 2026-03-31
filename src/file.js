@@ -315,6 +315,12 @@ export default class File {
 		return this.source.temporary ?? false;
 	}
 
+	/** Serialize contents to string. For JSON files, returns JSON.stringify. */
+	toString () {
+		let contents = this.contents;
+		return typeof contents === "string" ? contents : JSON.stringify(contents);
+	}
+
 	debugInfo () {
 		let info = {
 			name: this.name,
@@ -361,9 +367,9 @@ export default class File {
 			}
 
 			// Clone when context differs to avoid shared mutable state
-			return new File(source.source, context);
+			return new this(source.source, context);
 		}
 
-		return new File(source, context);
+		return new this(source, context);
 	}
 }
