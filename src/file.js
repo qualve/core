@@ -1,4 +1,4 @@
-import { existsSync, globSync, rmSync } from "node:fs";
+import { existsSync, globSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { addFilenameSuffix, getExtension, readJSONSync, writeJSONSync } from "./util.js";
 
@@ -243,7 +243,8 @@ export default class File {
 
 		// Fallback: read from disk if no contents provided and file has a path
 		if (ret == null && (this.source?.filename || this.source?.name)) {
-			ret = readJSONSync(this.path);
+			let ext = getExtension(this.filename);
+			ret = ext === ".json" ? readJSONSync(this.path) : readFileSync(this.path, "utf8");
 		}
 
 		if (typeof ret?.then === "function") {
