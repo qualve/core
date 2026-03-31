@@ -104,7 +104,7 @@ export default class Task {
 	}
 
 	get prefix () {
-		let ret = this.title;
+		let ret = this.title ?? this.id;
 
 		if (this.entityModel?.multiple) {
 			ret += " for ";
