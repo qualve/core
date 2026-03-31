@@ -119,7 +119,7 @@ export default class Gemini extends LLMTask {
 				...system,
 				...prompt,
 				...input
-					.map(f => this.readFile(f.filePath, { contents: f.contents })?.contents)
+					.map(f => f.toString())
 					.filter(Boolean),
 			]),
 		});

@@ -79,8 +79,7 @@ export default class Claude extends LLMTask {
 								type: "text",
 								media_type: "text/plain",
 								data:
-									this.readFile(f.filePath, { contents: f.contents })?.contents ??
-									"",
+									f.toString(),
 							},
 						})),
 					],

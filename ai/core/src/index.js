@@ -16,7 +16,20 @@ Object.assign(options, {
 	thinking: {},
 });
 
+/** File subclass for LLM tasks — strips nulls from JSON for token efficiency. */
+class LLMFile extends File {
+	toString () {
+		let contents = this.contents;
+		if (typeof contents === "string") {
+			return contents;
+		}
+		return JSON.stringify(contents, (k, v) => v ?? undefined);
+	}
+}
+
 export default class LLMTask extends Task {
+	static File = LLMFile;
+
 	// Subclass must define these
 	client = null;
 
@@ -219,10 +232,10 @@ export default class LLMTask extends Task {
 			input.map(async entry => {
 				let contents = entry.contents;
 				if (contents?.then) {
-					contents = await contents;
+					await contents;
 				}
 				entry.remoteFile ??= await this.getRemoteFile(entry.filePath, {
-					contents,
+					contents: entry.toString(),
 					fresh: entry.fresh,
 				});
 			}),
