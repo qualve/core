@@ -62,6 +62,10 @@ export default class File {
 			let { name, ext } = path.parse(this.filename);
 			value = ext ? name : this.filename;
 		}
+		else if (this.source.glob) {
+			// Glob files need a name so the glob getter can build a full pattern via filename.
+			value = this.source.glob;
+		}
 		else if (this !== this.context?.input?.[0]) {
 			value = this.context?.input?.[0]?.name;
 		}
@@ -115,8 +119,12 @@ export default class File {
 		if (!this.literal) {
 			// Explicit glob in source, or auto-detect from source.name (string sources only).
 			// source.filename is always treated as literal — use source.glob for object definitions.
-			value = this.source?.glob
-				?? (this.source?.name && /(?<!\\)[*?\[{]/.test(this.source.name) ? this.filename : null);
+			if (this.source?.glob) {
+				value = getExtension(this.source.glob) ? this.source.glob : this.filename;
+			}
+			else if (this.source?.name && /(?<!\\)[*?\[{]/.test(this.source.name)) {
+				value = this.filename;
+			}
 		}
 
 		Object.defineProperty(this, "glob", { value, writable: true, configurable: true });
