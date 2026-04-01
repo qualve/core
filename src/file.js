@@ -21,6 +21,20 @@ export default class File {
 	constructor (source, context) {
 		this.source = source;
 		this.context = context;
+
+		// Compute glob pattern eagerly from source
+		if (this.literal) {
+			this.glob = null;
+		}
+		else if (this.#source?.glob) {
+			this.glob = getExtension(this.#source.glob) ? this.#source.glob : this.#source.glob + this.suffix + ".json";
+		}
+		else if (this.#source?.name && /(?<!\\)[*?\[{]/.test(this.#source.name)) {
+			this.glob = this.#source.name + this.suffix + ".json";
+		}
+		else {
+			this.glob = null;
+		}
 	}
 
 	get source () {
@@ -51,6 +65,10 @@ export default class File {
 	}
 
 	get name () {
+		if (this.glob) {
+			return;
+		}
+
 		let value;
 
 		if (this.source.name) {
@@ -59,12 +77,7 @@ export default class File {
 		else if (this.source.filename) {
 			// Safe to call this.filename here — when source.filename is set,
 			// the filename getter returns directly without calling name.
-			let { name, ext } = path.parse(this.filename);
-			value = ext ? name : this.filename;
-		}
-		else if (this.source.glob) {
-			// Glob files need a name so the glob getter can build a full pattern via filename.
-			value = this.source.glob;
+			value = this.extension ? this.filename.slice(0, -this.extension.length) : this.filename;
 		}
 		else if (this !== this.context?.input?.[0]) {
 			value = this.context?.input?.[0]?.name;
@@ -78,6 +91,10 @@ export default class File {
 	}
 
 	get filename () {
+		if (this.glob) {
+			return;
+		}
+
 		let value;
 
 		if (this.source.filename) {
@@ -95,7 +112,22 @@ export default class File {
 		return value;
 	}
 
+	/** File extension (e.g. ".json", ".txt") or undefined if none. */
+	get extension () {
+		if (this.glob) {
+			return;
+		}
+
+		let value = getExtension(this.filename);
+		Object.defineProperty(this, "extension", { value, writable: true, configurable: true });
+		return value;
+	}
+
 	get filePath () {
+		if (this.glob) {
+			return;
+		}
+
 		let value = path.join(this.context?.cwd ?? "", this.filename);
 		Object.defineProperty(this, "filePath", { value, writable: true, configurable: true });
 		return value;
@@ -107,35 +139,9 @@ export default class File {
 	}
 
 	/**
-	 * The glob pattern for this file, or null if not a glob.
-	 * Can be set explicitly in source (`{ glob: "coding-*" }`) or auto-detected
-	 * from string sources (which become source.name).
-	 * Object sources should use `glob` instead of putting patterns in `filename`.
-	 * @returns {string | null}
-	 */
-	get glob () {
-		let value = null;
-
-		if (!this.literal) {
-			// Explicit glob in source, or auto-detect from source.name (string sources only).
-			// source.filename is always treated as literal — use source.glob for object definitions.
-			if (this.source?.glob) {
-				value = getExtension(this.source.glob) ? this.source.glob : this.filename;
-			}
-			else if (this.source?.name && /(?<!\\)[*?\[{]/.test(this.source.name)) {
-				value = this.filename;
-			}
-		}
-
-		Object.defineProperty(this, "glob", { value, writable: true, configurable: true });
-		return value;
-	}
-
-	/**
 	 * Child File objects from glob expansion.
 	 * - `null` for leaf files (not a glob)
-	 * - `[]` for globs that matched 0-1 files (collapsed)
-	 * - `File[]` for globs with multiple matches
+	 * - `File[]` for globs (may be empty if no matches)
 	 * Tries the literal filename first (in case special chars aren't actually glob syntax),
 	 * then falls back to glob expansion.
 	 * @returns {File[] | null}
@@ -151,35 +157,23 @@ export default class File {
 
 			// Try literal path first — a filename with special chars (e.g., `report[1].json`)
 			// may not actually be a glob
-			if (existsSync(path.join(cwd, this.filename))) {
-				value = [];
+			if (existsSync(path.join(cwd, this.glob))) {
+				this.glob = null;
+				this.literal = true;
+				value = null;
 			}
 			else {
-				// Literal doesn't exist — try glob expansion
-				let matches = globSync(this.glob, { cwd, withFileTypes: true })
+				// Glob expansion — all matches become children
+				value = globSync(this.glob, { cwd, withFileTypes: true })
 					.filter(entry => entry.isFile())
 					.map(entry => {
 						let full = path.join(entry.parentPath, entry.name);
-						return path.relative(cwd, full);
-					});
-
-				if (matches.length <= 1) {
-					// Collapse: adopt matched filename, no children
-					if (matches.length === 1) {
-						Object.defineProperty(this, "filename", { value: matches[0], writable: true, configurable: true });
-						this.literal = true;
-					}
-					value = [];
-				}
-				else {
-					// Multiple matches → create child Files
-					value = matches.map(fn => {
+						let fn = path.relative(cwd, full);
 						let child = File.get({ filename: fn }, this.context);
 						child.parent = this;
 						child.literal = true;
 						return child;
 					});
-				}
 			}
 		}
 
@@ -200,7 +194,7 @@ export default class File {
 	 * @returns {Array}
 	 */
 	toArray () {
-		if (this.children?.length > 0) {
+		if (this.glob) {
 			return this.children.map(c => c.contents);
 		}
 		return [this.contents];
@@ -212,7 +206,7 @@ export default class File {
 	 * @returns {Object}
 	 */
 	toJSON () {
-		if (this.children?.length > 0) {
+		if (this.glob) {
 			return Object.fromEntries(this.children.map(c => [c.name, c.contents]));
 		}
 		return { [this.name]: this.contents };
@@ -226,9 +220,8 @@ export default class File {
 
 	#contents = {};
 	get contents () {
-		// Files with children don't have their own contents
-		if (this.children?.length > 0) {
-			return undefined;
+		if (this.glob) {
+			return;
 		}
 
 		if ("value" in this.#contents) {
@@ -243,8 +236,7 @@ export default class File {
 
 		// Fallback: read from disk if no contents provided and file has a path
 		if (ret == null && (this.source?.filename || this.source?.name)) {
-			let ext = getExtension(this.filename);
-			ret = ext === ".json" ? readJSONSync(this.path) : readFileSync(this.path, "utf8");
+			ret = this.extension === ".json" ? readJSONSync(this.path) : readFileSync(this.path, "utf8");
 		}
 
 		if (typeof ret?.then === "function") {
@@ -331,21 +323,20 @@ export default class File {
 	}
 
 	debugInfo () {
-		let info = {
-			name: this.name,
-			filename: this.filename,
-			filePath: this.filePath,
-		};
+		let info = {};
 
-		if (this.parent) {
-			info.glob = this.parent.glob;
-		}
-		else if (this.glob) {
+		if (this.glob) {
 			info.glob = this.glob;
+			info.children = this.children?.length ?? 0;
 		}
+		else {
+			info.name = this.name;
+			info.filename = this.filename;
+			info.filePath = this.filePath;
 
-		if (this.children?.length > 0) {
-			info.children = this.children.length;
+			if (this.parent) {
+				info.glob = this.parent.glob;
+			}
 		}
 
 		if (this.description) {
