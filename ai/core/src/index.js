@@ -140,8 +140,8 @@ export default class LLMTask extends Task {
 		Object.assign(this.debug, {
 			llm: this.name,
 			model: this.model,
-			thinking: this.thinking,
-			itemsPerPage: this.itemsPerPage,
+			...(this.thinking && { thinking: this.thinking }),
+			...(this.itemsPerPage && { itemsPerPage: this.itemsPerPage }),
 		});
 	}
 
