@@ -1,9 +1,8 @@
 import { existsSync, globSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
-import { addFilenameSuffix, getExtension, readJSONSync, writeJSONSync } from "./util.js";
+import { addFilenameSuffix, getExtension, readJSONSync, writeJSONSync, isGlob } from "./util.js";
 
 export default class File {
-	#source;
 	context;
 
 	/** When true, treat filename literally — no glob expansion. Also read from source. */
@@ -21,41 +20,51 @@ export default class File {
 	constructor (source, context) {
 		this.source = source;
 		this.context = context;
-
-		// Compute glob pattern eagerly from source
-		if (this.literal) {
-			this.glob = null;
-		}
-		else if (this.#source?.glob) {
-			this.glob = getExtension(this.#source.glob) ? this.#source.glob : this.#source.glob + this.suffix + ".json";
-		}
-		else if (this.#source?.name && /(?<!\\)[*?\[{]/.test(this.#source.name)) {
-			this.glob = this.#source.name + this.suffix + ".json";
-		}
-		else {
-			this.glob = null;
-		}
 	}
 
-	get source () {
-		if (this.parent) {
-			let { name, filename, contents, ...inherited } = this.parent.source;
-			return { ...inherited, ...this.#source };
-		}
-		return this.#source;
-	}
-	set source (source) {
-		if (!source) {
+	#resolve (prop) {
+		if (!this.source) {
 			return;
 		}
 
-		if (typeof source === "object") {
-			this.#source = { ...source };
+		let source;
+
+		if (typeof this.source === "string") {
+			source = File.resolveString(this.source);
 		}
-		else {
-			let type = getExtension(source) ? "filename" : "name";
-			this.#source = { [type]: source };
+		else if (typeof this.source === "object") {
+			source = {};
+
+			for (let key of ["name", "extension", "filename", "suffix"]) {
+				if (!(key in this.source)) {
+					continue;
+				}
+
+				source[key] = this.resolveValue(this.source[key]);
+			}
+
+			if (!source.glob) {
+				if (!source.filename && !source.name) {
+					source.name = this.context?.id;
+				}
+
+				if (source.name) {
+					source.filename ??= source.name + "." + (source.extension ?? "json");
+				}
+
+				if (this.suffix) {
+					source.filename = addFilenameSuffix(source.filename, this.suffix);
+				}
+
+				source.extension ??= getExtension(source.filename)?.slice(1) ?? "json";
+				source.name ??= source.filename.slice(0, -source.extension.length - 1);
+			}
 		}
+
+		this.resolvedSource = source;
+		Object.defineProperties(this, Object.getOwnPropertyDescriptors(source));
+
+		return source[prop];
 	}
 
 	resolveValue (value) {
@@ -64,63 +73,25 @@ export default class File {
 			: value;
 	}
 
+	get glob () {
+		return this.#resolve("glob");
+	}
+
 	get name () {
-		if (this.glob) {
-			return;
-		}
-
-		let value;
-
-		if (this.source.name) {
-			value = this.resolveValue(this.source.name);
-		}
-		else if (this.source.filename) {
-			// Safe to call this.filename here — when source.filename is set,
-			// the filename getter returns directly without calling name.
-			value = this.extension ? this.filename.slice(0, -this.extension.length) : this.filename;
-		}
-		else if (this !== this.context?.input?.[0]) {
-			value = this.context?.input?.[0]?.name;
-		}
-		else {
-			value = this.context?.id;
-		}
-
-		Object.defineProperty(this, "name", { value, writable: true, configurable: true });
-		return value;
+		return this.#resolve("name");
 	}
 
 	get filename () {
-		if (this.glob) {
-			return;
-		}
-
-		let value;
-
-		if (this.source.filename) {
-			value = this.resolveValue(this.source.filename);
-
-			if (this.suffix) {
-				value = addFilenameSuffix(value, this.suffix);
-			}
-		}
-		else {
-			value = this.name + this.suffix + ".json";
-		}
-
-		Object.defineProperty(this, "filename", { value, writable: true, configurable: true });
-		return value;
+		return this.#resolve("filename");
 	}
 
 	/** File extension (e.g. ".json", ".txt") or undefined if none. */
 	get extension () {
-		if (this.glob) {
-			return;
-		}
+		return this.#resolve("extension");
+	}
 
-		let value = getExtension(this.filename);
-		Object.defineProperty(this, "extension", { value, writable: true, configurable: true });
-		return value;
+	get suffix () {
+		return this.#getMemoizedOrInherit("suffix");
 	}
 
 	get filePath () {
@@ -212,10 +183,55 @@ export default class File {
 		return { [this.name]: this.contents };
 	}
 
+	#getMemoizedOrInherit (prop) {
+		if (this.source[prop]) {
+			let value = this.resolveValue(this.source[prop]);
+			Object.defineProperty(this, prop, { value, writable: true, configurable: true });
+			return value;
+		}
+
+		return this.parent?.[prop];
+	}
+
 	get description () {
-		let value = this.resolveValue(this.source.description);
-		Object.defineProperty(this, "description", { value, writable: true, configurable: true });
-		return value;
+		return this.#getMemoizedOrInherit("description");
+	}
+
+	get schema () {
+		return this.#getMemoizedOrInherit("schema");
+	}
+
+	/**
+	 * If truthy, this file's data can be paginated when the task sets `itemsPerPage`.
+	 * - `true` means the top-level value is the array.
+	 * - An array of strings (e.g. `["responses", "items"]`) is a property path to the nested array.
+	 */
+	get paginate () {
+		return this.#getMemoizedOrInherit("paginate");
+	}
+
+	/**
+	 * Whether this file is a temporary intermediate (e.g. a batch slice output)
+	 * that should be deleted after its contents are merged into the parent's output.
+	 * This is a file lifecycle marker, not a general scoping system.
+	 * A broader file scope mechanism (survey-wide, per-question, per-task) could
+	 * supersede this in the future if more granular cleanup/caching policies are needed.
+	 */
+	get temporary () {
+		return this.#getMemoizedOrInherit("temporary");
+	}
+
+	/** Whether this file should be re-uploaded fresh, bypassing the provider cache. */
+	get fresh () {
+		return this.#getMemoizedOrInherit("fresh");
+	}
+
+	/**
+	 * Normalizes the two schema formats (`{ type: "array" }` vs `{ schema: { type: "array" } }`)
+	 * to a plain type string.
+	 */
+	get schemaType () {
+		return this.schema?.schema?.type ?? this.schema?.type;
 	}
 
 	#contents = {};
@@ -235,8 +251,8 @@ export default class File {
 		let ret = this.resolveValue(this.source?.contents);
 
 		// Fallback: read from disk if no contents provided and file has a path
-		if (ret == null && (this.source?.filename || this.source?.name)) {
-			ret = this.extension === ".json" ? readJSONSync(this.path) : readFileSync(this.path, "utf8");
+		if (ret == null && (this.filename || this.name)) {
+			ret = this.extension === "json" ? readJSONSync(this.path) : readFileSync(this.path, "utf8");
 		}
 
 		if (typeof ret?.then === "function") {
@@ -271,49 +287,6 @@ export default class File {
 	delete () {
 		rmSync(this.path, { force: true });
 		delete this.#contents.value;
-	}
-
-	get schema () {
-		return this.source.schema;
-	}
-
-	/**
-	 * Normalizes the two schema formats (`{ type: "array" }` vs `{ schema: { type: "array" } }`)
-	 * to a plain type string.
-	 */
-	get schemaType () {
-		return this.schema?.schema?.type ?? this.schema?.type;
-	}
-
-	/** Whether this file should be re-uploaded fresh, bypassing the provider cache. */
-	get fresh () {
-		return this.source.fresh;
-	}
-
-	get suffix () {
-		let value = this.resolveValue(this.source.suffix) ?? "";
-		Object.defineProperty(this, "suffix", { value, writable: true, configurable: true });
-		return value;
-	}
-
-	/**
-	 * If truthy, this file's data can be paginated when the task sets `itemsPerPage`.
-	 * - `true` means the top-level value is the array.
-	 * - An array of strings (e.g. `["responses", "items"]`) is a property path to the nested array.
-	 */
-	get paginate () {
-		return this.source.paginate ?? false;
-	}
-
-	/**
-	 * Whether this file is a temporary intermediate (e.g. a batch slice output)
-	 * that should be deleted after its contents are merged into the parent's output.
-	 * This is a file lifecycle marker, not a general scoping system.
-	 * A broader file scope mechanism (survey-wide, per-question, per-task) could
-	 * supersede this in the future if more granular cleanup/caching policies are needed.
-	 */
-	get temporary () {
-		return this.source.temporary ?? false;
 	}
 
 	/** Serialize contents to string. For JSON files, returns JSON.stringify. */
@@ -354,6 +327,58 @@ export default class File {
 		return info;
 	}
 
+	/** @return {{glob: string | null, filename: string | undefined, name: string | undefined, extension: string | undefined}} */
+	static resolveString (value) {
+		if (typeof value !== "string") {
+			return value;
+		}
+
+		let source = { glob: null, filename: undefined, name: undefined, extension: undefined };
+
+		let ext = value.match(/\.([^\/]+)$/)?.[1];
+
+		if (isGlob(value)) {
+			source.glob = value;
+
+			// Has extension?
+			if (!ext) {
+				source.glob += ".json";
+			}
+		}
+		else {
+			if (ext) {
+				source.filename = value;
+				source.name = path.basename(value, "." + ext);
+				source.extension = ext ?? "json";
+			}
+			else {
+				source.name = value;
+				source.extension = "json";
+				source.filename = source.name + "." + source.extension;
+			}
+		}
+
+		return source;
+	}
+
+	static overrideSource (source, override) {
+		if (!override) {
+			return source;
+		}
+
+		let resolvedOverride = this.resolveString(override);
+
+		if (!source || typeof source === "string") {
+			return resolvedOverride;
+		}
+
+		if (source.contents) {
+			delete source.contents;
+		}
+
+		return { ...source, ...resolvedOverride };
+	}
+
 	/**
 	 * Convert an object, function, or string to a File object if it's not already one.
 	 * @param {File | object | function | string} source
@@ -363,11 +388,12 @@ export default class File {
 	static get (source, context) {
 		if (source instanceof File) {
 			if (!context || source.context === context) {
+				// No context or same context
 				return source;
 			}
 
 			// Clone when context differs to avoid shared mutable state
-			return new this(source.source, context);
+			source = { ...source.source };
 		}
 
 		return new this(source, context);

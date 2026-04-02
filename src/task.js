@@ -2,7 +2,6 @@ import {
 	formatDuration,
 	formatSize,
 	readDirectorySync,
-	readJSONSync,
 	writeJSONSync,
 	addFilenameSuffix,
 	mapAsync,
@@ -683,24 +682,13 @@ export default class Task {
 					continue;
 				}
 
-				if (task.input[i]) {
-					let { name, filename, contents, ...metadata } = task.input[i].source;
-					task.input[i] = File.get({ ...metadata, ...File.get(input[i]).source });
-				}
-				else {
-					task.input[i] = File.get(input[i]);
-				}
+				task.input[i] = File.get(File.overrideSource(task.input[i]?.source, input[i]));
+
 			}
 		}
 
 		if (output) {
-			if (task.output) {
-				let { name, filename, contents, ...metadata } = task.output.source;
-				task.output = File.get({ ...metadata, ...File.get(output).source });
-			}
-			else {
-				task.output = File.get(output);
-			}
+			task.output = File.get(File.overrideSource(task.output?.source, output));
 		}
 
 		for (let key in otherOverrides) {

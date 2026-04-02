@@ -33,7 +33,7 @@
     "release": "npm login && release-it"
   },
   "devDependencies": {
-    "htest.dev": "^0.0.22",
+    "htest.dev": "^0.0.23",
     "prettier": "^3.8.1",
     "prettier-plugin-brace-style": "^0.10.0",
     "prettier-plugin-merge": "^0.10.0",
