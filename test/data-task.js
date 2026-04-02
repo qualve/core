@@ -88,6 +88,18 @@ export default {
 			],
 		},
 		{
+			name: "Promise contents",
+			description: "handleResult should receive resolved values, not promises",
+			arg: {
+				input: [{
+					contents: new Promise(resolve => setTimeout(() => resolve([1, 2, 3]), 10)),
+					filename: "in.json",
+				}],
+				handleResult: data => Array.isArray(data) ? data.map(n => n * 2) : "got a promise, not data",
+			},
+			expect: [2, 4, 6],
+		},
+		{
 			name: "Empty input",
 			arg: { input: [] },
 			expect: {},

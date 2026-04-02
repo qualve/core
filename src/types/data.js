@@ -16,6 +16,13 @@ export default class DataTask extends Task {
 			return {};
 		}
 
+		// Await any async contents (e.g. from function sources returning promises)
+		let thenables = files.filter(f => f?.contents?.then).map(f => f.contents);
+
+		if (thenables.length > 0) {
+			await Promise.all(thenables);
+		}
+
 		let input =
 			this.resultType === "array"
 				? files.map(f => f.contents)
