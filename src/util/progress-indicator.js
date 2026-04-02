@@ -67,7 +67,7 @@ export class ProgressIndicator {
 		}
 
 		for (let child of this.children) {
-			lines.push(child.message.replace(/^/gm, "\t"));
+			lines.push(child.message.replace(/^/gm, "        "));
 		}
 
 		return lines.join("\n");
@@ -106,6 +106,7 @@ export class ProgressIndicator {
 			// Tree root with children: clear transient display.
 			// The caller logs the final summary.
 			logUpdate.clear();
+			logUpdate.done();
 		}
 		else {
 			// Standalone indicator: persist final status on screen.
