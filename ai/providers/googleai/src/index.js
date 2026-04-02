@@ -1,10 +1,11 @@
-import { createHash } from "node:crypto";
-import { LLMTask } from "@qualve/llm";
+import LLMTask from "@qualve/llm";
 import { createUserContent, createPartFromUri, GoogleGenAI } from "@google/genai";
+import GeminiFile from "./file.js";
 
 export default class Gemini extends LLMTask {
 	static id = "gemini";
 	static name = "Gemini";
+	static File = GeminiFile;
 	static models = [
 		"gemini-3.1-pro-preview",
 		"gemini-3.1-flash-preview",
@@ -27,84 +28,6 @@ export default class Gemini extends LLMTask {
 		apiKey: process.env.GEMINI_API_KEY,
 		httpOptions: { timeout: 30 * 60_000 }, // 30 minutes — LLM tasks with thinking can be very slow
 	});
-
-	getFileInfo (filepath) {
-		let { name, dirName } = super.getFileInfo(filepath);
-		let displayName = name;
-
-		// Gemini file ID: lowercase alphanumeric or dashes, no leading/trailing dashes.
-		name = name.replace(/[_.]/g, "-").replace(/^-|-$/g, "");
-
-		// Gemini file IDs are limited to 40 chars.
-		// Batch slice inputs can exceed this (e.g. "ba-answers-normalized-unique-500-999-json").
-		// Truncate with a hash suffix to preserve uniqueness.
-		let maxLength = 40;
-		if (name.length > maxLength) {
-			let hash = createHash("sha256").update(name).digest("hex").slice(0, 6);
-			name = name.slice(0, maxLength - 7) + "-" + hash;
-		}
-
-		return { name, dirName, displayName };
-	}
-
-	async uploadFile (filepath, { mimeType, contents }) {
-		let { name, displayName } = this.getFileInfo(filepath);
-		return this.client.files.upload({
-			file: new Blob([contents], { type: mimeType }),
-			config: { name, displayName, mimeType },
-		});
-	}
-
-	/**
-	 * Execute a file operation with shared error handling for not-found cases.
-	 * Gemini returns 403 (not 404) when a file doesn't exist, so we disambiguate
-	 * by listing files to check whether it's a real permission error.
-	 * @param {string} filepath - The local file path (used for name resolution and error messages).
-	 * @param {"get" | "delete"} method - The method name on `this.client.files` to call.
-	 * @returns {Promise<object|null>} The operation result, or null if the file was not found.
-	 */
-	async #safeFileOp (filepath, method) {
-		let { name } = this.getFileInfo(filepath);
-		name = "files/" + name;
-
-		try {
-			// If we don't await here, the error is unhandled
-			return await this.client.files[method]({ name });
-		}
-		catch (e) {
-			if (e.status === 403 || e.status === 404) {
-				// 403 can mean "not found" on Gemini — verify by listing files.
-				// 404 is a straightforward not-found.
-				if (e.status === 403) {
-					let files = await this.client.files.list();
-					for await (let file of files) {
-						if (file.name === name) {
-							throw new Error(
-								`You don't have permission to access file ${filepath}`,
-								{
-									cause: e,
-								},
-							);
-						}
-					}
-				}
-			}
-			else {
-				throw new Error(`Failed to ${method} file ${filepath}`, { cause: e });
-			}
-		}
-
-		// Not found
-		return null;
-	}
-
-	async getFile (filepath) {
-		return this.#safeFileOp(filepath, "get");
-	}
-
-	async deleteFile (filepath) {
-		return this.#safeFileOp(filepath, "delete");
-	}
 
 	async listFiles () {
 		return [...(await this.client.files.list())];

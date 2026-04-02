@@ -1,9 +1,11 @@
-import { LLMTask } from "@qualve/llm";
-import Anthropic, { toFile } from "@anthropic-ai/sdk";
+import LLMTask from "@qualve/llm";
+import Anthropic from "@anthropic-ai/sdk";
+import ClaudeFile from "./file.js";
 
 export default class Claude extends LLMTask {
 	static id = "claude";
 	static name = "Claude";
+	static File = ClaudeFile;
 	static models = ["claude-sonnet-4-6", "claude-haiku-4-6", "claude-opus-4-5"];
 	static capabilities = {
 		inputDescriptions: true,
@@ -14,41 +16,6 @@ export default class Claude extends LLMTask {
 		apiKey: process.env.ANTHROPIC_API_KEY,
 		timeout: 30 * 60_000, // 30 minutes — LLM tasks with thinking can be very slow
 	});
-
-	async uploadFile (filepath, { mimeType, contents }) {
-		let { name } = this.getFileInfo(filepath);
-
-		return this.client.beta.files.upload(
-			{
-				// The Claude Files API doesn't support JSON files directly,
-				// so to use them in prompts, we upload them with a text/plain MIME type that Claude supports.
-				// See https://platform.claude.com/docs/en/build-with-claude/files#file-types-and-content-blocks
-				file: await toFile(new Blob([contents], { type: mimeType }), name, {
-					type: "text/plain",
-				}),
-			},
-			{
-				betas: ["files-api-2025-04-14"],
-			},
-		);
-	}
-
-	async getFile (filepath) {
-		let { name } = this.getFileInfo(filepath);
-		const list = await this.listFiles();
-		return list.find(f => f.filename === name);
-	}
-
-	async deleteFile (filepath) {
-		let fileId = (await this.getFile(filepath))?.id;
-		if (!fileId) {
-			// Not found
-			return;
-		}
-		return this.client.beta.files.delete(fileId, {
-			betas: ["files-api-2025-04-14"],
-		});
-	}
 
 	async listFiles () {
 		const meta = [];
@@ -74,12 +41,11 @@ export default class Claude extends LLMTask {
 						...prompt.map(t => ({ type: "text", text: t })),
 						...input.map(f => ({
 							type: "document",
-							context: this.inputFile(f),
+							context: f.describe(),
 							source: {
 								type: "text",
 								media_type: "text/plain",
-								data:
-									f.toString(),
+								data: f.toString(),
 							},
 						})),
 					],
@@ -111,7 +77,7 @@ export default class Claude extends LLMTask {
 						...prompt.map(t => ({ type: "text", text: t })),
 						...input.map(f => ({
 							type: "document",
-							context: this.inputFile(f),
+							context: f.describe(),
 							source: {
 								type: "file",
 								file_id: f.remoteFile.id,

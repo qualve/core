@@ -34,8 +34,7 @@ export function inputFile (file) {
 
 /**
  * Describe all input files for inclusion in the prompt.
- * Called with `this` bound to the LLMTask instance.
- * @param {Array} files
+ * @param {LLMFile[]} files
  * @returns {string}
  */
 export function inputFiles (files) {
@@ -44,7 +43,7 @@ export function inputFiles (files) {
 	}
 
 	return `I provide the contents of the following files:
-${files.map(file => inputFile.call(this, file)).join("\n")}`;
+${files.map(file => file.describe()).join("\n")}`;
 }
 
 /**

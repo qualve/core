@@ -1,10 +1,12 @@
 import OpenAIClient from "openai";
-import { LLMTask } from "@qualve/llm";
+import LLMTask from "@qualve/llm";
+import OpenAIFile from "./file.js";
 
 export default class OpenAI extends LLMTask {
 	static models = ["gpt-5.4", "gpt-5-mini", "gpt-5-nano"];
 	static id = "openai";
 	static name = "OpenAI";
+	static File = OpenAIFile;
 	static capabilities = {
 		outputSchema: true,
 		thinkingLevel: true,
@@ -15,14 +17,6 @@ export default class OpenAI extends LLMTask {
 		timeout: 30 * 60_000, // 30 minutes — LLM tasks with thinking can be very slow
 	});
 
-	async uploadFile (filepath, { mimeType, contents }) {
-		let { name } = this.getFileInfo(filepath);
-		return this.client.files.create({
-			file: new File([contents], name, { type: mimeType }),
-			purpose: "user_data",
-		});
-	}
-
 	async listFiles () {
 		const meta = [];
 		const list = await this.client.files.list();
@@ -32,20 +26,6 @@ export default class OpenAI extends LLMTask {
 		}
 
 		return meta;
-	}
-
-	async getFile (filepath) {
-		let { name } = this.getFileInfo(filepath);
-		const list = await this.listFiles();
-		return list.find(file => file.filename === name);
-	}
-
-	async deleteFile (filepath) {
-		const file = await this.getFile(filepath);
-		if (!file) {
-			return null;
-		}
-		await this.client.files.delete(file.id);
 	}
 
 	async createStream () {
@@ -102,7 +82,7 @@ export default class OpenAI extends LLMTask {
 						// Include uploaded files as direct input_file blocks,
 						// giving the model complete access to file contents (unlike file_search which returns chunks)
 						...input.flatMap(f => [
-							{ type: "input_text", text: this.inputFile(f) },
+							{ type: "input_text", text: f.describe() },
 							{ type: "input_file", file_id: f.remoteFile.id },
 						]),
 					],

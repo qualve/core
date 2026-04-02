@@ -52,7 +52,7 @@ Extends the base Qualve `Task` class with LLM-specific functionality:
 - **Provider dispatch** — `LLMTask.create()` routes to the registered provider based on `task.llm`
 - **File management** — Upload, retrieve, and manage files on the provider
 - **Streaming** — `handleStream()` writes streamed responses to disk with backpressure handling
-- **Prompt helpers** — `this.inputFile()`, `this.inputFiles()`, `this.outputFile()` generate prompt text describing task I/O
+- **Prompt helpers** — `file.describe()` generates prompt text describing task I/O files
 - **Thinking levels** — Normalized across providers via `thinkingLevels` and per-provider `levelMap`
 - **Stop reasons** — Normalized stop reasons (`COMPLETE`, `MAX_TOKENS`, `ABORTED`, `UNKNOWN`)
 

@@ -1,12 +1,10 @@
-import * as path from "node:path";
-import { readFileSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import Task from "qualve/task";
-import File from "qualve/file";
-import { ProgressIndicator, addFilenameSuffix, readJSONSync } from "qualve/util";
-import { handleStream, dedent } from "../util.js";
-import * as prompts from "../prompts.js";
+import { ProgressIndicator, addFilenameSuffix } from "qualve/util";
+import { handleStream, dedent } from "./util.js";
+import * as prompts from "./prompts.js";
+import LLMFile from "./file.js";
 import options from "qualve/options";
 
 Object.assign(options, {
@@ -16,16 +14,7 @@ Object.assign(options, {
 	thinking: {},
 });
 
-/** File subclass for LLM tasks — strips nulls from JSON for token efficiency. */
-class LLMFile extends File {
-	toString () {
-		let contents = this.contents;
-		if (typeof contents === "string") {
-			return contents;
-		}
-		return JSON.stringify(contents, (k, v) => v ?? undefined);
-	}
-}
+export { LLMFile };
 
 export default class LLMTask extends Task {
 	static File = LLMFile;
@@ -146,125 +135,20 @@ export default class LLMTask extends Task {
 	}
 
 	/**
-	 * Read a file if no contents are provided and prepare it for upload.
-	 * Mainly intended to be used internally.
-	 * @protected
-	 * @param {string} filepath
-	 * @param {object} [options]
-	 * @param {string} [options.mimeType="application/json"] - The MIME type of the file.
-	 * @param {string|object|Array} [options.contents] - The file contents to upload. Reads filepath if not provided.
-	 */
-	readFile (filepath, options = {}) {
-		options.mimeType ??= "application/json";
-		let isJSON = options.mimeType === "application/json";
-		options.contents ??= isJSON ? readJSONSync(filepath) : readFileSync(filepath);
-
-		if (isJSON && typeof options.contents !== "string") {
-			options.contents = JSON.stringify(options.contents, (k, v) => v ?? undefined);
-		}
-
-		return options;
-	}
-
-	/**
-	 * Read a file, prepare its contents, and upload it to the provider.
-	 * For JSON files, this minifies the data and strips nulls to reduce token usage.
-	 * @param {string} filepath
-	 * @param {object} [options]
-	 * @param {string} [options.mimeType="application/json"] - The MIME type of the file.
-	 * @param {string|object|Array} [options.contents] - The file contents to upload. Reads filepath if not provided.
-	 */
-	sendData (filepath, options = {}) {
-		options = this.readFile(filepath, options);
-		return this.uploadFile(filepath, options);
-	}
-
-	/**
-	/**
-	 * Resolve a local filepath to a stable remote filename, namespaced by entity.
-	 * @param {string} filepath
-	 * @returns {{ name: string, dirName: string }}
-	 */
-	getFileInfo (filepath) {
-		// FIXME there is an implicit assumption here that dirName is equal to an id, which is not always the case
-		let dirName = path.basename(path.dirname(filepath));
-		let prefix = this.entityModel?.truncatedIds?.[dirName];
-		let name = path.basename(filepath);
-
-		// Make sure the filename is unique per entity by prefixing it with the truncated parent directory name.
-		// For other files (e.g., shared data), no prefix is needed since they are already unique.
-		name = (prefix ? prefix + "-" : "") + name;
-		return { name, dirName };
-	}
-
-	/**
-	 * Ensure a file is available on the provider, uploading it if necessary.
-	 * Freshness is determined by the file-level `fresh` option, falling back to the task-level `this.fresh`.
-	 * @param {string} filepath
-	 * @param {object} [options]
-	 * @param {string|object|Array} [options.contents] - In-memory file contents. Skips disk read when provided.
-	 * @param {boolean} [options.fresh] - Force re-upload for this specific file.
-	 */
-	async getRemoteFile (filepath, options = {}) {
-		let fresh = options.fresh ?? this.fresh;
-
-		if (fresh) {
-			this.info(`Removing previously uploaded file ${filepath} ...`);
-			await this.deleteFile(filepath);
-		}
-
-		let ret = !fresh ? await this.getFile(filepath) : null;
-		if (!ret) {
-			this.info(`Uploading ${filepath} ...`);
-			ret = await this.sendData(filepath, options);
-		}
-
-		this.info(`Source file ${filepath} ready`);
-		return ret;
-	}
-
-	/**
-	 * Ensure all input files are available on the provider, populating `entry.remoteFile`.
-	 * @param {Array} input
+	 * Ensure all input files are available on the provider.
+	 * Resolves async contents, then uploads each file idempotently.
+	 * @param {LLMFile[]} input
 	 */
 	async getRemoteFiles (input) {
 		await Promise.all(
-			input.map(async entry => {
-				let contents = entry.contents;
-				if (contents?.then) {
-					await contents;
+			input.map(async f => {
+				let c = f.contents;
+				if (c?.then) {
+					await c;
 				}
-				entry.remoteFile ??= await this.getRemoteFile(entry.filePath, {
-					contents: entry.toString(),
-					fresh: entry.fresh,
-				});
+				await f.upload();
 			}),
 		);
-	}
-
-	// Abstract — subclasses must override
-
-	/**
-	 * Low-level: upload data to the provider.
-	 * Use {@link sendData} for most things instead.
-	 * @protected
-	 * @param {string} filepath
-	 * @param {object} options
-	 * @param {string} options.contents - The file contents to upload.
-	 * @param {string} options.mimeType - The MIME type of the file.
-	 */
-	uploadFile (filepath, options) {
-		throw this.notImplemented();
-	}
-
-	/** Retrieve a previously uploaded file from the provider, or null if not found. */
-	getFile (filepath) {
-		throw this.notImplemented();
-	}
-
-	/** Delete a previously uploaded file from the provider. */
-	deleteFile (filepath) {
-		throw this.notImplemented();
 	}
 
 	/** List all files currently uploaded to the provider. */
@@ -285,19 +169,12 @@ export default class LLMTask extends Task {
 	/** Count the total input tokens for this task. Returns undefined if unsupported. */
 	async countTokens () {}
 
-	/** Describe a single input file for inclusion in the prompt. */
-	inputFile (file) {
-		return prompts.inputFile.call(this, file);
-	}
-
-	/** Describe all input files for inclusion in the prompt. */
+	/**
+	 * Describe all input files for inclusion in the prompt.
+	 * Defined as a method so subclasses can override without separate imports.
+	 */
 	inputFiles (files) {
-		return prompts.inputFiles.call(this, files);
-	}
-
-	/** Describe the expected output file for inclusion in the prompt. */
-	outputFile (file) {
-		return prompts.outputFile.call(this, file);
+		return prompts.inputFiles(files);
 	}
 
 	/**
@@ -342,7 +219,7 @@ export default class LLMTask extends Task {
 		}
 
 		if (this.output) {
-			this.prompt.push(this.outputFile(this.output));
+			this.prompt.push(this.output.describe({ role: "output" }));
 		}
 
 		Object.assign(this.debug, { system: this.system, prompt: this.prompt });
