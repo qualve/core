@@ -259,5 +259,25 @@ export default {
 				},
 			],
 		},
+		{
+			name: "Re-normalization with context change",
+			run (arg) {
+				let file = File.get(arg, context("task-a"));
+				let cloned = File.get(file, context("task-b"));
+				return { name: cloned.name, filename: cloned.filename };
+			},
+			tests: [
+				{
+					name: "String source survives context change",
+					arg: "foo",
+					expect: { name: "foo", filename: "foo.json" }
+				},
+				{
+					name: "Object source survives context change",
+					arg: { name: "bar" },
+					expect: { name: "bar", filename: "bar.json" }
+				},
+			],
+		},
 	],
 };
