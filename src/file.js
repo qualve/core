@@ -393,7 +393,7 @@ export default class File {
 			}
 
 			// Clone when context differs to avoid shared mutable state
-			source = { ...source.source };
+			source = typeof source.source === "object" ? { ...source.source } : source.source;
 		}
 
 		return new this(source, context);
