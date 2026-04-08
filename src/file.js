@@ -324,6 +324,10 @@ export default class File {
 			info.paginate = this.paginate;
 		}
 
+		if (this.source?.handleResult) {
+			info.handleResult = true;
+		}
+
 		return info;
 	}
 

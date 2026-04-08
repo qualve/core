@@ -128,5 +128,76 @@ export default {
 				},
 			],
 		},
+		{
+			name: "Multiple outputs",
+			async run (spec) {
+				let task = Task.create({ type: "data", title: "Test", ...spec }, { info: () => {} });
+				let ret = await task.run();
+				// Read back written contents from each output file
+				return ret?.result;
+			},
+			tests: [
+				{
+					name: "Per-file handleResult splits data",
+					arg: {
+						input: [{ contents: { html: "<h1>Hi</h1>", css: "h1{color:red}", js: "alert(1)" }, filename: "in.json" }],
+						output: [
+							{ name: "out-html", handleResult: r => r.html },
+							{ name: "out-css", handleResult: r => r.css },
+							{ name: "out-js", handleResult: r => r.js },
+						],
+					},
+					expect: { html: "<h1>Hi</h1>", css: "h1{color:red}", js: "alert(1)" },
+				},
+				{
+					name: "Per-file handleResult returning undefined falls back to result",
+					arg: {
+						input: [{ contents: { a: 1 }, filename: "in.json" }],
+						output: [
+							{ name: "full", handleResult: () => undefined },
+						],
+					},
+					expect: { a: 1 },
+				},
+				{
+					name: "Per-file handleResult returning null skips file",
+					async run (spec) {
+						let task = Task.create({ type: "data", title: "Test", ...spec }, { info: () => {} });
+						let ret = await task.run();
+						return ret?.outputPaths ?? ret?.outputPath ?? "none";
+					},
+					arg: {
+						input: [{ contents: { a: 1 }, filename: "in.json" }],
+						output: [
+							{ name: "skipped", handleResult: () => null },
+						],
+					},
+					expect: "none",
+				},
+			],
+		},
+		{
+			name: "Dynamic output",
+			async run (spec) {
+				let task = Task.create({ type: "data", title: "Test", ...spec }, { info: () => {} });
+				let ret = await task.run();
+				return ret?.result;
+			},
+			tests: [
+				{
+					name: "Output function receives result and creates files",
+					arg: {
+						input: [{ contents: { x: 1, y: 2 }, filename: "in.json" }],
+						output (result) {
+							return Object.keys(result).map(key => ({
+								name: `out-${key}`,
+								handleResult: r => r[key],
+							}));
+						},
+					},
+					expect: { x: 1, y: 2 },
+				},
+			],
+		},
 	],
 };
