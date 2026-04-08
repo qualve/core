@@ -197,6 +197,11 @@ export default class File {
 		return this.#getMemoizedOrInherit("description");
 	}
 
+	/** Not memoized or inherited: it's a function (resolveValue would invoke it), and read only once per file. */
+	get handleResult () {
+		return this.source?.handleResult;
+	}
+
 	get schema () {
 		return this.#getMemoizedOrInherit("schema");
 	}

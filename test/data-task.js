@@ -1,17 +1,18 @@
 import { Task } from "../src/index.js";
+import File from "../src/file.js";
 
 const __dirname = new URL(".", import.meta.url).pathname;
 
 export default {
 	name: "DataTask",
 	/**
-	 * Shared run: create a DataTask from a spec, execute it, return the processed result.
-	 * No output file needed — omitting `output` skips the disk write.
+	 * Shared run: create a DataTask from a spec and execute it.
+	 * Returns the full result when `this.data.full` is set, otherwise just the processed result.
 	 */
 	async run (spec) {
 		let task = Task.create({ type: "data", title: "Test", ...spec }, { info: () => {} });
 		let ret = await task.run();
-		return ret?.result ?? ret;
+		return this.data?.full ? ret : (ret?.result ?? ret);
 	},
 	tests: [
 		{
@@ -125,6 +126,91 @@ export default {
 						},
 					},
 					expect: { type: "data" },
+				},
+			],
+		},
+		{
+			name: "Multi-output",
+			description:
+				"Tasks with multiple output files (see https://github.com/qualve/core/issues/27, https://github.com/qualve/core/issues/28)",
+			data: { full: true },
+			beforeAll () {
+				/** Patch File.write to skip disk I/O — tests verify via return values only. */
+				this._originalWrite = File.prototype.write;
+				File.prototype.write = function (data) {
+					return data.length;
+				};
+			},
+			afterAll () {
+				File.prototype.write = this._originalWrite;
+			},
+			check: { subset: true, deep: true },
+			tests: [
+				{
+					name: "String as output",
+					arg: {
+						input: [{ contents: "hello", filename: "in.json" }],
+						output: "foo",
+					},
+					expect: { outputs: [{ outputPath: "foo.json", size: 5 }] },
+				},
+				{
+					name: "Object as output",
+					arg: {
+						input: [{ contents: "hi", filename: "in.json" }],
+						output: { name: "bar" },
+					},
+					expect: { outputs: [{ outputPath: "bar.json", size: 2 }] },
+				},
+				{
+					name: "Per-file handleResult transforms source data",
+					arg: {
+						input: [{ contents: "hello", filename: "in.json" }],
+						output: [
+							{ filename: "a.json", handleResult: r => r.toUpperCase() },
+							{ filename: "b.json", handleResult: r => r + "!" },
+						],
+					},
+					expect: { outputs: [{ size: 5 }, { size: 6 }] },
+				},
+				{
+					name: "Without per-file handleResult, gets main result",
+					arg: {
+						input: [{ contents: "hello", filename: "in.json" }],
+						handleResult: r => r.toUpperCase(),
+						output: [
+							{ filename: "a.json", handleResult: r => r + "!" },
+							{ filename: "b.json" },
+						],
+					},
+					expect: { outputs: [{ size: 6 }, { size: 5 }] },
+				},
+				{
+					name: "Dynamic output from function",
+					arg: {
+						input: [{ contents: "hello baz", filename: "in.json" }],
+						handleResult: r => r.split(" "),
+						output: result =>
+							result.map((word, i) => ({
+								filename: `${word}.json`,
+								handleResult: r => r[i],
+							})),
+					},
+					expect: {
+						outputs: [
+							{ outputPath: "hello.json", size: 5 },
+							{ outputPath: "baz.json", size: 3 },
+						],
+					},
+				},
+				{
+					name: "handleResult returning undefined falls back to main result",
+					arg: {
+						input: [{ contents: "yolo", filename: "in.json" }],
+						handleResult: r => r + r,
+						output: [{ filename: "a.json", handleResult: () => undefined }],
+					},
+					expect: { outputs: [{ size: 8 }] },
 				},
 			],
 		},

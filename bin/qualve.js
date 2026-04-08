@@ -79,7 +79,7 @@ try {
 	if (options.dryRun) {
 		prettyPrint(result);
 	}
-	else if (!result?.outputPath && result?.result !== undefined) {
+	else if (!result?.outputs?.length && result?.result !== undefined) {
 		prettyPrint(result.result);
 	}
 }
