@@ -54,13 +54,13 @@ for (let name in config.model) {
 	}
 }
 
-// Confirm when running an entity-scoped task for all entities
 let resolved = await Task.resolve(taskId);
 let scopes = Task.getScopes(resolved.subtasks ?? resolved);
 
 for (let scope of scopes) {
 	let model = config.model?.[scope];
 	if (model?.multiple && !options[scope]) {
+		// Confirm when running an entity-scoped task for all entities
 		let runAll = await confirm({
 			prompt: `Are you sure you want to run the task for all ${model.plural}?`,
 		});
