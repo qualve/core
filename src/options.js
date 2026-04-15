@@ -1,4 +1,9 @@
 const availableOptions = {
+	taskId: {
+		long: "task",
+		positional: true,
+		description: "Task to run",
+	},
 	config: {
 		short: "c",
 		description: "Path to config file",

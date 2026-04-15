@@ -44,12 +44,65 @@ export default class ArgsReader {
 		return changed;
 	}
 
+	/**
+	 * Match positional args (minimist's `_`) to options with `positional` set.
+	 * `positional: true` is treated as 0, numbers give explicit ordering.
+	 * Options already provided via their flag are skipped.
+	 * At most one option can have `multiple: true` (acts like rest params).
+	 */
+	#matchPositionals () {
+		let remaining = [...this._];
+
+		// Collect positional defs, skipping any already provided via flag
+		let positionals = Object.entries(this.options)
+			.filter(([key, opt]) => {
+				opt.key ??= key;
+
+				if (this.#getKeyUsed(key) !== undefined) {
+					return false;
+				}
+
+				if (opt.positional === true) {
+					opt.positional = 0;
+				}
+
+				return !isNaN(opt.positional);
+			})
+			.map(([key, opt]) => opt)
+			.sort((a, b) => a.positional - b.positional);
+
+
+		let multiples = positionals.filter(o => o.multiple);
+		if (multiples.length > 1) {
+			console.warn(`At most one positional option can accept multiple values, but found ${multiples.length} (${ multiples.map(o => o.long ?? o.key).join(", ") }).`
+			+ `Specify all but one via flags to resolve the ambiguity.`)
+		}
+
+		for (let i = 0; i < positionals.length; i++) {
+			if (remaining.length === 0) {
+				break;
+			}
+
+			let opt = positionals[i];
+
+			if (opt.multiple) {
+				this.#args[opt.key] = remaining.splice(0, remaining.length - positionals.length + (i + 1));
+			}
+			else {
+				this.#args[opt.key] = remaining.shift();
+			}
+		}
+
+		this.#args._ = remaining;
+	}
+
 	get args () {
 		if (this.#optionsChanged || !this.#args) {
-			this.#args = { _: this._ };
+			this.#args = {};
 			for (let key in this.options) {
 				this.#readOption(key);
 			}
+			this.#matchPositionals();
 		}
 
 		return this.#args;

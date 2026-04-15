@@ -6,17 +6,18 @@
 export function printHelp (options, taskIds) {
 	let lines = ["Usage: qualve <task> [options]", "", "Options:"];
 
+	// Filter out positional-only options (no flag to show in help)
+	let flagOptions = Object.entries(options).filter(([key, opt]) => !opt.positional || opt.short || opt.long);
+
 	let entries = [];
 	let maxShortLen = 0;
-	for (let key in options) {
-		let opt = options[key];
+	for (let [, opt] of flagOptions) {
 		if (opt.short) {
 			maxShortLen = Math.max(maxShortLen, opt.short.length + 1); // +1 for the dash
 		}
 	}
 
-	for (let key in options) {
-		let opt = options[key];
+	for (let [key, opt] of flagOptions) {
 		let long = `--${opt.long ?? key}`;
 		let short = opt.short ? `-${opt.short},` : "";
 		// +2 for the ", " separator between short and long

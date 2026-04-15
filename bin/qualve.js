@@ -28,8 +28,7 @@ if (args.help) {
 	process.exit(0);
 }
 
-let { _: positional, ...options } = args;
-const taskId = positional[0];
+let { taskId, _: _unused, ...options } = args;
 
 if (!taskId) {
 	console.info(`Available tasks:\n${Task.ids.join("\n")}`);
