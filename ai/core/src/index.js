@@ -218,8 +218,10 @@ export default class LLMTask extends Task {
 			this.prompt.push(this.inputFiles(this.input));
 		}
 
-		if (this.output) {
-			this.prompt.push(this.output.describe({ role: "output" }));
+		if (this.output?.length > 0) {
+			for (let file of this.output) {
+				this.prompt.push(file.describe({ role: "output" }));
+			}
 		}
 
 		Object.assign(this.debug, { system: this.system, prompt: this.prompt });
@@ -255,7 +257,7 @@ export default class LLMTask extends Task {
 		try {
 			text = await handleStream({
 				...streamParams,
-				outputPath: this.output?.filePath,
+				outputPath: this.output?.[0]?.filePath,
 				onChunk: chunk => {
 					chunksReceived++;
 					let status = this.getStatus(chunk);
@@ -280,15 +282,14 @@ export default class LLMTask extends Task {
 			}
 		}
 
-		let outputPath = this.output?.filePath;
+		let outputPath = this.output?.[0]?.filePath;
 
 		if (outputPath && error) {
 			outputPath = addFilenameSuffix(outputPath, ".tmp");
 		}
 
 		return {
-			outputPath,
-			size: chunksReceived,
+			...(outputPath && { outputs: [{ outputPath, size: chunksReceived }] }),
 			sizeUnit: "chunk",
 			error,
 			result: text,
