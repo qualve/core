@@ -196,21 +196,29 @@ export default class Task {
 			return this.prefix + args;
 		}
 
-		let { outputPath, size, sizeUnit, error, startTime } = args;
+		let { outputs, sizeUnit, error, startTime } = args;
 		let message = [
 			error ? "failed after" : "completed in",
 			formatDuration(performance.now() - startTime),
 		];
 
-		if (size !== undefined || outputPath) {
+		if (outputs?.length > 0) {
 			message.push("and wrote");
 
-			if (size !== undefined) {
-				message.push(sizeUnit ? `${size} ${sizeUnit}` : formatSize(size));
-			}
+			let total = outputs.reduce((total, output) => total + (output.size ?? 0), 0);
+			total = sizeUnit ? `${total} ${sizeUnit}` : formatSize(total);
 
-			if (outputPath) {
-				message.push(`to ${outputPath}`);
+			if (outputs.length === 1) {
+				message.push(total, `to ${outputs[0].outputPath}`);
+			}
+			else {
+				let detail = outputs
+					.map(
+						output =>
+							`${output.outputPath}: ${sizeUnit ? `${output.size} ${sizeUnit}` : formatSize(output.size)}`,
+					)
+					.join(", ");
+				message.push(total, `to ${outputs.length} files (${detail})`);
 			}
 		}
 
@@ -227,9 +235,10 @@ export default class Task {
 			this.debug.input = this.input.map(f => f.debugInfo());
 		}
 
-		if (this.output) {
-			this.output = File.get(this.output, this);
-			this.debug.output = this.output.debugInfo();
+		// Dynamic output (function) stays as-is until resolved in run() after runTask.
+		if (this.output && typeof this.output !== "function") {
+			this.output = toArray(this.output).map(output => File.get(output, this));
+			this.debug.output = this.output.map(f => f.debugInfo());
 		}
 	}
 
@@ -327,7 +336,7 @@ export default class Task {
 			}
 		}
 
-		if (computedSubtasks.some(t => t.output?.temporary)) {
+		if (computedSubtasks.some(t => t.output?.some?.(output => output.temporary))) {
 			return this.mergeSubtaskOutputs(computedSubtasks);
 		}
 
@@ -337,7 +346,7 @@ export default class Task {
 			throw new AggregateError(
 				errors.map(
 					t =>
-						new Error(`${t.output?.filePath ?? t.prefix}: ${t.error.message}`, {
+						new Error(`${t.output?.[0]?.filePath ?? t.prefix}: ${t.error.message}`, {
 							cause: t.error,
 						}),
 				),
@@ -354,8 +363,14 @@ export default class Task {
 		let startTime = performance.now();
 		let result;
 
-		// Skip if the output already exists on disk (from a prior run).
-		if (!this.force && this.output?.exists()) {
+		// Skip if all output files already exist on disk (from a prior run).
+		// Dynamic output (function) can never be skipped — files aren't known yet.
+		if (
+			!this.force &&
+			typeof this.output !== "function" &&
+			this.output?.length > 0 &&
+			this.output.every(output => output.exists())
+		) {
 			this.skipped = true;
 			this.debug.skipped = true;
 
@@ -366,9 +381,9 @@ export default class Task {
 				this.progressIndicator.status = "Skipped — output exists";
 			}
 			else {
+				let paths = this.output.map(output => output.path).join(", ");
 				this.info(
-					this.prefix +
-						` skipped (output already exists: ${this.output.path}). Use -f to force.`,
+					this.prefix + ` skipped (output already exists: ${paths}). Use -f to force.`,
 				);
 			}
 
@@ -403,6 +418,33 @@ export default class Task {
 				return this.debug;
 			}
 
+			// Resolve dynamic output using the computed result, binding `this` to the Task
+			// so the function can read task state (entity, input files, etc.).
+			if (result && typeof this.output === "function") {
+				let { File } = this.constructor;
+				this.output = toArray(this.output.call(this, result.result)).map(output =>
+					File.get(output, this));
+				this.debug.output = this.output.map(f => f.debugInfo());
+			}
+
+			// Write loop: runs unless runTask already populated `outputs` (e.g. LLM streaming).
+			if (result && !result.outputs && this.output?.length > 0) {
+				result.outputs = [];
+				for (let output of this.output) {
+					let data = result.result;
+					if (output.handleResult) {
+						data = output.handleResult(result.result);
+						if (data === null) {
+							// Per-file handleResult may signal "skip this file".
+							continue;
+						}
+						data ??= result.result;
+					}
+					let size = output.write(data);
+					result.outputs.push({ outputPath: output.path, size });
+				}
+			}
+
 			let message = this.getMessage({ ...result, startTime });
 
 			if (result.error) {
@@ -410,6 +452,14 @@ export default class Task {
 			}
 
 			this.info(message);
+		}
+
+		// Mirror singular properties when there's exactly one output so existing
+		// consumers that read `result.outputPath` / `result.size` continue to work.
+		// Applied uniformly to both leaf and subtask-merge results.
+		if (result?.outputs?.length === 1) {
+			result.outputPath ??= result.outputs[0].outputPath;
+			result.size ??= result.outputs[0].size;
 		}
 
 		return result;
@@ -426,6 +476,10 @@ export default class Task {
 	 * @returns {Task[]}
 	 */
 	createBatchSubtasks () {
+		if (toArray(this.output).length > 1 || typeof this.task.output === "function") {
+			throw new Error("Batching is not supported with multiple or dynamic outputs.");
+		}
+
 		// Find the input to paginate: explicit `paginate` on the file, or auto-detect the single array-schema input.
 		// TODO: support multiple paginated inputs.
 		let batchableInput = this.input.find(f => f.paginate);
@@ -487,7 +541,7 @@ export default class Task {
 						}
 					: raw);
 
-			let batchOutputFilename = addFilenameSuffix(this.output.filename, suffix);
+			let batchOutputFilename = addFilenameSuffix(this.output[0].filename, suffix);
 
 			// First subtask: task-level fresh uploads everything (shared inputs + slice).
 			// With fail-fast (default for batch), it runs alone and completes first,
@@ -500,7 +554,7 @@ export default class Task {
 					input: batchInput,
 					output: {
 						filename: batchOutputFilename,
-						schema: this.output.schema,
+						schema: this.output[0].schema,
 						temporary: true,
 					},
 				}),
@@ -519,15 +573,19 @@ export default class Task {
 	 * @returns {{ outputPath: string, size: number, sizeUnit: string, error?: Error }}
 	 */
 	mergeSubtaskOutputs (subtasks) {
+		// Batching only supports a single output (enforced by createBatchSubtasks);
+		// merging is therefore always into `this.output[0]`.
 		let merged = [];
 		let completed = [];
 
 		for (let subtask of subtasks) {
-			if (subtask.output.exists()) {
-				merged.push(...toArray(subtask.output.contents));
+			if (subtask.output[0].exists()) {
+				merged.push(...toArray(subtask.output[0].contents));
 				completed.push(subtask);
 			}
 		}
+
+		let outputPath = this.output[0].path;
 
 		if (merged.length === 0) {
 			// t.result is assigned by runOne even when undefined; subtasks that were never
@@ -538,17 +596,19 @@ export default class Task {
 					? `First subtask failed; ${notRun} not run (fail-fast) — no outputs to merge`
 					: "All subtasks failed — no outputs to merge";
 			return {
-				outputPath: this.output.path,
-				size: 0,
+				outputs: [{ outputPath, size: 0 }],
 				sizeUnit: "items",
 				error: new AggregateError(
 					subtasks
 						.filter(t => t.error)
 						.map(
 							t =>
-								new Error(`${t.output?.filePath ?? t.prefix}: ${t.error.message}`, {
-									cause: t.error,
-								}),
+								new Error(
+									`${t.output?.[0]?.filePath ?? t.prefix}: ${t.error.message}`,
+									{
+										cause: t.error,
+									},
+								),
 						),
 					message,
 				),
@@ -556,18 +616,11 @@ export default class Task {
 		}
 
 		let allComplete = completed.length === subtasks.length;
-		let outputPath;
 
-		if (allComplete) {
-			outputPath = this.output.path;
-		}
-		else {
-			outputPath = addFilenameSuffix(
-				this.output.path,
-				`-${completed.length}of${subtasks.length}`,
-			);
+		if (!allComplete) {
+			outputPath = addFilenameSuffix(outputPath, `-${completed.length}of${subtasks.length}`);
 			// Remove any stale complete output so it doesn't coexist with the partial one.
-			this.output.delete();
+			this.output[0].delete();
 		}
 
 		writeJSONSync(outputPath, merged);
@@ -580,17 +633,19 @@ export default class Task {
 			// On partial failure, keep all subtask outputs so a re-run can skip completed ones.
 			let incomplete = subtasks.filter(t => !completed.includes(t));
 			return {
-				outputPath,
-				size: merged.length,
+				outputs: [{ outputPath, size: merged.length }],
 				sizeUnit: "items",
 				error: new AggregateError(
 					incomplete
 						.filter(t => t.error)
 						.map(
 							t =>
-								new Error(`${t.output?.filePath ?? t.prefix}: ${t.error.message}`, {
-									cause: t.error,
-								}),
+								new Error(
+									`${t.output?.[0]?.filePath ?? t.prefix}: ${t.error.message}`,
+									{
+										cause: t.error,
+									},
+								),
 						),
 					`${incomplete.length} subtask(s) incomplete. Re-run to retry.`,
 				),
@@ -599,14 +654,13 @@ export default class Task {
 
 		// On full success, clean up any temporary subtask outputs — they're now merged into the final file.
 		for (let subtask of completed) {
-			if (subtask.output.temporary) {
-				subtask.output.delete();
+			if (subtask.output[0].temporary) {
+				subtask.output[0].delete();
 			}
 		}
 
 		return {
-			outputPath,
-			size: merged.length,
+			outputs: [{ outputPath, size: merged.length }],
 			sizeUnit: "items",
 		};
 	}
@@ -671,24 +725,23 @@ export default class Task {
 
 		let { input, output, force, ...otherOverrides } = overrides;
 
-		if (input) {
-			input = toArray(input);
-			task.input ??= [];
+		// Unified positional override for both input and output.
+		// Falsy values at a given index skip that position: `-o 0 -o bar` overrides only the second output.
+		for (let [key, override] of Object.entries({ input, output })) {
+			if (!override) {
+				continue;
+			}
 
-			for (let i = 0; i < input.length; i++) {
-				if (!input[i]) {
-					// This way we can provide a falsy value to not override the first input
-					// `-i -i foo` or `-i '' -i foo` don't seem to work but `-i 0 -i foo` does
+			override = toArray(override);
+			task[key] ??= [];
+
+			for (let i = 0; i < override.length; i++) {
+				if (!override[i]) {
 					continue;
 				}
 
-				task.input[i] = File.get(File.overrideSource(task.input[i]?.source, input[i]));
-
+				task[key][i] = File.get(File.overrideSource(task[key][i]?.source, override[i]));
 			}
-		}
-
-		if (output) {
-			task.output = File.get(File.overrideSource(task.output?.source, output));
 		}
 
 		for (let key in otherOverrides) {
@@ -743,7 +796,8 @@ function normalizeFiles (task) {
 		task.input = toArray(task.input).map(file => File.get(file, context));
 	}
 
-	if (task.output) {
-		task.output = File.get(task.output, context);
+	// Dynamic output (function) is resolved later, not at normalization time.
+	if (task.output && typeof task.output !== "function") {
+		task.output = toArray(task.output).map(file => File.get(file, context));
 	}
 }
