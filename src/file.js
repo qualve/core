@@ -202,6 +202,15 @@ export default class File {
 	}
 
 	/**
+	 * Optional per-output transform. Receives the task's main result and returns
+	 * the data to write for this file. Returning `null` skips writing this file;
+	 * returning `undefined` falls back to the main result.
+	 */
+	get handleResult () {
+		return this.source?.handleResult;
+	}
+
+	/**
 	 * If truthy, this file's data can be paginated when the task sets `itemsPerPage`.
 	 * - `true` means the top-level value is the array.
 	 * - An array of strings (e.g. `["responses", "items"]`) is a property path to the nested array.

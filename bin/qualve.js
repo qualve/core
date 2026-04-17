@@ -79,7 +79,10 @@ try {
 	if (options.dryRun) {
 		prettyPrint(result);
 	}
-	else if (!result?.outputPath && result?.result !== undefined) {
+	// Print the result to stdout only when no outputs were configured at all.
+	// `outputs: []` means outputs WERE configured but every per-file handleResult
+	// returned null (explicit skip) — honor that intent and don't dump data.
+	else if (result?.outputs === undefined && result?.result !== undefined) {
 		prettyPrint(result.result);
 	}
 }

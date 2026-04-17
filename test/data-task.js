@@ -1,17 +1,22 @@
 import { Task } from "../src/index.js";
+import File from "../src/file.js";
 
 const __dirname = new URL(".", import.meta.url).pathname;
 
 export default {
 	name: "DataTask",
 	/**
-	 * Shared run: create a DataTask from a spec, execute it, return the processed result.
-	 * No output file needed — omitting `output` skips the disk write.
+	 * Shared run for all DataTask tests. Behavior is toggled via inherited `data`:
+	 * - `data.dryRun: true` — create the task with `dryRun: true`
+	 * - `data.full: true`   — return the full `run()` return value instead of projecting to `result`
 	 */
 	async run (spec) {
-		let task = Task.create({ type: "data", title: "Test", ...spec }, { info: () => {} });
+		let task = Task.create(
+			{ type: "data", title: "Test", ...spec },
+			{ info: () => {}, dryRun: this.data?.dryRun },
+		);
 		let ret = await task.run();
-		return ret?.result ?? ret;
+		return this.data?.full ? ret : (ret?.result ?? ret);
 	},
 	tests: [
 		{
@@ -107,13 +112,7 @@ export default {
 		{
 			name: "Dry run",
 			description: "dryRun: true returns debug info without processing data",
-			async run (spec) {
-				let task = Task.create(
-					{ type: "data", title: "Test", ...spec },
-					{ info: () => {}, dryRun: true },
-				);
-				return await task.run();
-			},
+			data: { full: true, dryRun: true },
 			check: { subset: true, deep: true },
 			tests: [
 				{
@@ -125,6 +124,178 @@ export default {
 						},
 					},
 					expect: { type: "data" },
+				},
+			],
+		},
+		{
+			name: "Multi-output",
+			description: "Tasks with multiple output files (#27, #28)",
+			data: { full: true },
+			beforeAll () {
+				this._write = File.prototype.write;
+				// Skip disk I/O: return the payload length as a deterministic size.
+				File.prototype.write = function (data) {
+					return data.length;
+				};
+			},
+			afterAll () {
+				File.prototype.write = this._write;
+			},
+			check: { subset: true, deep: true },
+			tests: [
+				{
+					name: "Single output mirrors singular props",
+					arg: {
+						input: [{ contents: "hello", filename: "in.json" }],
+						output: "out.json",
+					},
+					expect: {
+						outputPath: "out.json",
+						size: 5,
+						outputs: [{ outputPath: "out.json", size: 5 }],
+					},
+				},
+				{
+					name: "Per-file handleResult splits data",
+					arg: {
+						input: [{ contents: "hello", filename: "in.json" }],
+						output: [
+							{ filename: "upper.json", handleResult: r => r.toUpperCase() },
+							{ filename: "exclaim.json", handleResult: r => r + "!" },
+						],
+					},
+					expect: { outputs: [{ size: 5 }, { size: 6 }] },
+				},
+				{
+					name: "Without per-file handleResult, gets main result",
+					arg: {
+						input: [{ contents: "hello", filename: "in.json" }],
+						handleResult: r => r.toUpperCase(),
+						output: [
+							{ filename: "exclaim.json", handleResult: r => r + "!" },
+							{ filename: "upper.json" },
+						],
+					},
+					expect: { outputs: [{ size: 6 }, { size: 5 }] },
+				},
+				{
+					name: "handleResult returning undefined falls back to main result",
+					arg: {
+						input: [{ contents: "yolo", filename: "in.json" }],
+						handleResult: r => r + r,
+						output: [{ filename: "doubled.json", handleResult: () => undefined }],
+					},
+					expect: { outputs: [{ size: 8 }] },
+				},
+				{
+					name: "handleResult returning null skips that file",
+					arg: {
+						input: [{ contents: "hello", filename: "in.json" }],
+						output: [
+							{ filename: "keep.json" },
+							{ filename: "skip.json", handleResult: () => null },
+						],
+					},
+					expect: { outputs: [{ outputPath: "keep.json", size: 5 }] },
+				},
+				{
+					name: "All outputs null → empty outputs array",
+					description:
+						"bin/qualve.js distinguishes this (outputs: []) from 'no outputs configured' so nothing is printed to stdout.",
+					arg: {
+						input: [{ contents: "hello", filename: "in.json" }],
+						output: [
+							{ filename: "first.json", handleResult: () => null },
+							{ filename: "second.json", handleResult: () => null },
+						],
+					},
+					expect: { outputs: [] },
+				},
+				{
+					name: "Dynamic output resolves after runTask",
+					arg: {
+						input: [{ contents: "hello world", filename: "in.json" }],
+						handleResult: r => r.split(" "),
+						output: result =>
+							result.map((word, i) => ({
+								filename: `${word}.json`,
+								handleResult: r => r[i],
+							})),
+					},
+					expect: {
+						outputs: [
+							{ outputPath: "hello.json", size: 5 },
+							{ outputPath: "world.json", size: 5 },
+						],
+					},
+				},
+				{
+					name: "Dynamic output receives Task instance as this",
+					description:
+						"Regression guard: the function is invoked via .call(this, result).",
+					arg: {
+						title: "greeter",
+						input: [{ contents: "hi", filename: "in.json" }],
+						output () {
+							return { filename: `${this.title}.json` };
+						},
+					},
+					expect: { outputs: [{ outputPath: "greeter.json" }] },
+				},
+				{
+					name: "Batching + multi-output throws",
+					arg: {
+						input: [
+							{
+								contents: [1, 2, 3, 4],
+								filename: "nums.json",
+								schema: { type: "array" },
+							},
+						],
+						itemsPerPage: 2,
+						output: [{ filename: "a.json" }, { filename: "b.json" }],
+					},
+					throws: e => /multiple or dynamic outputs/.test(e.message),
+				},
+				{
+					name: "Batching + dynamic output throws",
+					arg: {
+						input: [
+							{
+								contents: [1, 2, 3, 4],
+								filename: "nums.json",
+								schema: { type: "array" },
+							},
+						],
+						itemsPerPage: 2,
+						output: () => ({ filename: "out.json" }),
+					},
+					throws: e => /multiple or dynamic outputs/.test(e.message),
+				},
+				{
+					name: "Batching + single output creates subtasks",
+					description:
+						"Regression guard: a single output must NOT trigger the multi/dynamic-output check. Verifies the guard accepted the spec by checking subtask count.",
+					async run (spec) {
+						let task = Task.create(
+							{ type: "data", title: "Test", ...spec },
+							{ info: () => {} },
+						);
+						await task.ready;
+						return task.computedSubtasks.length;
+					},
+					arg: {
+						input: [
+							{
+								contents: [1, 2, 3, 4, 5],
+								filename: "nums.json",
+								schema: { type: "array" },
+							},
+						],
+						itemsPerPage: 2,
+						output: { filename: "out.json", schema: { type: "array" } },
+					},
+					expect: 3,
 				},
 			],
 		},
