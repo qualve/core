@@ -1,5 +1,4 @@
 import Task from "qualve/task";
-import { writeJSONSync } from "qualve/util";
 import { stringifyQuery, runQuery } from "./util.js";
 
 export default class GraphQLTask extends Task {
@@ -25,10 +24,9 @@ export default class GraphQLTask extends Task {
 
 	async runTask () {
 		let query = this.query;
-		let outputPath = this.output?.filePath;
 
 		if (this.dryRun) {
-			Object.assign(this.debug, { query, outputPath });
+			Object.assign(this.debug, { query });
 			return;
 		}
 
@@ -37,11 +35,9 @@ export default class GraphQLTask extends Task {
 		if (result) {
 			result = this.path.reduce((acc, key) => acc?.[key], result.data);
 			result = this.handleResult?.(result) ?? result;
-
-			var size = outputPath ? writeJSONSync(outputPath, result)?.length : undefined;
 		}
 
-		return { result, query, outputPath, size };
+		return { result, query };
 	}
 }
 
