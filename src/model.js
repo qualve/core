@@ -1,4 +1,4 @@
-import { readJSONSync } from "./util.js";
+import { readJSONSync, kebabCase } from "./util.js";
 import Entity from "./entity.js";
 
 /**
@@ -125,7 +125,7 @@ export default class Model {
 		if (this.option.short) {
 			parts.push(`-${this.option.short}`);
 		}
-		parts.push(`--${this.option.long}`);
+		parts.push(`--${this.option.long ?? kebabCase(this.name)}`);
 		return parts.join("/");
 	}
 

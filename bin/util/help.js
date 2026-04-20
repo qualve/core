@@ -1,3 +1,5 @@
+import { kebabCase } from "../../src/util.js";
+
 /**
  * Print formatted help text for the qualve CLI.
  * @param {object} options - The availableOptions object (key → option definition)
@@ -17,7 +19,7 @@ export function printHelp (options, taskIds) {
 
 	for (let key in options) {
 		let opt = options[key];
-		let long = `--${opt.long ?? key}`;
+		let long = `--${opt.long ?? kebabCase(key)}`;
 		let short = opt.short ? `-${opt.short},` : "";
 		// +2 for the ", " separator between short and long
 		let flag = `  ${short.padEnd(maxShortLen + 2)}${long}`;
