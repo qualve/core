@@ -68,9 +68,7 @@ export default class File {
 	}
 
 	resolveValue (value) {
-		return typeof value === "function"
-			? value.call(this.context, this.context?.entity)
-			: value;
+		return typeof value === "function" ? value.call(this.context, this.context?.entity) : value;
 	}
 
 	get glob () {
@@ -272,7 +270,7 @@ export default class File {
 			});
 		}
 
-		return this.#contents.value = ret;
+		return (this.#contents.value = ret);
 	}
 
 	/** Check if this file exists on disk. */
