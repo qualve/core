@@ -8,7 +8,11 @@ export default class DataTask extends Task {
 		let files = this.input.flatMap(f => f.children?.length > 0 ? f.children : [f]);
 
 		if (this.dryRun) {
-			Object.assign(this.debug, { resultType: this.resultType, outputPath: this.output?.path, files: files.map(f => f.debugInfo()) });
+			Object.assign(this.debug, {
+				resultType: this.resultType,
+				output: this.output?.map?.(f => f.debugInfo()),
+				files: files.map(f => f.debugInfo()),
+			});
 			return;
 		}
 
@@ -31,9 +35,8 @@ export default class DataTask extends Task {
 					: files[0].contents;
 		let result = this.handleResult?.(input) ?? input;
 
-		let size = this.output?.write(result);
-
-		return { inputs: files, result, outputPath: this.output?.path, size };
+		// Pure computation: output writing is handled by Task.run().
+		return { inputs: files, result };
 	}
 }
 
