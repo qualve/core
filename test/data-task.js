@@ -299,5 +299,120 @@ export default {
 				},
 			],
 		},
+		{
+			name: "Dynamic input",
+			description: "Task `input` may be a function resolved in postInit (#32).",
+			data: { full: true },
+			check: { subset: true, deep: true },
+			tests: [
+				{
+					name: "Dynamic input resolves before runTask",
+					description:
+						"Regression guard: a function-form input is called during postInit and its return is normalized like static input.",
+					arg: {
+						input () {
+							return [{ contents: { greeting: "hello" }, filename: "in.json" }];
+						},
+					},
+					expect: { result: { greeting: "hello" } },
+				},
+				{
+					name: "Batching + dynamic input preserves non-batchable files",
+					description:
+						"Regression guard: batch subtasks receive all files from dynamic input, with the batchable entry replaced by a slice descriptor.",
+					async run (spec) {
+						let task = Task.create(
+							{ type: "data", title: "Test", ...spec },
+							{ info: () => {} },
+						);
+						await task.ready;
+						return task.computedSubtasks[0].task.input.map(
+							entry => entry.filename ?? typeof entry,
+						);
+					},
+					arg: {
+						input () {
+							return [
+								{ contents: { meta: "shared" }, filename: "meta.json" },
+								{
+									contents: [1, 2, 3, 4, 5],
+									filename: "nums.json",
+									schema: { type: "array" },
+								},
+							];
+						},
+						itemsPerPage: 2,
+						output: { filename: "out.json", schema: { type: "array" } },
+					},
+					expect: ["meta.json", "nums-0-1.json"],
+				},
+				{
+					name: "Dynamic input returning undefined leaves this.input undefined",
+					description:
+						"Falsy return from input() mirrors a task that doesn't declare input.",
+					async run (spec) {
+						let task = Task.create(
+							{ type: "data", title: "Test", ...spec },
+							{ info: () => {} },
+						);
+						await task.ready;
+						return task.input ?? "no-input";
+					},
+					arg: {
+						input () {
+							return undefined;
+						},
+					},
+					expect: "no-input",
+				},
+				{
+					name: "Dynamic input receives Task instance as this",
+					description: "Regression guard: the function is invoked via .call(this).",
+					arg: {
+						title: "Dynamic input",
+						input () {
+							return [{ contents: { t: this.title }, filename: "in.json" }];
+						},
+					},
+					expect: { result: { t: "Dynamic input" } },
+				},
+				{
+					name: "Dynamic input errors propagate through run",
+					description: "A throw inside input() surfaces via this.ready → run().",
+					arg: {
+						input () {
+							throw new Error("input boom");
+						},
+					},
+					throws: e => e.message === "input boom",
+				},
+				{
+					name: "Dynamic input in a compound subtask reads this.parent",
+					description:
+						"Regression guard: per-child evaluation — each subtask resolves input() against its own this.",
+					async run (spec) {
+						let task = Task.create({ title: "Parent", ...spec }, { info: () => {} });
+						return await task.run();
+					},
+					arg: {
+						subtasks: [
+							{
+								type: "data",
+								title: "Child",
+								input () {
+									return [
+										{
+											contents: { p: this.parent.title + " → " + this.title },
+											filename: "in.json",
+										},
+									];
+								},
+							},
+						],
+					},
+					expect: [{ result: { p: "Parent → Child" } }],
+				},
+			],
+		},
 	],
 };

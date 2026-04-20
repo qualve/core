@@ -297,8 +297,13 @@ export default class Task {
 		let { File } = this.constructor;
 
 		if (this.input) {
-			this.input = toArray(this.input).map(input => File.get(input, this));
-			this.debug.input = this.input.map(f => f.debugInfo());
+			if (typeof this.input === "function") {
+				this.input = this.input.call(this);
+			}
+			if (this.input) {
+				this.input = toArray(this.input).map(input => File.get(input, this));
+				this.debug.input = this.input.map(f => f.debugInfo());
+			}
 		}
 
 		// Dynamic output (function) stays as-is until resolved in run() after runTask.
@@ -584,8 +589,6 @@ export default class Task {
 		}
 
 		let subtasks = [];
-		let rawInputs = toArray(this.task.input);
-		let batchableRaw = rawInputs[this.input.indexOf(batchableInput)];
 
 		for (let start = 0; start < batchableData.length; start += batchSize) {
 			let end = Math.min(start + batchSize, batchableData.length) - 1;
@@ -596,8 +599,8 @@ export default class Task {
 
 			// Batch slice always gets file-level fresh to avoid stale remote data.
 			// Shared inputs have no file-level fresh, so they fall back to the task-level fresh below.
-			let batchInput = rawInputs.map(raw =>
-				raw === batchableRaw
+			let batchInput = this.input.map(file =>
+				file === batchableInput
 					? {
 							filename: sliceFilename,
 							schema: batchableInput.schema,
@@ -605,7 +608,7 @@ export default class Task {
 							contents: batchableData.slice(start, end + 1),
 							fresh: true,
 						}
-					: raw);
+					: file);
 
 			let batchOutputFilename = addFilenameSuffix(this.output[0].filename, suffix);
 
@@ -913,7 +916,8 @@ function normalizeFiles (task) {
 	let context = task instanceof Task ? task : undefined;
 	let { File } = context?.constructor ?? Task;
 
-	if (task.input) {
+	// Dynamic input (function) is resolved later, not at normalization time.
+	if (task.input && typeof task.input !== "function") {
 		task.input = toArray(task.input).map(file => File.get(file, context));
 	}
 
