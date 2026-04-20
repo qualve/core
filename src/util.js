@@ -65,7 +65,8 @@ export function camelCase (str) {
 
 /**
  * Convert a camelCase identifier to kebab-case.
- * Inserts a hyphen at each lowercase/digit → uppercase boundary, then lowercases.
+ * Splits on camelCase boundaries and at acronym-ends (uppercase run followed by capital+lowercase),
+ * then lowercases.
  * @param {string} str
  * @returns {string}
  * @example
@@ -73,10 +74,14 @@ export function camelCase (str) {
  * kebabCase("itemsPerPage") // "items-per-page"
  * kebabCase("config")       // "config"
  * kebabCase("idV2")         // "id-v2"
- * kebabCase("HTTPSUrl")     // "httpsurl" (acronym runs intentionally not split)
+ * kebabCase("HTTPSUrl")     // "https-url"
+ * kebabCase("openAIKey")    // "open-ai-key"
  */
 export function kebabCase (str) {
-	return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+	return str
+		.replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
+		.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+		.toLowerCase();
 }
 
 export function toArray (value) {
