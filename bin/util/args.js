@@ -1,4 +1,5 @@
 import minimist from "minimist";
+import { kebabCase } from "../../src/util.js";
 
 export default class ArgsReader {
 	#rawParsedArgs;
@@ -17,7 +18,7 @@ export default class ArgsReader {
 
 	#getKeyUsed (key) {
 		let option = this.options[key];
-		let long = option.long ?? key;
+		let long = option.long ?? kebabCase(key);
 		let args = this.#rawParsedArgs;
 
 		if (long in args) {
