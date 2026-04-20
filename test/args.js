@@ -28,6 +28,11 @@ export default {
 							arg: { argv: ["--items-per-page"], options: { itemsPerPage: {} } },
 							expect: { itemsPerPage: true },
 						},
+						{
+							name: "Key with acronym run",
+							arg: { argv: ["--api-key"], options: { APIKey: {} } },
+							expect: { APIKey: true },
+						},
 					],
 				},
 				{
