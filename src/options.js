@@ -9,12 +9,10 @@ const availableOptions = {
 		description: "Force overwrite of existing output",
 	},
 	dryRun: {
-		long: "dry-run",
 		description: "Preview changes without writing files",
 	},
 	itemsPerPage: {
-		long: "items-per-page",
-		short: "pp",
+		short: "p",
 		parse: Number,
 		// 0 disables batching (overrides task-level default)
 		validate: v => Number.isInteger(v) && v >= 0,
