@@ -63,6 +63,22 @@ export function camelCase (str) {
 	return str.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
 }
 
+/**
+ * Convert a camelCase identifier to kebab-case.
+ * Inserts a hyphen at each lowercase/digit → uppercase boundary, then lowercases.
+ * @param {string} str
+ * @returns {string}
+ * @example
+ * kebabCase("dryRun")       // "dry-run"
+ * kebabCase("itemsPerPage") // "items-per-page"
+ * kebabCase("config")       // "config"
+ * kebabCase("idV2")         // "id-v2"
+ * kebabCase("HTTPSUrl")     // "httpsurl" (acronym runs intentionally not split)
+ */
+export function kebabCase (str) {
+	return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+}
+
 export function toArray (value) {
 	return Array.isArray(value) ? value : value === null || value === undefined ? [] : [value];
 }
