@@ -78,10 +78,7 @@ export function camelCase (str) {
  * kebabCase("openAIKey")    // "open-ai-key"
  */
 export function kebabCase (str) {
-	return str
-		.replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
-		.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-		.toLowerCase();
+	return str.replace(/(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])/g, "-").toLowerCase();
 }
 
 export function toArray (value) {
