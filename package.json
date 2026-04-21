@@ -12,6 +12,7 @@
     "./cli": "./bin/qualve.js",
     "./options": "./src/options.js",
     "./util": "./src/util.js",
+    "./format": "./src/format.js",
     "./file": "./src/file.js",
     "./task": "./src/task.js",
     "./task/data": "./src/types/data.js",

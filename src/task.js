@@ -2,7 +2,6 @@ import {
 	formatDuration,
 	formatSize,
 	readDirectorySync,
-	writeJSONSync,
 	addFilenameSuffix,
 	mapAsync,
 	toArray,
@@ -623,7 +622,7 @@ export default class Task {
 			this.output[0].delete();
 		}
 
-		writeJSONSync(outputPath, merged);
+		this.output[0].format.writeSync(outputPath, merged);
 
 		this.info(
 			`Merged ${merged.length} items from ${completed.length}/${subtasks.length} subtasks to ${outputPath}`,
