@@ -264,10 +264,10 @@ export default class File {
 
 		if (typeof ret?.then === "function") {
 			// Async, update when resolved
-			return this.#contents.pending = ret.then(resolvedContents => {
+			return (this.#contents.pending = ret.then(resolvedContents => {
 				delete this.#contents.pending;
-				return this.#contents.value = this.resolveValue(resolvedContents);
-			});
+				return (this.#contents.value = this.resolveValue(resolvedContents));
+			}));
 		}
 
 		return (this.#contents.value = ret);
