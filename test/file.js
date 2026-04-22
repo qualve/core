@@ -1,22 +1,31 @@
 import File from "../src/file.js";
-import Format from "../src/format.js";
+import Format, { TextFormat, BinaryFormat } from "../src/format.js";
 
 /** Stub text format for File integration tests — unique extension to avoid collisions. */
-new Format({
-	extensions: ["filetest"],
-	mimeType: "application/x-filetest",
-	parse: text => ({ wrapped: text }),
-	serialize: data => `[${data.wrapped ?? ""}]`,
-});
+class FileTestFormat extends TextFormat {
+	static extensions = ["filetest"];
+	static mimeType = "application/x-filetest";
+	static parse (text) {
+		return { wrapped: text };
+	}
+	static serialize (data) {
+		return `[${data.wrapped ?? ""}]`;
+	}
+}
+Format.register(FileTestFormat);
 
 /** Stub binary format for File integration tests. */
-new Format({
-	extensions: ["filetestbin"],
-	mimeType: "application/x-filetest-binary",
-	binary: true,
-	parse: buf => ({ bytes: [...buf] }),
-	serialize: data => Buffer.from(data.bytes ?? []),
-});
+class FileTestBinaryFormat extends BinaryFormat {
+	static extensions = ["filetestbin"];
+	static mimeType = "application/x-filetest-binary";
+	static parse (buf) {
+		return { bytes: [...buf] };
+	}
+	static serialize (data) {
+		return Buffer.from(data.bytes ?? []);
+	}
+}
+Format.register(FileTestBinaryFormat);
 
 /**
  * Minimal context stub for File resolution tests.
@@ -474,7 +483,7 @@ export default {
 					expect: "application/x-filetest",
 				},
 				{
-					name: "file.format is undefined for unknown extension",
+					name: "file.format falls back to base Format for unknown extension",
 					run () {
 						let file = File.get(
 							{ name: "foo", extension: "unknown-ext" },
@@ -482,7 +491,18 @@ export default {
 						);
 						return file.format;
 					},
-					expect: undefined,
+					expect: Format,
+				},
+				{
+					name: "file.mimeType falls back to text/plain for unknown extension",
+					run () {
+						let file = File.get(
+							{ name: "foo", extension: "unknown-ext" },
+							context("test"),
+						);
+						return file.mimeType;
+					},
+					expect: "text/plain",
 				},
 				{
 					name: "file.mimeType inherits from format",
@@ -509,6 +529,21 @@ export default {
 						return file.toString();
 					},
 					expect: "[hello]",
+				},
+				{
+					name: "toString() throws for unknown extension with object contents",
+					throws: true,
+					run () {
+						let file = File.get(
+							{
+								name: "foo",
+								extension: "unknown-ext",
+								contents: { some: "object" },
+							},
+							context("test"),
+						);
+						return file.toString();
+					},
 				},
 				{
 					name: "toString() returns string contents as-is",

@@ -1,4 +1,4 @@
-import { existsSync, globSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, globSync, rmSync } from "node:fs";
 import path from "node:path";
 import { addFilenameSuffix, getExtension, isGlob } from "./util.js";
 import Format from "./format.js";
@@ -89,9 +89,12 @@ export default class File {
 		return this.#resolve("extension");
 	}
 
-	/** The Format instance for this file's extension, or undefined if none registered. */
+	/**
+	 * The Format for this file's extension. Falls back to the generic Format base class
+	 * for unknown extensions (handles text/plain with binary auto-detection).
+	 */
 	get format () {
-		return Format.byExtension.get(this.extension);
+		return Format.byExtension.get(this.extension) ?? Format;
 	}
 
 	get suffix () {
@@ -265,14 +268,7 @@ export default class File {
 
 		// Fallback: read from disk if no contents provided and file has a path
 		if (ret == null && (this.filename || this.name)) {
-			if (this.format) {
-				ret = this.format.readSync(this.path);
-			}
-			else {
-				// No registered format — auto-detect binary (null bytes → Buffer) vs text (UTF-8)
-				let buffer = readFileSync(this.path);
-				ret = buffer.includes(0) ? buffer : buffer.toString("utf8");
-			}
+			ret = this.format.readSync(this.path);
 		}
 
 		if (typeof ret?.then === "function") {
@@ -298,20 +294,7 @@ export default class File {
 	 * @returns {number | undefined} byte length of the written content
 	 */
 	write (data) {
-		let contents;
-		if (this.format) {
-			contents = this.format.serialize(data);
-		}
-		else if (typeof data === "string" || Buffer.isBuffer(data)) {
-			contents = data;
-		}
-		else {
-			throw new Error(
-				`No format registered for extension "${this.extension ?? "(none)"}"` +
-					` and data is not a string or Buffer. Register a format plugin for this extension.`,
-			);
-		}
-		writeFileSync(this.path, contents);
+		let contents = this.format.writeSync(this.path, data);
 		this.#contents.value = data;
 		return contents?.length;
 	}
@@ -324,7 +307,7 @@ export default class File {
 
 	/** MIME type for this file, from its format. */
 	get mimeType () {
-		return this.format?.mimeType;
+		return this.format.mimeType;
 	}
 
 	/** Serialize contents to string using the file's format. Binary formats throw — use {@link toBlob} instead. */
@@ -337,28 +320,18 @@ export default class File {
 
 		let { format } = this;
 
-		if (format?.binary) {
+		if (format.binary) {
 			throw new Error(
 				`toString() is not supported for binary format ".${this.extension}". Use toBlob() instead.`,
 			);
 		}
 
-		return format ? format.serialize(contents) : JSON.stringify(contents);
+		return format.serialize(contents);
 	}
 
-	/**
-	 * Get a Blob representation of this file's contents with its MIME type,
-	 * suitable for upload. Handles text and binary formats uniformly.
-	 */
+	/** Get a Blob representation of this file's contents with its MIME type, suitable for upload. */
 	toBlob () {
-		let { format, contents } = this;
-
-		// Binary: pass the raw Buffer straight to Blob (no base64 detour)
-		if (format?.binary && typeof contents !== "string") {
-			return new Blob([format.serialize(contents)], { type: format.mimeType });
-		}
-
-		return new Blob([this.toString()], { type: this.mimeType });
+		return this.format.toBlob(this.contents);
 	}
 
 	debugInfo () {
