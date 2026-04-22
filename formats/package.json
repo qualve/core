@@ -1,0 +1,37 @@
+{
+	"name": "@qualve/formats",
+	"version": "0.0.1",
+	"description": "Format plugins for Qualve — CSV, TSV, and more.",
+	"type": "module",
+	"engines": {
+		"node": ">=23"
+	},
+	"main": "src/index.js",
+	"workspaces": [
+		"csv"
+	],
+	"exports": {
+		".": "./src/index.js",
+		"./csv": "./src/csv.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/qualve/formats.git"
+	},
+	"author": "Lea Verou",
+	"contributors": [
+		"Dmitry Sharabin"
+	],
+	"peerDependencies": {
+		"qualve": "*"
+	},
+	"devDependencies": {
+		"prettier": "^3.8.1",
+		"prettier-plugin-brace-style": "^0.10.0",
+		"prettier-plugin-merge": "^0.10.0",
+		"prettier-plugin-space-before-function-paren": "^0.1.0"
+	},
+	"dependencies": {
+		"@qualve/csv": "*"
+	}
+}
