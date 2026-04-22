@@ -2,34 +2,33 @@ import { readFileSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import File from "../src/file.js";
-import Format from "../src/format.js";
-import { TextFormat, BinaryFormat } from "../src/formats.js";
+import Format, { TextFormat, BinaryFormat } from "../src/formats.js";
 
 /** Stub text format for File integration tests — unique extension to avoid collisions. */
 class FileTestFormat extends TextFormat {
-	static extensions = ["filetest"];
-	static mimeType = "application/x-filetest";
-	static parse (text) {
+	extensions = ["filetest"];
+	mimeTypes = ["application/x-filetest"];
+	parse (text) {
 		return { wrapped: text };
 	}
-	static serialize (data) {
+	serialize (data) {
 		return `[${data.wrapped ?? ""}]`;
 	}
 }
-Format.register(FileTestFormat);
+new FileTestFormat();
 
 /** Stub binary format for File integration tests. */
 class FileTestBinaryFormat extends BinaryFormat {
-	static extensions = ["filetestbin"];
-	static mimeType = "application/x-filetest-binary";
-	static parse (buf) {
+	extensions = ["filetestbin"];
+	mimeTypes = ["application/x-filetest-binary"];
+	parse (buf) {
 		return { bytes: [...buf] };
 	}
-	static serialize (data) {
+	serialize (data) {
 		return Buffer.from(data.bytes ?? []);
 	}
 }
-Format.register(FileTestBinaryFormat);
+new FileTestBinaryFormat();
 
 /**
  * Minimal context stub for File resolution tests.
@@ -494,18 +493,18 @@ export default {
 					expect: "application/x-filetest",
 				},
 				{
-					name: "file.format falls back to base Format for unknown extension",
+					name: "file.format is a Format instance for unknown extension",
 					run () {
 						let file = File.get(
 							{ name: "foo", extension: "unknown-ext" },
 							context("test"),
 						);
-						return file.format;
+						return file.format instanceof Format;
 					},
-					expect: Format,
+					expect: true,
 				},
 				{
-					name: "file.mimeType falls back to text/plain for unknown extension",
+					name: "file.mimeType is undefined for unknown extension",
 					run () {
 						let file = File.get(
 							{ name: "foo", extension: "unknown-ext" },
@@ -513,7 +512,7 @@ export default {
 						);
 						return file.mimeType;
 					},
-					expect: "text/plain",
+					expect: undefined,
 				},
 				{
 					name: "file.mimeType inherits from format",
@@ -640,7 +639,7 @@ export default {
 					expect: { type: "application/x-filetest-binary", bytes: [1, 2, 3] },
 				},
 				{
-					name: "toBlob() for unknown extension uses text/plain",
+					name: "toBlob() for unknown extension has no mime type (passthrough)",
 					async run () {
 						let file = File.get(
 							{ name: "foo", extension: "unknown-ext", contents: "hello" },
@@ -649,7 +648,7 @@ export default {
 						let blob = file.toBlob();
 						return { type: blob.type, text: await blob.text() };
 					},
-					expect: { type: "text/plain", text: "hello" },
+					expect: { type: "", text: "hello" },
 				},
 			],
 		},

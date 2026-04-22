@@ -94,7 +94,7 @@ export default class File {
 	 * for unknown extensions (handles text/plain with binary auto-detection).
 	 */
 	get format () {
-		return Format.byExtension.get(this.extension) ?? Format;
+		return Format.byExtension(this.extension) ?? Format.default;
 	}
 
 	get suffix () {
