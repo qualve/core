@@ -1,20 +1,18 @@
 import { parse, stringify } from "yaml";
-import Format, { TextFormat } from "qualve/format";
+import { TextFormat } from "qualve/format";
 
 /** YAML format — handles both .yaml and .yml extensions. */
 class YamlFormat extends TextFormat {
-	static extensions = ["yaml", "yml"];
-	static mimeType = "application/yaml";
+	extensions = ["yaml", "yml"];
+	mimeTypes = ["application/yaml"];
 
-	static parse (text) {
+	parse (text) {
 		return parse(text);
 	}
 
-	static serialize (data) {
+	serialize (data) {
 		return stringify(data);
 	}
 }
 
-Format.register(YamlFormat);
-
-export { YamlFormat as yaml };
+export const yaml = YamlFormat.default;
