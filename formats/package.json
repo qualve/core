@@ -8,11 +8,13 @@
 	},
 	"main": "src/index.js",
 	"workspaces": [
-		"csv"
+		"csv",
+		"yaml"
 	],
 	"exports": {
 		".": "./src/index.js",
-		"./csv": "./src/csv.js"
+		"./csv": "./src/csv.js",
+		"./yaml": "./src/yaml.js"
 	},
 	"repository": {
 		"type": "git",
@@ -32,6 +34,7 @@
 		"prettier-plugin-space-before-function-paren": "^0.1.0"
 	},
 	"dependencies": {
-		"@qualve/csv": "*"
+		"@qualve/csv": "*",
+		"@qualve/yaml": "*"
 	}
 }
