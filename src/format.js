@@ -14,24 +14,74 @@
  *
  * Text formats should extend {@link TextFormat}, binary formats {@link BinaryFormat}.
  */
-export default class Format {
-	/** Registry: extension (without dot) → Format subclass. */
-	static byExtension = new Map();
+export class Format {
+	constructor (options) {
+		if (!options) {
+			// Defaults
+			return;
+		}
+
+		let { mimeType, mimeTypes, extension, extensions, parse, serialize, parseOptions, serializeOptions, ...otherOptions } = options;
+
+		this.parseOptions = Object.assign({}, otherOptions, parseOptions, parse && typeof parse === "object" ? parse : undefined);
+		this.serializeOptions = Object.assign({}, otherOptions, serializeOptions, serialize && typeof serialize === "object" ? serialize : undefined);
+
+		if (typeof parse === "function") {
+			this.parse = parse;
+		}
+
+		if (typeof serialize === "function") {
+			this.serialize = serialize;
+		}
+
+		if (extensions) {
+			this.extensions = extensions;
+		}
+		if (extension) {
+			this.extensions.unshift(extension);
+		}
+
+		// TODO same with MIME types
+
+		// Register, unless latent
+		if (!options.latent) {
+			this.register();
+		}
+	}
+
+	register () {
+		let { byExtension, byMimeType } = this.constructor;
+
+		for (let ext of this.extensions) {
+			byExtension.set(ext, Class);
+		}
+
+		// TODO same for mime types
+	}
 
 	/** Extensions this format handles, without dots. Override in subclass. */
-	static extensions = [];
+	extensions = [];
+
+	get extension () {
+		return this.extensions[0];
+	}
 
 	/** MIME type. Defaults to text/plain for the generic fallback. */
-	static mimeType = "text/plain";
+	mimeTypes = [];
+
+	/** Primary MIME type */
+	get mimeType () {
+		return this.mimeTypes[0];
+	}
 
 	/**
 	 * Whether this format works with Buffers (true) or strings (false).
 	 * The base Format leaves this undefined so `File` auto-detects on read.
 	 */
-	static binary;
+	binary;
 
 	/** Parse raw bytes/text into a JS value. Identity by default. */
-	static parse (raw) {
+	parse (raw) {
 		return raw;
 	}
 
@@ -40,9 +90,15 @@ export default class Format {
 	 * Passes strings and Buffers through unchanged; throws for other types —
 	 * specific formats must override.
 	 */
-	static serialize (data, options) {
+	serialize (data, options) {
 		return data;
 	}
+
+	/** Registry: extension (without dot) → Format subclass. */
+	static byExtension = new Map();
+
+	// TODO
+	static byMimeType = new Map();
 
 	/**
 	 * Register a Format subclass for its declared extensions.
@@ -55,3 +111,12 @@ export default class Format {
 	}
 }
 
+/** Abstract base for text formats. */
+export class TextFormat extends Format {
+	binary = false;
+}
+
+/** Abstract base for binary formats. */
+export class BinaryFormat extends Format {
+	binary = true;
+}

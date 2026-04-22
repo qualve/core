@@ -1,14 +1,4 @@
-import Format from "./format.js";
-
-/** Abstract base for text formats. */
-export class TextFormat extends Format {
-	static binary = false;
-}
-
-/** Abstract base for binary formats. */
-export class BinaryFormat extends Format {
-	static binary = true;
-}
+import { Format, TextFormat, BinaryFormat } from "./format.js";
 
 /** Built-in JSON format. */
 class JsonFormat extends TextFormat {
@@ -26,18 +16,12 @@ class JsonFormat extends TextFormat {
 	}
 }
 
-Format.register(JsonFormat);
+export const json = new JsonFormat();
 
-export { JsonFormat as json };
+export const text = new TextFormat({
+	extension: "txt",
+	mimeType: "text/plain",
+});
 
-class TxtFormat extends TextFormat {
-	static extensions = ["txt"];
-	static mimeType = "text/plain";
-}
-
-Format.register(TxtFormat);
-
-export { TxtFormat as text };
-
-export { Format };
+export * from "./format.js";
 export default Format;
