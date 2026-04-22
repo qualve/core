@@ -1,5 +1,9 @@
+import { readFileSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import File from "../src/file.js";
-import Format, { TextFormat, BinaryFormat } from "../src/format.js";
+import Format from "../src/format.js";
+import { TextFormat, BinaryFormat } from "../src/formats.js";
 
 /** Stub text format for File integration tests — unique extension to avoid collisions. */
 class FileTestFormat extends TextFormat {
@@ -35,6 +39,13 @@ Format.register(FileTestBinaryFormat);
  */
 function context (id, entity, extra) {
 	return { id, entity, cwd: "", ...extra };
+}
+
+function tmpFile (suffix) {
+	return join(
+		tmpdir(),
+		`qualve-file-test-${Date.now()}-${Math.random().toString(36).slice(2)}${suffix}`,
+	);
 }
 
 export default {
@@ -531,21 +542,6 @@ export default {
 					expect: "[hello]",
 				},
 				{
-					name: "toString() throws for unknown extension with object contents",
-					throws: true,
-					run () {
-						let file = File.get(
-							{
-								name: "foo",
-								extension: "unknown-ext",
-								contents: { some: "object" },
-							},
-							context("test"),
-						);
-						return file.toString();
-					},
-				},
-				{
 					name: "toString() returns string contents as-is",
 					run () {
 						let file = File.get(
@@ -613,6 +609,119 @@ export default {
 						type: "application/x-filetest-binary",
 						bytes: [0xaa, 0xbb, 0xcc],
 					},
+				},
+				{
+					name: "toBlob() passes string contents through without re-serialization",
+					async run () {
+						let file = File.get(
+							{ name: "foo", extension: "json", contents: "already a string" },
+							context("test"),
+						);
+						let blob = file.toBlob();
+						return { type: blob.type, text: await blob.text() };
+					},
+					expect: { type: "application/json", text: "already a string" },
+				},
+				{
+					name: "toBlob() passes Buffer contents through without re-serialization",
+					async run () {
+						let file = File.get(
+							{
+								name: "foo",
+								extension: "filetestbin",
+								contents: Buffer.from([1, 2, 3]),
+							},
+							context("test"),
+						);
+						let blob = file.toBlob();
+						let bytes = [...new Uint8Array(await blob.arrayBuffer())];
+						return { type: blob.type, bytes };
+					},
+					expect: { type: "application/x-filetest-binary", bytes: [1, 2, 3] },
+				},
+				{
+					name: "toBlob() for unknown extension uses text/plain",
+					async run () {
+						let file = File.get(
+							{ name: "foo", extension: "unknown-ext", contents: "hello" },
+							context("test"),
+						);
+						let blob = file.toBlob();
+						return { type: blob.type, text: await blob.text() };
+					},
+					expect: { type: "text/plain", text: "hello" },
+				},
+			],
+		},
+		{
+			name: "Disk I/O",
+			tests: [
+				{
+					name: "write() then read round-trips a text format",
+					run () {
+						let path = tmpFile(".filetest");
+						try {
+							let writer = File.get({ filename: path });
+							writer.write({ wrapped: "abc" });
+							let onDisk = readFileSync(path, "utf8");
+							let reader = File.get({ filename: path });
+							return { onDisk, parsed: reader.contents };
+						}
+						finally {
+							rmSync(path, { force: true });
+						}
+					},
+					expect: { onDisk: "[abc]", parsed: { wrapped: "[abc]" } },
+				},
+				{
+					name: "write() then read round-trips a binary format",
+					run () {
+						let path = tmpFile(".filetestbin");
+						try {
+							let writer = File.get({ filename: path });
+							writer.write({ bytes: [0xaa, 0x68, 0x69] });
+							let onDisk = readFileSync(path);
+							let reader = File.get({ filename: path });
+							return {
+								firstByte: onDisk[0],
+								length: onDisk.length,
+								parsed: reader.contents,
+							};
+						}
+						finally {
+							rmSync(path, { force: true });
+						}
+					},
+					expect: { firstByte: 0xaa, length: 3, parsed: { bytes: [0xaa, 0x68, 0x69] } },
+				},
+				{
+					name: "Unknown extension auto-detects text from disk",
+					run () {
+						let path = tmpFile(".anytext");
+						try {
+							writeFileSync(path, "hello world");
+							return File.get({ filename: path }).contents;
+						}
+						finally {
+							rmSync(path, { force: true });
+						}
+					},
+					expect: "hello world",
+				},
+				{
+					name: "Unknown extension auto-detects binary (null bytes → Buffer)",
+					run () {
+						let path = tmpFile(".anybin");
+						try {
+							writeFileSync(path, Buffer.from([0x89, 0x00, 0x01, 0x02]));
+							let result = File.get({ filename: path }).contents;
+							return Buffer.isBuffer(result) && result[1] === 0;
+						}
+						finally {
+							rmSync(path, { force: true });
+						}
+					},
+					expect: true,
 				},
 			],
 		},
