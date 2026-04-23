@@ -73,10 +73,13 @@ export class Format {
 			Class[DEFAULT_INSTANCE] = this;
 		}
 
-		// Enqueue for deferred registration. The queue is drained on first lookup
-		// (or via explicit `Format.registerAll()`), by which time subclass class-fields
-		// — which initialize after `super()` returns — are fully set.
-		Format.#pending.add(this);
+		let isLatent = options?.latent ?? this.latent;
+		if (!isLatent) {
+			// Enqueue for deferred registration. The queue is drained on first lookup
+			// (or via explicit `Format.registerAll()`), by which time subclass class-fields
+			// — which initialize after `super()` returns — are fully set.
+			Format.#pending.add(this);
+		}
 
 		if (!options) {
 			return;
@@ -87,7 +90,7 @@ export class Format {
 			extension, extensions,
 			parse, serialize,
 			parseOptions, serializeOptions,
-			latent = false,
+			latent,
 			...otherOptions
 		} = options;
 
@@ -127,10 +130,6 @@ export class Format {
 		}
 		else if (mimeType) {
 			this.mimeTypes = [mimeType];
-		}
-
-		if (latent) {
-			Format.#pending.delete(this);
 		}
 	}
 
