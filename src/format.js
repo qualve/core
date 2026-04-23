@@ -125,8 +125,8 @@ export class Format {
 		if (mimeTypes) {
 			this.mimeTypes = [...mimeTypes];
 		}
-		if (mimeType) {
-			this.mimeTypes.unshift(mimeType);
+		else if (mimeType) {
+			this.mimeTypes = [mimeType];
 		}
 
 		if (latent) {
