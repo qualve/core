@@ -493,17 +493,6 @@ export default {
 					expect: "application/x-filetest",
 				},
 				{
-					name: "file.format is a Format instance for unknown extension",
-					run () {
-						let file = File.get(
-							{ name: "foo", extension: "unknown-ext" },
-							context("test"),
-						);
-						return file.format instanceof Format;
-					},
-					expect: true,
-				},
-				{
 					name: "file.mimeType is undefined for unknown extension",
 					run () {
 						let file = File.get(

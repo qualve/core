@@ -87,7 +87,7 @@ export class Format {
 			extension, extensions,
 			parse, serialize,
 			parseOptions, serializeOptions,
-			latent,
+			latent = false,
 			...otherOptions
 		} = options;
 
@@ -131,7 +131,6 @@ export class Format {
 
 		if (latent) {
 			Format.#pending.delete(this);
-			return;
 		}
 	}
 

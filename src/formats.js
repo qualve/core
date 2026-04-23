@@ -1,4 +1,4 @@
-import { Format, TextFormat, BinaryFormat } from "./format.js";
+import { Format, TextFormat } from "./format.js";
 
 /** JSON format. */
 class JsonFormat extends TextFormat {
