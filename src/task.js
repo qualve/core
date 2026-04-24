@@ -2,7 +2,6 @@ import {
 	formatDuration,
 	formatSize,
 	readDirectorySync,
-	writeJSONSync,
 	addFilenameSuffix,
 	mapAsync,
 	toArray,
@@ -585,7 +584,8 @@ export default class Task {
 			}
 		}
 
-		let outputPath = this.output[0].path;
+		let outputFile = this.output[0];
+		let outputPath = outputFile.path;
 
 		if (merged.length === 0) {
 			// t.result is assigned by runOne even when undefined; subtasks that were never
@@ -618,12 +618,22 @@ export default class Task {
 		let allComplete = completed.length === subtasks.length;
 
 		if (!allComplete) {
-			outputPath = addFilenameSuffix(outputPath, `-${completed.length}of${subtasks.length}`);
-			// Remove any stale complete output so it doesn't coexist with the partial one.
-			this.output[0].delete();
+			// Partial merge writes to a sibling file with a count-based suffix.
+			// Remove the stale complete output so it doesn't coexist with the partial one.
+			outputFile.delete();
+			outputFile = File.get(
+				{
+					filename: addFilenameSuffix(
+						outputFile.filename,
+						`-${completed.length}of${subtasks.length}`,
+					),
+				},
+				this,
+			);
+			outputPath = outputFile.path;
 		}
 
-		writeJSONSync(outputPath, merged);
+		outputFile.write(merged);
 
 		this.info(
 			`Merged ${merged.length} items from ${completed.length}/${subtasks.length} subtasks to ${outputPath}`,

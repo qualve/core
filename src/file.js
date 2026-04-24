@@ -1,6 +1,7 @@
-import { existsSync, globSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, globSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { addFilenameSuffix, getExtension, readJSONSync, writeJSONSync, isGlob } from "./util.js";
+import { addFilenameSuffix, getExtension, isGlob } from "./util.js";
+import Format from "./format.js";
 
 export default class File {
 	context;
@@ -86,6 +87,14 @@ export default class File {
 	/** File extension (e.g. ".json", ".txt") or undefined if none. */
 	get extension () {
 		return this.#resolve("extension");
+	}
+
+	/**
+	 * The Format for this file's extension. Falls back to the generic Format base class
+	 * for unknown extensions (handles text/plain with binary auto-detection).
+	 */
+	get format () {
+		return Format.byExtension(this.extension) ?? Format.default;
 	}
 
 	get suffix () {
@@ -259,7 +268,7 @@ export default class File {
 
 		// Fallback: read from disk if no contents provided and file has a path
 		if (ret == null && (this.filename || this.name)) {
-			ret = this.extension === "json" ? readJSONSync(this.path) : readFileSync(this.path, "utf8");
+			ret = this.readSync();
 		}
 
 		if (typeof ret?.then === "function") {
@@ -279,15 +288,48 @@ export default class File {
 	}
 
 	/**
-	 * Write data to this file on disk.
+	 * Read this file from disk and parse it via its format.
+	 */
+	readSync () {
+		let { format } = this;
+		let raw = File.readSync(this.path, this.format.binary);
+		return format.parse(raw);
+	}
+
+	/**
+	 * Read a file from disc
+	 * @param {string} path
+	 * @param {boolean} [binary] Whether the file is binary or text.
+	 * If not provided, it is auto-detected:
+	 * bytes containing a null byte → binary, otherwise text
+	 * @returns {Buffer | string} string if text, Buffer if binary
+	 */
+	static readSync (path, binary) {
+		if (binary === false) {
+			return readFileSync(path, "utf8");
+		}
+
+		let buffer = readFileSync(path);
+
+		if (binary === undefined) {
+			// Auto-detect binary vs text:
+			return buffer.includes(0) ? buffer : buffer.toString("utf8");
+		}
+
+		return buffer;
+	}
+
+	/**
+	 * Write data to this file on disk via its format.
 	 * Updates the contents cache and returns the serialized byte length.
 	 * @param {*} data
 	 * @returns {number | undefined} byte length of the written content
 	 */
 	write (data) {
-		let size = writeJSONSync(this.path, data)?.length;
+		let contents = this.format.serialize(data);
+		writeFileSync(this.path, contents);
 		this.#contents.value = data;
-		return size;
+		return contents?.length;
 	}
 
 	/** Remove this file from disk. */
@@ -296,10 +338,40 @@ export default class File {
 		delete this.#contents.value;
 	}
 
-	/** Serialize contents to string. For JSON files, returns JSON.stringify. */
+	/** MIME type for this file, from its format. */
+	get mimeType () {
+		return this.format.mimeType;
+	}
+
+	/** Serialize contents to string using the file's format. Binary formats throw — use {@link toBlob} instead. */
 	toString () {
 		let contents = this.contents;
-		return typeof contents === "string" ? contents : JSON.stringify(contents);
+
+		if (typeof contents === "string") {
+			return contents;
+		}
+
+		let { format } = this;
+
+		if (format.binary) {
+			throw new Error(
+				`toString() is not supported for binary format ".${this.extension}". Use toBlob() instead.`,
+			);
+		}
+
+		return format.serialize(contents);
+	}
+
+	/**
+	 * Get a Blob representation of this file's contents with its MIME type, suitable for upload.
+	 * Strings and Buffers pass through unchanged; other types go through the format's `serialize`.
+	 */
+	toBlob () {
+		let { format } = this;
+		let data = this.contents;
+		let serialized =
+			typeof data === "string" || Buffer.isBuffer(data) ? data : format.serialize(data);
+		return new Blob([serialized], { type: format.mimeType });
 	}
 
 	debugInfo () {
