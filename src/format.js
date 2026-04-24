@@ -63,15 +63,27 @@ export class Format {
 	 * @param {...any} [otherOptions] - Remaining options are merged into both parseOptions and serializeOptions.
 	 */
 	constructor (options) {
+		let Class = this.constructor;
+
 		if (!options) {
 			// Singleton pattern: the first no-options construction becomes this class's
 			// canonical `.default` instance; subsequent no-options calls return it.
-			let Class = this.constructor;
 			if (Object.hasOwn(Class, DEFAULT_INSTANCE)) {
 				return Class[DEFAULT_INSTANCE];
 			}
 			Class[DEFAULT_INSTANCE] = this;
 		}
+
+		// Auto-merge parseOptions / serializeOptions with call-site opts, so subclasses
+		// never have to merge themselves — their prototype methods just read `options`.
+		// parseImpl / serializeImpl are held in a closure so that a user-provided
+		// `parse` / `serialize` function via options (assigned below) also flows through.
+		let parseImpl = Class.prototype.parse;
+		let serializeImpl = Class.prototype.serialize;
+		this.parse = (raw, opts) =>
+			parseImpl.call(this, raw, { ...this.parseOptions, ...opts });
+		this.serialize = (data, opts) =>
+			serializeImpl.call(this, data, { ...this.serializeOptions, ...opts });
 
 		let isLatent = options?.latent ?? this.latent;
 		if (!isLatent) {
@@ -94,9 +106,10 @@ export class Format {
 			...otherOptions
 		} = options;
 
-		// Option merging: otherOptions are shared defaults for both directions;
-		// parseOptions/serializeOptions specialize; a plain-object parse/serialize is also merged in
-		// (so `new JsonFormat({ parse: { reviver } })` works).
+		// Option merging (precedence, later wins):
+		//   1. `otherOptions` — shared across both directions
+		//   2. direction-specific `parseOptions` / `serializeOptions`
+		//   3. plain-object `parse` / `serialize` (so `{ parse: { reviver } }` also works)
 		this.parseOptions = Object.assign(
 			{},
 			otherOptions,
@@ -110,12 +123,13 @@ export class Format {
 			serialize && typeof serialize === "object" ? serialize : undefined,
 		);
 
+		// Function overrides flow through the wrapper via closure re-assignment.
 		if (typeof parse === "function") {
-			this.parse = parse;
+			parseImpl = parse;
 		}
 
 		if (typeof serialize === "function") {
-			this.serialize = serialize;
+			serializeImpl = serialize;
 		}
 
 		if (extensions) {
