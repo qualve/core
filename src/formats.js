@@ -9,9 +9,7 @@ export class JsonFormat extends TextFormat {
 		return JSON.parse(text);
 	}
 
-	serialize (data, { compact = false, indent, replacer } = {}) {
-		indent ??= compact ? null : "\t";
-		replacer ??= compact ? (k, v) => v ?? undefined : null;
+	serialize (data, { indent = "\t", replacer = null } = {}) {
 		return JSON.stringify(data, replacer, indent);
 	}
 }

@@ -167,24 +167,18 @@ export default {
 					expect: '{\n\t"a": 1\n}',
 				},
 				{
-					name: "compact: true produces no indentation",
-					run: () => json.serialize({ a: 1, b: 2 }, { compact: true }),
+					name: "indent: null produces no indentation",
+					run: () => json.serialize({ a: 1, b: 2 }, { indent: null }),
 					expect: '{"a":1,"b":2}',
 				},
 				{
-					name: "compact: true strips null values",
-					run: () => json.serialize({ a: 1, b: null, c: 3 }, { compact: true }),
+					name: "replacer option is passed to JSON.stringify",
+					run: () =>
+						json.serialize(
+							{ a: 1, b: null, c: 3 },
+							{ indent: null, replacer: (k, v) => v ?? undefined },
+						),
 					expect: '{"a":1,"c":3}',
-				},
-				{
-					name: "compact: true strips undefined values",
-					run: () => json.serialize({ a: 1, b: undefined, c: 3 }, { compact: true }),
-					expect: '{"a":1,"c":3}',
-				},
-				{
-					name: "Non-compact keeps null values",
-					run: () => json.serialize({ a: 1, b: null }, { indent: "" }),
-					expect: '{"a":1,"b":null}',
 				},
 				{
 					name: "parse round-trips JSON",
