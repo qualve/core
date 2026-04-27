@@ -20,10 +20,16 @@
   "contributors": [
     "Dmitry Sharabin"
   ],
+  "scripts": {
+    "test": "htest test/"
+  },
   "peerDependencies": {
     "qualve": "*"
   },
   "dependencies": {
     "dedent": "^1.7.2"
+  },
+  "devDependencies": {
+    "htest.dev": "^0.0.24"
   }
 }

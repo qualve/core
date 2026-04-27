@@ -1,10 +1,7 @@
-import {
-	rmSync,
-	renameSync,
-	createWriteStream,
-} from "node:fs";
+import { renameSync, createWriteStream } from "node:fs";
 import { once } from "node:events";
-import { addFilenameSuffix, readJSONSync, writeJSONSync } from "qualve/util";
+import { addFilenameSuffix } from "qualve/util";
+import File from "qualve/file";
 
 export { default as dedent } from "dedent";
 
@@ -98,12 +95,12 @@ export async function handleStream ({
 		});
 	}
 
-	// Clean up: prettify the result and write it to the final file
+	// Clean up: parse the streamed result, transform it, and re-write in the output path's format
 	if (transformResult) {
-		let result = readJSONSync(tmpFile);
-		result = transformResult(result);
-		writeJSONSync(outputPath, result);
-		rmSync(tmpFile);
+		let tmp = File.get({ filename: tmpFile });
+		let out = File.get({ filename: outputPath });
+		out.write(transformResult(tmp.contents));
+		tmp.delete();
 	}
 	else {
 		renameSync(tmpFile, outputPath);

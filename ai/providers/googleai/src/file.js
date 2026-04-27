@@ -27,7 +27,7 @@ export default class GeminiFile extends LLMFile {
 	async doUpload () {
 		let { client } = this.context;
 		return client.files.upload({
-			file: new Blob([this.toString()], { type: this.mimeType }),
+			file: this.toBlob(),
 			config: { name: this.remoteFilename, displayName: this.displayName, mimeType: this.mimeType },
 		});
 	}

@@ -1,6 +1,18 @@
 import * as path from "node:path";
 import File from "qualve/file";
+import { JsonFormat } from "qualve/format";
 import * as prompts from "./prompts.js";
+
+/**
+ * JSON variant tuned for LLM uploads: no indentation, null/undefined values
+ * stripped via a replacer (both saves tokens). Unregistered (`latent: true`)
+ * so it doesn't shadow the default JSON format for `.json` files.
+ */
+export const compactJson = new JsonFormat({
+	indent: null,
+	replacer: (k, v) => v ?? undefined,
+	latent: true,
+});
 
 /**
  * File subclass for LLM tasks.
@@ -11,13 +23,28 @@ export default class LLMFile extends File {
 	/** Remote file object from the provider. Set after upload(). */
 	remoteFile;
 
-	/** Null-stripping JSON serialization for token efficiency. */
+	/**
+	 * Format used for serializing this file for LLM upload.
+	 * Defaults to compact JSON (null-stripping, no indentation — token-efficient).
+	 * Overridable per-file or per-subclass (e.g. JSONL).
+	 */
+	get uploadFormat () {
+		return compactJson;
+	}
+
+	/** Serialize contents for LLM upload using the upload format. */
 	toString () {
 		let contents = this.contents;
 		if (typeof contents === "string") {
 			return contents;
 		}
-		return JSON.stringify(contents, (k, v) => v ?? undefined);
+		return this.uploadFormat.serialize(contents);
+	}
+
+	/** Wrap contents in a Blob using the upload format. */
+	toBlob () {
+		let f = this.uploadFormat;
+		return new Blob([f.serialize(this.contents)], { type: f.mimeType });
 	}
 
 	/**
@@ -29,11 +56,6 @@ export default class LLMFile extends File {
 		let prefix = this.context?.entity?.uniquePrefix;
 		let name = path.basename(this.path);
 		return (prefix ? prefix + "-" : "") + name;
-	}
-
-	get mimeType () {
-		return path.extname(this.filename).toLowerCase() === ".json"
-			? "application/json" : "text/plain";
 	}
 
 	/**
@@ -74,11 +96,17 @@ export default class LLMFile extends File {
 	}
 
 	/** Provider-specific upload implementation. Override in subclass. */
-	async doUpload () { throw new Error("Not implemented"); }
+	async doUpload () {
+		throw new Error("Not implemented");
+	}
 
 	/** Check if this file exists on the provider. Override in subclass. */
-	async getRemote () { throw new Error("Not implemented"); }
+	async getRemote () {
+		throw new Error("Not implemented");
+	}
 
 	/** Delete this file from the provider. Override in subclass. */
-	async deleteRemote () { throw new Error("Not implemented"); }
+	async deleteRemote () {
+		throw new Error("Not implemented");
+	}
 }

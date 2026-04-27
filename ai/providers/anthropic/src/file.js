@@ -7,11 +7,9 @@ export default class ClaudeFile extends LLMFile {
 		return client.beta.files.upload(
 			{
 				// The Claude Files API doesn't support JSON files directly,
-				// so to use them in prompts, we upload them with a text/plain MIME type that Claude supports.
+				// so we upload JSON content under a text/plain MIME type that Claude accepts.
 				// See https://platform.claude.com/docs/en/build-with-claude/files#file-types-and-content-blocks
-				file: await toFile(new Blob([this.toString()], { type: this.mimeType }), this.remoteFilename, {
-					type: "text/plain",
-				}),
+				file: await toFile(this.toBlob(), this.remoteFilename, { type: "text/plain" }),
 			},
 			{
 				betas: ["files-api-2025-04-14"],

@@ -4,7 +4,7 @@ export default class OpenAIFile extends LLMFile {
 	async doUpload () {
 		let { client } = this.context;
 		return client.files.create({
-			file: new File([this.toString()], this.remoteFilename, { type: this.mimeType }),
+			file: new File([this.toBlob()], this.remoteFilename, { type: this.mimeType }),
 			purpose: "user_data",
 		});
 	}
