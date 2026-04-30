@@ -6,39 +6,54 @@ import ArgsReader from "./util/args.js";
 import qualve from "../src/qualve.js";
 import { Task } from "../src/index.js";
 import Config from "../src/config.js";
-import availableOptions from "../src/options.js";
+import availableOptions, { assembleOptions, findValue } from "../src/options.js";
 
-// First pass: base options
-const argsReader = new ArgsReader(process.argv.slice(2), availableOptions);
-let args = argsReader.args;
-const config = await Config.from(args.config);
+const argsReader = new ArgsReader(process.argv.slice(2));
 
-for (let name in config.model) {
-	let model = config.model[name];
-	if (model.option) {
-		availableOptions[name] = model.option;
-	}
-}
+// First match L1 positionals so we know taskId before loading config / resolving the task.
+// Cloning availableOptions because matchPositionals mutates option entries (sets opt.key,
+// normalizes opt.positional).
+argsReader.matchPositionals({ ...availableOptions });
 
-// Second pass: re-parse with entity options included, if needed
-args = argsReader.args;
+const config = await Config.from(argsReader.flags.config);
 
-if (args.help) {
-	printHelp(availableOptions, Task.ids);
+let { taskId, help } = argsReader.flags;
+
+if (help && !taskId) {
+	// No task → print top-level help with just the global + config-extended schema.
+	printHelp(assembleOptions(null, { config }), Task.ids);
 	process.exit(0);
 }
-
-let { taskId, _: _unused, ...options } = args;
 
 if (!taskId) {
 	console.info(`Available tasks:\n${Task.ids.join("\n")}`);
 	process.exit(1);
 }
 
-// Resolve truncated ids
+// Resolve the task and assemble the full schema (L1 + L2 + L3 + L4) so we can
+// match any task-declared positionals and print task-specific help.
+let resolved = await Task.resolve(taskId);
+let schema = assembleOptions(resolved, {
+	config,
+	classChain: Task.getSubclassChain(resolved, argsReader.flags),
+});
+
+// Match positionals from the full schema (in case the task or a subclass declares any).
+argsReader.matchPositionals(schema);
+
+if (help) {
+	printHelp(schema, Task.ids);
+	process.exit(0);
+}
+
+let { _: _unused, ...options } = argsReader.args;
+delete options.taskId;
+delete options.help;
+
+// Resolve truncated entity IDs (with confirmation prompt)
 for (let name in config.model) {
 	let model = config.model[name];
-	let rawId = options[name];
+	let [aliasUsed, rawId] = findValue(options, name, model.option ?? {});
 
 	if (rawId) {
 		let resolvedId = model.resolveId(rawId);
@@ -49,11 +64,14 @@ for (let name in config.model) {
 				process.exit(1);
 			}
 		}
+		// Normalize to canonical key so qualve.js can split by config.model
+		if (aliasUsed && aliasUsed !== name) {
+			delete options[aliasUsed];
+		}
 		options[name] = resolvedId;
 	}
 }
 
-let resolved = await Task.resolve(taskId);
 let scopes = Task.getScopes(resolved.subtasks ?? resolved);
 
 for (let scope of scopes) {

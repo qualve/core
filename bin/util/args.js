@@ -1,64 +1,50 @@
 import minimist from "minimist";
 
+/**
+ * Thin wrapper around minimist that also handles positional argument matching.
+ * Argv parsing happens once in the constructor; positional matching is a separate
+ * pass triggered by matchPositionals(schema). Schema-aware alias lookup (long, short,
+ * camel-vs-kebab) lives in src/options.js so it works for programmatic callers too.
+ */
 export default class ArgsReader {
-	#rawParsedArgs;
-	#args;
-	#keys;
-
-	constructor (argv = process.argv.slice(2), options) {
+	constructor (argv = process.argv.slice(2)) {
 		this.argv = argv;
-		this.options = options;
-		this.#rawParsedArgs = minimist(argv);
+		let parsed = minimist(argv);
+		this._ = parsed._ ?? [];
+		delete parsed._;
+		// Raw flag bag — keys are exactly what minimist produced (long, short, kebab),
+		// not yet normalized to canonical option keys.
+		this.flags = parsed;
 	}
 
-	get _ () {
-		return this.#rawParsedArgs._;
-	}
-
-	#getKeyUsed (key) {
-		let option = this.options[key];
-		let long = option.long ?? key;
-		let args = this.#rawParsedArgs;
-
-		if (long in args) {
-			return long;
+	#hasFlag (key, opt) {
+		if (key in this.flags) {
+			return true;
 		}
-		else if (option.short && option.short in args) {
-			return option.short;
+		if (opt.long && opt.long in this.flags) {
+			return true;
 		}
-	}
-
-	#readOption (key) {
-		let keyUsed = this.#getKeyUsed(key);
-
-		if (keyUsed !== undefined) {
-			this.#args[key] = this.#rawParsedArgs[keyUsed];
+		if (opt.short && opt.short in this.flags) {
+			return true;
 		}
-	}
-
-	get #optionsChanged () {
-		let oldKeys = this.#keys;
-		let newKeys = Object.keys(this.options);
-		let changed = oldKeys + "" !== newKeys + "";
-		this.#keys = newKeys;
-		return changed;
+		return false;
 	}
 
 	/**
-	 * Match positional args (minimist's `_`) to options with `positional` set.
-	 * `positional: true` is treated as 0, numbers give explicit ordering.
+	 * Match positional args (minimist's `_`) to options that declare `positional`.
+	 * `positional: true` is treated as 0; numeric values give explicit ordering.
 	 * Options already provided via their flag are skipped.
 	 * At most one option can have `multiple: true` (acts like rest params).
+	 * Mutates this.flags (sets canonical-keyed entries) and this._ (removes consumed values).
 	 */
-	#matchPositionals () {
+	matchPositionals (schema) {
 		let remaining = [...this._];
 
-		// Collect positional defs, skipping any already provided via flag
-		let positionals = Object.entries(this.options)
+		let positionals = Object.entries(schema)
 			.filter(([key, opt]) => {
 				opt.key ??= key;
 
-				if (this.#getKeyUsed(key) !== undefined) {
+				if (this.#hasFlag(key, opt)) {
 					return false;
 				}
 
@@ -68,14 +54,13 @@ export default class ArgsReader {
 
 				return !isNaN(opt.positional);
 			})
-			.map(([key, opt]) => opt)
-			.sort((a, b) => a.positional - b.positional);
+			.map(([key, opt]) => ({ key, opt }))
+			.sort((a, b) => a.opt.positional - b.opt.positional);
 
-
-		let multiples = positionals.filter(o => o.multiple);
+		let multiples = positionals.filter(p => p.opt.multiple);
 		if (multiples.length > 1) {
-			console.warn(`At most one positional option can accept multiple values, but found ${multiples.length} (${ multiples.map(o => o.long ?? o.key).join(", ") }).`
-			+ `Specify all but one via flags to resolve the ambiguity.`)
+			console.warn(`At most one positional option can accept multiple values, but found ${multiples.length} (${ multiples.map(p => p.opt.long ?? p.key).join(", ") }).`
+			+ `Specify all but one via flags to resolve the ambiguity.`);
 		}
 
 		for (let i = 0; i < positionals.length; i++) {
@@ -83,28 +68,48 @@ export default class ArgsReader {
 				break;
 			}
 
-			let opt = positionals[i];
+			let { opt } = positionals[i];
 
 			if (opt.multiple) {
-				this.#args[opt.key] = remaining.splice(0, remaining.length - positionals.length + (i + 1));
+				this.flags[opt.key] = remaining.splice(0, remaining.length - positionals.length + (i + 1));
 			}
 			else {
-				this.#args[opt.key] = remaining.shift();
+				this.flags[opt.key] = remaining.shift();
 			}
 		}
 
-		this.#args._ = remaining;
+		this._ = remaining;
+
+		// Canonicalize: for any flag-provided value under a non-canonical alias
+		// (long, short, or kebab variant), rename to the canonical key.
+		// Positional matches above already use the canonical key directly.
+		for (let key in schema) {
+			if (key in this.flags) {
+				continue;
+			}
+			let opt = schema[key];
+			let aliases = [];
+			if (opt.long) {
+				aliases.push(opt.long);
+			}
+			if (opt.short) {
+				aliases.push(opt.short);
+			}
+			let kebab = key.replace(/[A-Z]/g, c => "-" + c.toLowerCase());
+			if (kebab !== key) {
+				aliases.push(kebab);
+			}
+			for (let alias of aliases) {
+				if (alias in this.flags) {
+					this.flags[key] = this.flags[alias];
+					delete this.flags[alias];
+					break;
+				}
+			}
+		}
 	}
 
 	get args () {
-		if (this.#optionsChanged || !this.#args) {
-			this.#args = {};
-			for (let key in this.options) {
-				this.#readOption(key);
-			}
-			this.#matchPositionals();
-		}
-
-		return this.#args;
+		return { ...this.flags, _: this._ };
 	}
 }

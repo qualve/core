@@ -11,31 +11,77 @@ import File from "./file.js";
 import { existsSync } from "node:fs";
 import { ProgressIndicator } from "./util.js";
 import Config from "./config.js";
+import { assembleOptions, resolveOptions } from "./options.js";
+
+// Framework-handled keys that should not be set as direct task properties via the
+// option-resolution loop. They're either consumed earlier in the pipeline
+// (taskId, config, help) or have explicit constructor handling (force, dryRun)
+// or use a positional override path that bypasses generic resolution (input, output).
+const FRAMEWORK_KEYS = new Set(["taskId", "config", "help", "force", "dryRun", "input", "output"]);
 
 export default class Task {
 	static File = File;
 
-	constructor (task, { parent = null, entityIds, info, force, dryRun, config } = {}) {
-		this.task = task instanceof Task ? task.task : task;
-
-		for (let key in task) {
-			if (!(key in this)) {
-				this[key] = task[key];
-			}
-		}
+	constructor (task, { parent = null, entityIds, info, force, dryRun, config, options: rawOptions } = {}) {
+		// Always shallow-copy so we don't mutate imported task definitions when applying overrides
+		let baseTask = task instanceof Task ? task.task : task;
+		this.task = { ...baseTask };
 
 		this.parent = parent;
 		this.config = config ?? this.parent?.config ?? new Config({});
-
-		normalizeFiles(this);
 		this.customInfo = info;
-
 		this.rawEntityIds = entityIds ?? this.parent?.rawEntityIds;
+		// Inherit the raw option bag from parent so CLI/programmatic flags propagate
+		// to subtasks created via per-entity expansion or batch slicing.
+		this.rawOptions = rawOptions ?? this.parent?.rawOptions ?? {};
 
+		// Resolve declared options against the chain (L1 → L2 → L3 → L4)
+		let schema = assembleOptions(this.task, {
+			config: this.config,
+			classChain: getClassChain(this.constructor),
+		});
+		let { resolved, claimed } = resolveOptions(schema, this.rawOptions, this.task);
+
+		for (let key in resolved) {
+			if (FRAMEWORK_KEYS.has(key)) {
+				continue;
+			}
+			// Skip read-only getters on the prototype chain (e.g., LLMTask's `llm` is pinned
+			// to the provider class id; setting it would throw in strict mode).
+			if (hasReadOnlyAccessor(this, key)) {
+				continue;
+			}
+			this[key] = resolved[key];
+		}
+
+		// Framework controls: explicit args take precedence; parent inheritance fills gaps.
+		// (resolution may have set defaults like force=false; explicit set wins.)
 		this.force = force ?? this.parent?.force ?? false;
 		this.dryRun = dryRun ?? this.parent?.dryRun ?? false;
 
-		this.subtasks = task.subtasks?.map(t => this.createSubtask(t));
+		// Unclaimed keys both apply as task-field overrides (preserving today's escape-hatch
+		// behavior so --prompt='...' still mutates task.prompt even if undeclared) and
+		// surface in this.unknownOptions for discoverability.
+		let unknownOptions = {};
+		for (let key in this.rawOptions) {
+			if (claimed.has(key) || this.rawOptions[key] === undefined) {
+				continue;
+			}
+			unknownOptions[key] = this.rawOptions[key];
+			this.task[key] = this.rawOptions[key];
+		}
+		this.unknownOptions = unknownOptions;
+
+		// Copy task-def fields not already set by option resolution
+		for (let key in this.task) {
+			if (!(key in this)) {
+				this[key] = this.task[key];
+			}
+		}
+
+		normalizeFiles(this);
+
+		this.subtasks = this.task.subtasks?.map(t => this.createSubtask(t));
 
 		// Resolve after subtasks so this.scope is available for compound tasks
 		let ids = this.rawEntityIds;
@@ -49,6 +95,16 @@ export default class Task {
 		this.ready = Promise.resolve()
 			.then(() => this.initAsync())
 			.then(() => this.postInit());
+	}
+
+	/**
+	 * Read an option that may be a function (deferred) or a scalar.
+	 * Use this when a task wants to support either form for the same field —
+	 * e.g., `prompt` can be a string or a function returning a string.
+	 */
+	resolveOption (key) {
+		let value = this[key];
+		return typeof value === "function" ? value.call(this) : value;
 	}
 
 	get entityModel () {
@@ -722,7 +778,7 @@ export default class Task {
 		return task;
 	}
 
-	static async fromId (taskId, { entityIds, config, dryRun, ...overrides } = {}) {
+	static async fromId (taskId, { entityIds, config, dryRun, force, ...rawOptions } = {}) {
 		if (!taskId) {
 			throw new Error(`No task provided. Available tasks: ${this.ids.join(", ")}`);
 		}
@@ -733,10 +789,12 @@ export default class Task {
 
 		normalizeFiles(task);
 
-		let { input, output, force, ...otherOverrides } = overrides;
+		let { input, output } = rawOptions;
 
 		// Unified positional override for both input and output.
 		// Falsy values at a given index skip that position: `-o 0 -o bar` overrides only the second output.
+		// This sits outside the option-resolution chain because the value is positionally
+		// merged into an array, not assigned wholesale.
 		for (let [key, override] of Object.entries({ input, output })) {
 			if (!override) {
 				continue;
@@ -754,13 +812,8 @@ export default class Task {
 			}
 		}
 
-		for (let key in otherOverrides) {
-			// Why not use Object.assign()? Because we want to ignore undefined values.
-			task[key] = overrides[key] ?? task[key];
-		}
-
 		config = await Config.from(config);
-		return Task.create(task, { entityIds, force, dryRun, config });
+		return Task.create(task, { entityIds, force, dryRun, config, options: rawOptions });
 	}
 
 	static #registry = new Map();
@@ -776,11 +829,42 @@ export default class Task {
 	}
 
 	/**
+	 * Look up a registered subclass for `task.type`.
+	 * Used by getSubclassChain (and indirectly by --help) to enumerate the dispatch chain
+	 * without instantiating anything.
+	 */
+	static getRegistered (type) {
+		return Task.#registry.get(type);
+	}
+
+	/**
+	 * Walk the dispatch chain for a task definition: [Task, SubClass, ...further dispatch].
+	 * Each level can override `static getSubclass(task, input)` to add another step
+	 * (e.g., LLMTask returns the provider class for `task.llm`). The walk is needed
+	 * outside instantiation — for example, `--help` enumerates declared options across
+	 * all chain levels without creating a Task. Inside the constructor we already know
+	 * `this.constructor`, so we walk its prototype chain instead (see `getClassChain`).
+	 */
+	static getSubclassChain (task, input = {}) {
+		let chain = [Task];
+		if (!task?.type) {
+			return chain;
+		}
+
+		let cls = Task.#registry.get(task.type);
+		while (cls && !chain.includes(cls)) {
+			chain.push(cls);
+			cls = typeof cls.getSubclass === "function" ? cls.getSubclass(task, input) : null;
+		}
+		return chain;
+	}
+
+	/**
 	 * Polymorphic factory: dispatch to the registered subclass for `task.type`.
 	 * Subclasses that need a further level of dispatch (e.g. LLMTask for providers)
 	 * override this; others fall through to `new Type(task, ...args)`.
 	 */
-	static create (task, ...args) {
+	static create (task, args) {
 		let Type = Task.#registry.get(task.type);
 		if (!Type) {
 			if (task.type) {
@@ -789,13 +873,45 @@ export default class Task {
 				);
 			}
 
-			return new Task(task, ...args);
+			return new Task(task, args);
 		}
 		if (Type.create !== this.create) {
-			return Type.create(task, ...args);
+			return Type.create(task, args);
 		}
-		return new Type(task, ...args);
+		return new Type(task, args);
 	}
+}
+
+/**
+ * Walk a class's prototype chain returning [Task, ...subclasses, leaf].
+ * Used inside the constructor to assemble the chain's `static options`
+ * without re-running dispatch logic.
+ */
+function getClassChain (SubClass) {
+	let chain = [];
+	let cls = SubClass;
+	while (cls && cls !== Function.prototype && cls.name) {
+		chain.unshift(cls);
+		cls = Object.getPrototypeOf(cls);
+	}
+	return chain;
+}
+
+/**
+ * Walk an instance's prototype chain looking for a property descriptor for `key`.
+ * Returns true if a getter exists with no setter — i.e., assigning `obj[key] = x`
+ * would throw in strict mode.
+ */
+function hasReadOnlyAccessor (obj, key) {
+	let proto = Object.getPrototypeOf(obj);
+	while (proto && proto !== Object.prototype) {
+		let desc = Object.getOwnPropertyDescriptor(proto, key);
+		if (desc) {
+			return !!(desc.get && !desc.set);
+		}
+		proto = Object.getPrototypeOf(proto);
+	}
+	return false;
 }
 
 function normalizeFiles (task) {

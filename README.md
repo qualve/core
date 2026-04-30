@@ -67,9 +67,9 @@ Also, the config file is the place to import any plugins you need.
 
 ## Options
 
-These options can be passed as either CLI flags or as options to the programmatic API.
+Options can be passed as either CLI flags or as options to the programmatic API. Aliases (long, short, kebab/camel) work the same in both modes.
 
-### All tasks
+### Built-in options
 
 | Name | Type | Description |
 |------|-----------------|-------------|
@@ -80,13 +80,74 @@ These options can be passed as either CLI flags or as options to the programmati
 | `--input`/`-i` | string, array, or object | The input file or glob pattern. |
 | `--output`/`-o` | string or object | The output file. |
 
-Note that plugins may add additional options.
+Plugins may add additional options. Tasks themselves may declare their own (see below).
 
-### Data tasks
+### Declaring task-specific options
 
-| Name | Type | Description |
-|------|-----------------|-------------|
-| `--input`/`-i` | string | The input file or glob pattern. |
+A task can declare its own parameters by adding an `options` field to its definition. The schema shape is the same as the built-ins:
+
+```js
+export default {
+	type: "llm",
+	scope: "question",
+	options: {
+		completeness: {
+			default: "partial",
+			values: ["partial", "full", "codes-only"],
+			description: "How complete the starting codebook is",
+		},
+		mode: {
+			default: "hybrid",
+			values: ["deductive", "inductive", "hybrid"],
+			description: "Coding approach",
+		},
+	},
+	prompt (question) {
+		return `Develop a codebook using ${this.mode} coding from a ${this.completeness} starting set ...`;
+	},
+};
+```
+
+Resolved values become **direct properties on the task instance** (e.g., `this.completeness`, `this.mode`). The task body must use a regular function (not an arrow) to read `this`.
+
+CLI: `qualve mytask --question=q1 --completeness=full --mode=inductive`. Programmatic: `qualve("mytask", { question: "q1", completeness: "full", mode: "inductive" })`.
+
+#### Schema fields
+
+- `default` — the value used when no other source provides one.
+- `short` — short flag (e.g., `pp` for `--pp`).
+- `long` — long flag (defaults to the option's key, kebab-cased; only set if you want a different name).
+- `parse` — function applied to **string** values (CLI input). Typed values from the programmatic API skip this. If `parse: Number` returns `NaN`, the resolver throws.
+- `values` — array (member-of check) or `RegExp` (pattern match). Throws on mismatch.
+- `validate` — predicate; throws if it returns false.
+- `description` — appears in `--help`.
+
+Function values pass through unchanged — the resolver does not call them. Read function-typed options via `this.resolveOption("key")` or call them directly when you're ready.
+
+#### Resolution order (highest to lowest priority)
+
+1. CLI flag or programmatic value.
+2. Task-definition field of the same name (so `model: "gpt-5"` at the top level acts as the per-task default for the `model` option).
+3. The schema's static `default`.
+
+#### Subclasses can declare options too
+
+A `Task` subclass declares its options as `static options = {...}` on the class. The framework merges them into the schema for any task whose `type` (or further dispatch keys like `llm`) lands in that subclass.
+
+```js
+class LLMTask extends Task {
+	static options = {
+		llm: { default: "gemini", description: "LLM provider" },
+		model: { description: "Model name (provider-specific)" },
+	};
+}
+```
+
+Overlapping keys across levels (global → config → subclass chain → task) **deep-merge per field** with the more specific level winning. A subclass declares `description`, a specific task adds `default` and `values` — both end up on the merged schema.
+
+### Unknown options
+
+Options that aren't declared anywhere both apply as task-field overrides (so `--prompt='...'` mutates `task.prompt` even if undeclared) and surface in `this.unknownOptions` for introspection.
 
 
 ## Plugins
