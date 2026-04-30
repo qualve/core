@@ -170,39 +170,19 @@ export function mergeSchemas (parent, child) {
 }
 
 /**
- * Assemble the full schema for a (task, config) pair.
- * Walks: L1 (global) → L2 (config.model[*].option) → L3 (the supplied class chain)
- * → L4 (task.options field). Used for --help printing and inside the Task constructor.
- *
- * The caller is responsible for supplying `classChain` — usually either via
- * `Task.getSubclassChain(task, input)` (when no instance exists yet) or by walking
- * `this.constructor`'s prototype chain (when called from inside a Task constructor).
- * @param {object} task - The task definition
- * @param {object} ctx - { config, classChain }
+ * Merge a list of option schemas in precedence order, later winning per field.
+ * Pass any number of plain `{ optionKey: definition }` objects (or null/undefined for
+ * absent layers). Callers decide what counts as a layer — typically the global base,
+ * subclass `static options`, and the task's `options` field — and pass them in order.
  */
-export function assembleOptions (task, { config, classChain = [] } = {}) {
-	let schema = { ...availableOptions };
-
-	if (config?.model) {
-		for (let name in config.model) {
-			let modelOpt = config.model[name].option;
-			if (modelOpt) {
-				schema = mergeSchemas(schema, { [name]: modelOpt });
-			}
+export function assembleOptions (...schemas) {
+	let merged = {};
+	for (let schema of schemas) {
+		if (schema) {
+			merged = mergeSchemas(merged, schema);
 		}
 	}
-
-	for (let cls of classChain) {
-		if (cls.options) {
-			schema = mergeSchemas(schema, cls.options);
-		}
-	}
-
-	if (task?.options) {
-		schema = mergeSchemas(schema, task.options);
-	}
-
-	return schema;
+	return merged;
 }
 
 export default availableOptions;

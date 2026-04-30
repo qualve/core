@@ -5,6 +5,7 @@ import ArgsReader from "../bin/util/args.js";
  */
 function parse (argv, options) {
 	let r = new ArgsReader(argv);
+	r.canonicalize(options);
 	r.matchPositionals(options);
 	return r.args;
 }

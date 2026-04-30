@@ -180,38 +180,33 @@ export default {
 			name: "assembleOptions",
 			tests: [
 				{
-					name: "L1 only when no chain or task.options",
+					name: "Empty call returns empty schema",
+					run: () => Object.keys(assembleOptions()).length,
+					expect: 0,
+				},
+				{
+					name: "Single schema passes through",
 					run: () => {
-						let schema = assembleOptions(null, {});
-						return "force" in schema && "dryRun" in schema;
+						let s = assembleOptions({ x: { default: 1 } });
+						return s.x?.default === 1;
 					},
 					expect: true,
 				},
 				{
-					name: "L4 merges task.options on top of L1",
+					name: "Schemas merge in order, later winning per field",
 					run: () => {
-						let schema = assembleOptions({ options: { custom: { default: "hi" } } }, {});
-						return schema.custom?.default === "hi" && "force" in schema;
+						let a = { x: { description: "a", default: 1 } };
+						let b = { x: { default: 2 } };
+						let s = assembleOptions(a, b);
+						return s.x.description === "a" && s.x.default === 2;
 					},
 					expect: true,
 				},
 				{
-					name: "classChain merges static options",
+					name: "Variadic with null/undefined entries skipped",
 					run: () => {
-						class A { static options = { a: { default: 1 } }; }
-						class B extends A { static options = { b: { default: 2 } }; }
-						let schema = assembleOptions(null, { classChain: [A, B] });
-						return schema.a?.default === 1 && schema.b?.default === 2;
-					},
-					expect: true,
-				},
-				{
-					name: "Child class wins per field over parent",
-					run: () => {
-						class A { static options = { x: { description: "a", default: 1 } }; }
-						class B extends A { static options = { x: { default: 2 } }; }
-						let schema = assembleOptions(null, { classChain: [A, B] });
-						return schema.x.description === "a" && schema.x.default === 2;
+						let s = assembleOptions({ a: { default: 1 } }, null, { b: { default: 2 } }, undefined);
+						return s.a?.default === 1 && s.b?.default === 2;
 					},
 					expect: true,
 				},

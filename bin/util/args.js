@@ -17,96 +17,53 @@ export default class ArgsReader {
 		this.flags = parsed;
 	}
 
-	#hasFlag (key, opt) {
-		if (key in this.flags) {
-			return true;
+	/**
+	 * Move any flag from an alias key (long, short, camel/kebab variant) to its canonical
+	 * option key per the schema. Idempotent — calling repeatedly with progressively richer
+	 * schemas (L1 → full chain) just picks up any newly-recognized aliases.
+	 */
+	canonicalize (schema) {
+		for (let key in schema) {
+			if (key in this.flags) {
+				continue;
+			}
+			let { long, short } = schema[key];
+			let kebab = key.replace(/[A-Z]/g, c => "-" + c.toLowerCase());
+			let alias = [long, short, kebab].find(a => a && a in this.flags);
+			if (alias) {
+				this.flags[key] = this.flags[alias];
+				delete this.flags[alias];
+			}
 		}
-		if (opt.long && opt.long in this.flags) {
-			return true;
-		}
-		if (opt.short && opt.short in this.flags) {
-			return true;
-		}
-		return false;
 	}
 
 	/**
 	 * Match positional args (minimist's `_`) to options that declare `positional`.
 	 * `positional: true` is treated as 0; numeric values give explicit ordering.
-	 * Options already provided via their flag are skipped.
+	 * Options already provided via a flag are skipped, so call canonicalize(schema)
+	 * first to move alias-keyed flags into their canonical slot.
 	 * At most one option can have `multiple: true` (acts like rest params).
-	 * Mutates this.flags (sets canonical-keyed entries) and this._ (removes consumed values).
 	 */
 	matchPositionals (schema) {
-		let remaining = [...this._];
-
 		let positionals = Object.entries(schema)
-			.filter(([key, opt]) => {
-				opt.key ??= key;
+			.filter(([key, opt]) => !(key in this.flags) && (opt.positional === true || typeof opt.positional === "number"))
+			.map(([key, opt]) => [key, opt, opt.positional === true ? 0 : opt.positional])
+			.sort(([, , a], [, , b]) => a - b);
 
-				if (this.#hasFlag(key, opt)) {
-					return false;
-				}
-
-				if (opt.positional === true) {
-					opt.positional = 0;
-				}
-
-				return !isNaN(opt.positional);
-			})
-			.map(([key, opt]) => ({ key, opt }))
-			.sort((a, b) => a.opt.positional - b.opt.positional);
-
-		let multiples = positionals.filter(p => p.opt.multiple);
+		let multiples = positionals.filter(([, opt]) => opt.multiple);
 		if (multiples.length > 1) {
-			console.warn(`At most one positional option can accept multiple values, but found ${multiples.length} (${ multiples.map(p => p.opt.long ?? p.key).join(", ") }).`
+			console.warn(`At most one positional option can accept multiple values, but found ${multiples.length} (${ multiples.map(([key, opt]) => opt.long ?? key).join(", ") }).`
 			+ `Specify all but one via flags to resolve the ambiguity.`);
 		}
 
-		for (let i = 0; i < positionals.length; i++) {
-			if (remaining.length === 0) {
-				break;
-			}
-
-			let { opt } = positionals[i];
-
-			if (opt.multiple) {
-				this.flags[opt.key] = remaining.splice(0, remaining.length - positionals.length + (i + 1));
-			}
-			else {
-				this.flags[opt.key] = remaining.shift();
-			}
+		let remaining = [...this._];
+		for (let i = 0; i < positionals.length && remaining.length > 0; i++) {
+			let [key, opt] = positionals[i];
+			this.flags[key] = opt.multiple
+				? remaining.splice(0, remaining.length - positionals.length + (i + 1))
+				: remaining.shift();
 		}
-
 		this._ = remaining;
-
-		// Canonicalize: for any flag-provided value under a non-canonical alias
-		// (long, short, or kebab variant), rename to the canonical key.
-		// Positional matches above already use the canonical key directly.
-		for (let key in schema) {
-			if (key in this.flags) {
-				continue;
-			}
-			let opt = schema[key];
-			let aliases = [];
-			if (opt.long) {
-				aliases.push(opt.long);
-			}
-			if (opt.short) {
-				aliases.push(opt.short);
-			}
-			let kebab = key.replace(/[A-Z]/g, c => "-" + c.toLowerCase());
-			if (kebab !== key) {
-				aliases.push(kebab);
-			}
-			for (let alias of aliases) {
-				if (alias in this.flags) {
-					this.flags[key] = this.flags[alias];
-					delete this.flags[alias];
-					break;
-				}
-			}
-		}
 	}
 
 	get args () {

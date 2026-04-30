@@ -13,12 +13,6 @@ import { ProgressIndicator } from "./util.js";
 import Config from "./config.js";
 import { assembleOptions, resolveOptions } from "./options.js";
 
-// Framework-handled keys that should not be set as direct task properties via the
-// option-resolution loop. They're either consumed earlier in the pipeline
-// (taskId, config, help) or have explicit constructor handling (force, dryRun)
-// or use a positional override path that bypasses generic resolution (input, output).
-const FRAMEWORK_KEYS = new Set(["taskId", "config", "help", "force", "dryRun", "input", "output"]);
-
 export default class Task {
 	static File = File;
 
@@ -35,24 +29,19 @@ export default class Task {
 		// to subtasks created via per-entity expansion or batch slicing.
 		this.rawOptions = rawOptions ?? this.parent?.rawOptions ?? {};
 
-		// Resolve declared options against the chain (L1 → L2 → L3 → L4)
-		let schema = assembleOptions(this.task, {
-			config: this.config,
-			classChain: getClassChain(this.constructor),
-		});
+		// Resolve declared options against the layered schema:
+		// config-extended global → each subclass's static options → task's own options.
+		let classOptions = getClassChain(this.constructor)
+			.map(c => c.options)
+			.filter(Boolean);
+		let schema = assembleOptions(
+			this.config.availableOptions,
+			...classOptions,
+			this.task.options,
+		);
 		let { resolved, claimed } = resolveOptions(schema, this.rawOptions, this.task);
 
-		for (let key in resolved) {
-			if (FRAMEWORK_KEYS.has(key)) {
-				continue;
-			}
-			// Skip read-only getters on the prototype chain (e.g., LLMTask's `llm` is pinned
-			// to the provider class id; setting it would throw in strict mode).
-			if (hasReadOnlyAccessor(this, key)) {
-				continue;
-			}
-			this[key] = resolved[key];
-		}
+		Object.assign(this, resolved);
 
 		// Framework controls: explicit args take precedence; parent inheritance fills gaps.
 		// (resolution may have set defaults like force=false; explicit set wins.)
@@ -895,23 +884,6 @@ function getClassChain (SubClass) {
 		cls = Object.getPrototypeOf(cls);
 	}
 	return chain;
-}
-
-/**
- * Walk an instance's prototype chain looking for a property descriptor for `key`.
- * Returns true if a getter exists with no setter — i.e., assigning `obj[key] = x`
- * would throw in strict mode.
- */
-function hasReadOnlyAccessor (obj, key) {
-	let proto = Object.getPrototypeOf(obj);
-	while (proto && proto !== Object.prototype) {
-		let desc = Object.getOwnPropertyDescriptor(proto, key);
-		if (desc) {
-			return !!(desc.get && !desc.set);
-		}
-		proto = Object.getPrototypeOf(proto);
-	}
-	return false;
 }
 
 function normalizeFiles (task) {
