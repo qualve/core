@@ -1,4 +1,5 @@
 import minimist from "minimist";
+import { camelToKebab } from "../../src/options.js";
 
 /**
  * Thin wrapper around minimist that also handles positional argument matching.
@@ -28,8 +29,7 @@ export default class ArgsReader {
 				continue;
 			}
 			let { long, short } = schema[key];
-			let kebab = key.replace(/[A-Z]/g, c => "-" + c.toLowerCase());
-			let alias = [long, short, kebab].find(a => a && a in this.flags);
+			let alias = [long, short, camelToKebab(key)].find(a => a && a in this.flags);
 			if (alias) {
 				this.flags[key] = this.flags[alias];
 				delete this.flags[alias];

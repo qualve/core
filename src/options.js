@@ -43,9 +43,20 @@ const availableOptions = Object.freeze({
 	},
 });
 
-/** camelCase → kebab-case */
-function camelToKebab (s) {
-	return s.replace(/[A-Z]/g, c => "-" + c.toLowerCase());
+/**
+ * camelCase → kebab-case, splitting on real word boundaries so acronyms stay together:
+ *   "myFlag"     → "my-flag"
+ *   "itemsPerPage" → "items-per-page"
+ *   "AIFoo"      → "ai-foo"     (acronym kept whole)
+ *   "URLPath"    → "url-path"   (acronym kept whole)
+ *   "Foo"        → "foo"        (no leading dash from a capitalized first letter)
+ *
+ * Two zero-width boundaries: non-uppercase → uppercase (entering a new word),
+ * or uppercase → uppercase-followed-by-non-uppercase (the last char of an
+ * acronym run starts a new capitalized word).
+ */
+export function camelToKebab (s) {
+	return s.replace(/(?<=[^A-Z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][^A-Z])/g, "-").toLowerCase();
 }
 
 /**
