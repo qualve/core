@@ -818,15 +818,6 @@ export default class Task {
 	}
 
 	/**
-	 * Look up a registered subclass for `task.type`.
-	 * Used by getSubclassChain (and indirectly by --help) to enumerate the dispatch chain
-	 * without instantiating anything.
-	 */
-	static getRegistered (type) {
-		return Task.#registry.get(type);
-	}
-
-	/**
 	 * Walk the dispatch chain for a task definition: [Task, SubClass, ...further dispatch].
 	 * Each level can override `static getSubclass(task, input)` to add another step
 	 * (e.g., LLMTask returns the provider class for `task.llm`). The walk is needed

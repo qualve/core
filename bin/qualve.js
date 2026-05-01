@@ -6,7 +6,7 @@ import ArgsReader from "./util/args.js";
 import qualve from "../src/qualve.js";
 import { Task } from "../src/index.js";
 import Config from "../src/config.js";
-import availableOptions, { assembleOptions, findValue } from "../src/options.js";
+import availableOptions, { assembleOptions } from "../src/options.js";
 
 const argsReader = new ArgsReader(process.argv.slice(2));
 
@@ -54,24 +54,18 @@ delete options.help;
 
 // Resolve truncated entity IDs (with confirmation prompt)
 for (let name in config.model) {
-	let model = config.model[name];
-	let [aliasUsed, rawId] = findValue(options, name, model.option ?? {});
-
-	if (rawId) {
-		let resolvedId = model.resolveId(rawId);
-		if (resolvedId !== rawId) {
-			if (
-				!(await confirm({ prompt: `Did you mean "${resolvedId}" instead of "${rawId}"?` }))
-			) {
-				process.exit(1);
-			}
-		}
-		// Normalize to canonical key so qualve.js can split by config.model
-		if (aliasUsed && aliasUsed !== name) {
-			delete options[aliasUsed];
-		}
-		options[name] = resolvedId;
+	let rawId = options[name];
+	if (!rawId) {
+		continue;
 	}
+
+	let resolvedId = config.model[name].resolveId(rawId);
+	if (resolvedId !== rawId) {
+		if (!(await confirm({ prompt: `Did you mean "${resolvedId}" instead of "${rawId}"?` }))) {
+			process.exit(1);
+		}
+	}
+	options[name] = resolvedId;
 }
 
 let scopes = Task.getScopes(resolved.subtasks ?? resolved);
