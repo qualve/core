@@ -3,10 +3,9 @@ import { prettyPrint, printError } from "./util/pretty-print.js";
 import { printHelp } from "./util/help.js";
 import { confirm } from "./util/ask.js";
 import ArgsReader from "./util/args.js";
-import qualve from "../src/qualve.js";
 import { Task } from "../src/index.js";
 import Config from "../src/config.js";
-import availableOptions, { assembleOptions } from "../src/options.js";
+import availableOptions from "../src/options.js";
 
 const argsReader = new ArgsReader(process.argv.slice(2));
 
@@ -19,38 +18,19 @@ const config = await Config.from(argsReader.flags.config);
 
 let { taskId, help } = argsReader.flags;
 
-if (help && !taskId) {
-	// No task → print top-level help with just the config-extended global schema.
-	printHelp(config.availableOptions, Task.ids);
-	process.exit(0);
-}
-
 if (!taskId) {
+	if (help) {
+		printHelp(config.availableOptions, Task.ids);
+		process.exit(0);
+	}
 	console.info(`Available tasks:\n${Task.ids.join("\n")}`);
 	process.exit(1);
 }
 
-// Resolve the task and build the full schema for it: config-extended global +
-// each subclass's static options + the task's own options.
-let resolved = await Task.resolve(taskId);
-let classOptions = Task.getSubclassChain(resolved, argsReader.flags)
-	.map(c => c.options)
-	.filter(Boolean);
-let schema = assembleOptions(config.availableOptions, ...classOptions, resolved.options);
+// Pick up entity-model option aliases now that we have config
+argsReader.canonicalize(config.availableOptions);
 
-// Second pass: pick up any aliases newly recognized by the full schema (entity-model
-// options, subclass options, task options) and match any task-declared positionals.
-argsReader.canonicalize(schema);
-argsReader.matchPositionals(schema);
-
-if (help) {
-	printHelp(schema, Task.ids);
-	process.exit(0);
-}
-
-let { _: _unused, ...options } = argsReader.args;
-delete options.taskId;
-delete options.help;
+let { _: _u, taskId: _t, help: _h, ...options } = argsReader.args;
 
 // Resolve truncated entity IDs (with confirmation prompt)
 for (let name in config.model) {
@@ -58,7 +38,6 @@ for (let name in config.model) {
 	if (!rawId) {
 		continue;
 	}
-
 	let resolvedId = config.model[name].resolveId(rawId);
 	if (resolvedId !== rawId) {
 		if (!(await confirm({ prompt: `Did you mean "${resolvedId}" instead of "${rawId}"?` }))) {
@@ -68,6 +47,7 @@ for (let name in config.model) {
 	options[name] = resolvedId;
 }
 
+let resolved = await Task.resolve(taskId);
 let scopes = Task.getScopes(resolved.subtasks ?? resolved);
 
 for (let scope of scopes) {
@@ -82,13 +62,25 @@ for (let scope of scopes) {
 				`Please provide a ${model.name} ID${model.flag ? ` via the ${model.flag} flag` : ""}. Available ids: ${model.ids.join(", ")}`,
 			);
 		}
-
 		options[scope] = model.ids;
 	}
 }
 
+// Construct the task without running. The constructor walks the dispatch chain
+// and builds the merged schema on the instance — read it for --help and for
+// matching any task-declared positionals.
+let task = await Task.fromId(taskId, { ...options, config });
+
+argsReader.canonicalize(task.optionsSchema);
+argsReader.matchPositionals(task.optionsSchema);
+
+if (help) {
+	printHelp(task.optionsSchema, Task.ids);
+	process.exit(0);
+}
+
 try {
-	let result = await qualve(taskId, { ...options, config });
+	let result = await task.run();
 	if (options.dryRun) {
 		prettyPrint(result);
 	}

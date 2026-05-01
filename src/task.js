@@ -31,15 +31,17 @@ export default class Task {
 
 		// Resolve declared options against the layered schema:
 		// config-extended global → each subclass's static options → task's own options.
+		// Stored on `this.optionsSchema` so consumers (e.g., --help) can introspect
+		// without re-walking. The name avoids collision with File.schema (JSON schema).
 		let classOptions = getClassChain(this.constructor)
 			.map(c => c.options)
 			.filter(Boolean);
-		let schema = assembleOptions(
+		this.optionsSchema = assembleOptions(
 			this.config.availableOptions,
 			...classOptions,
 			this.task.options,
 		);
-		let { resolved, claimed } = resolveOptions(schema, this.rawOptions, this.task);
+		let { resolved, claimed } = resolveOptions(this.optionsSchema, this.rawOptions, this.task);
 
 		Object.assign(this, resolved);
 
@@ -101,7 +103,10 @@ export default class Task {
 	}
 
 	createSubtask (subtask = this.task, args = {}) {
-		return Task.create(subtask, { parent: this, ...args });
+		// Forward the parent's raw options so dispatch (e.g., LLMTask.create resolving `llm`)
+		// sees the same input the parent did. Without this, batch / per-entity subtasks
+		// would re-dispatch using only static defaults.
+		return Task.create(subtask, { parent: this, options: this.rawOptions, ...args });
 	}
 
 	info (message) {
@@ -767,23 +772,55 @@ export default class Task {
 		return task;
 	}
 
-	static async fromId (taskId, { entityIds, config, dryRun, force, ...rawOptions } = {}) {
+	/**
+	 * Construct a task instance by id without running it. Loads the task definition,
+	 * applies positional input/output overrides, splits entity IDs from the rest of
+	 * `options` (keys matching `config.model`), validates scoped tasks have explicit
+	 * entity IDs, and dispatches via Task.create. The returned instance exposes
+	 * `task.optionsSchema` for introspection (used by `--help`).
+	 */
+	static async fromId (taskId, { config, ...options } = {}) {
 		if (!taskId) {
 			throw new Error(`No task provided. Available tasks: ${this.ids.join(", ")}`);
 		}
 
+		config = await Config.from(config);
+
 		let task = await this.resolve(taskId);
-
 		task = { ...task };
-
 		normalizeFiles(task);
 
-		let { input, output } = rawOptions;
+		// Split entity IDs (keys matching a config.model entry) from everything else.
+		let entityIds = {};
+		let rawOptions = {};
+		for (let key in options) {
+			if (options[key] === undefined) {
+				continue;
+			}
+			if (config.model?.[key]) {
+				entityIds[key] = options[key];
+			}
+			else {
+				rawOptions[key] = options[key];
+			}
+		}
+
+		// Validate scoped tasks have explicit entity IDs
+		let scopes = Task.getScopes(task.subtasks ?? task);
+		for (let scope of scopes) {
+			let model = config.model?.[scope];
+			if (model?.multiple && !entityIds[scope]) {
+				throw new Error(
+					`Entity IDs required for scope "${scope}". Available: ${model.ids.join(", ")}`,
+				);
+			}
+		}
 
 		// Unified positional override for both input and output.
 		// Falsy values at a given index skip that position: `-o 0 -o bar` overrides only the second output.
 		// This sits outside the option-resolution chain because the value is positionally
 		// merged into an array, not assigned wholesale.
+		let { input, output, force, dryRun, ...restOptions } = rawOptions;
 		for (let [key, override] of Object.entries({ input, output })) {
 			if (!override) {
 				continue;
@@ -801,8 +838,7 @@ export default class Task {
 			}
 		}
 
-		config = await Config.from(config);
-		return Task.create(task, { entityIds, force, dryRun, config, options: rawOptions });
+		return Task.create(task, { entityIds, force, dryRun, config, options: restOptions });
 	}
 
 	static #registry = new Map();
@@ -818,33 +854,13 @@ export default class Task {
 	}
 
 	/**
-	 * Walk the dispatch chain for a task definition: [Task, SubClass, ...further dispatch].
-	 * Each level can override `static getSubclass(task, input)` to add another step
-	 * (e.g., LLMTask returns the provider class for `task.llm`). The walk is needed
-	 * outside instantiation — for example, `--help` enumerates declared options across
-	 * all chain levels without creating a Task. Inside the constructor we already know
-	 * `this.constructor`, so we walk its prototype chain instead (see `getClassChain`).
-	 */
-	static getSubclassChain (task, input = {}) {
-		let chain = [Task];
-		if (!task?.type) {
-			return chain;
-		}
-
-		let cls = Task.#registry.get(task.type);
-		while (cls && !chain.includes(cls)) {
-			chain.push(cls);
-			cls = typeof cls.getSubclass === "function" ? cls.getSubclass(task, input) : null;
-		}
-		return chain;
-	}
-
-	/**
 	 * Polymorphic factory: dispatch to the registered subclass for `task.type`.
-	 * Subclasses that need a further level of dispatch (e.g. LLMTask for providers)
-	 * override this; others fall through to `new Type(task, ...args)`.
+	 * Subclasses that need a further routing step (e.g., LLMTask resolves `llm` to a
+	 * provider) override this to do their own option resolution and call into the
+	 * next subclass's create. Each level claims its own options as it routes —
+	 * see LLMTask.create in @qualve/ai/core for an example.
 	 */
-	static create (task, args) {
+	static create (task, args = {}) {
 		let Type = Task.#registry.get(task.type);
 		if (!Type) {
 			if (task.type) {
@@ -852,7 +868,6 @@ export default class Task {
 					`Unknown task type: "${task.type}". Registered types: ${[...Task.#registry.keys()].join(", ") || "(none)"}`,
 				);
 			}
-
 			return new Task(task, args);
 		}
 		if (Type.create !== this.create) {
