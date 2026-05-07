@@ -11,7 +11,7 @@ import File from "./file.js";
 import { existsSync } from "node:fs";
 import { ProgressIndicator } from "./util.js";
 import Config from "./config.js";
-import { assembleOptions, resolveOptions } from "./options.js";
+import { assembleOptions, resolveOptions, matchPositionals } from "./options.js";
 
 export default class Task {
 	static File = File;
@@ -29,18 +29,23 @@ export default class Task {
 		// to subtasks created via per-entity expansion or batch slicing.
 		this.rawOptions = rawOptions ?? this.parent?.rawOptions ?? {};
 
-		// Resolve declared options against the layered schema:
-		// config-extended global → each subclass's static options → task's own options.
-		// Stored on `this.optionsSchema` so consumers (e.g., --help) can introspect
-		// without re-walking. The name avoids collision with File.schema (JSON schema).
+		// Build the task's own option layer (subclass chain + this task's `options`).
+		// Match its positional declarations against the leftover `_`. Each task does
+		// this against its OWN layer — the config-level layer's positionals were already
+		// matched by whoever produced rawOptions (bin/qualve.js or the parent task), so
+		// we don't re-match them here.
 		let classOptions = getClassChain(this.constructor)
 			.map(c => c.options)
 			.filter(Boolean);
-		this.optionsSchema = assembleOptions(
-			this.config.availableOptions,
-			...classOptions,
-			this.task.options,
-		);
+		let taskLayerSchema = assembleOptions(...classOptions, this.task.options);
+
+		let { _: positionals = [], ...flagsBag } = this.rawOptions;
+		this.rawOptions = matchPositionals({ flags: flagsBag, _: positionals }, taskLayerSchema).flags;
+
+		// Stored on `this.optionsSchema` so consumers (e.g., --help) can introspect
+		// without re-walking. The name avoids collision with File.schema (JSON schema).
+		this.optionsSchema = assembleOptions(this.config.availableOptions, taskLayerSchema);
+
 		let { resolved, claimed } = resolveOptions(this.optionsSchema, this.rawOptions, this.task);
 
 		Object.assign(this, resolved);

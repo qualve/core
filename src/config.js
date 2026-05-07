@@ -1,6 +1,6 @@
 import { importCwd } from "./util.js";
 import Model from "./model.js";
-import availableOptions from "./options.js";
+import availableOptions, { mergeSchemas } from "./options.js";
 
 const DEFAULT_CONFIG_FILE = "qualve.config.js";
 
@@ -21,16 +21,19 @@ export default class Config {
 		}
 
 		// Build the available-options schema for this config: the global base plus
-		// any per-model `option` entries. Localized here because the model→option
-		// mapping is a temporary special case — once entity model collapses into a
-		// regular options layer (see qualve/core#8 future work), this whole block goes away.
-		this.availableOptions = { ...availableOptions };
+		// any per-model `option` entries, deep-merged per field (so a model option
+		// that shares a name with a global one only overrides the fields it sets).
+		// Localized here because the model→option mapping is a temporary special case
+		// — once entity model collapses into a regular options layer (see qualve/core#8
+		// future work), this whole block goes away.
+		let modelOptions = {};
 		for (let name in this.model ?? {}) {
 			let opt = this.model[name].option;
 			if (opt) {
-				this.availableOptions[name] = opt;
+				modelOptions[name] = opt;
 			}
 		}
+		this.availableOptions = mergeSchemas(availableOptions, modelOptions);
 	}
 
 	/** Get config instance from source

@@ -1,13 +1,8 @@
-import ArgsReader from "../bin/util/args.js";
+import { parseArgs } from "../bin/util/args.js";
 
-/**
- * Helper: create an ArgsReader, run positional matching against the schema, and return args.
- */
+/** Helper: parse argv against the given schema. */
 function parse (argv, options) {
-	let r = new ArgsReader(argv);
-	r.canonicalize(options);
-	r.matchPositionals(options);
-	return r.args;
+	return parseArgs(argv, options);
 }
 
 export default {

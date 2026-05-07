@@ -181,6 +181,38 @@ export function mergeSchemas (parent, child) {
 }
 
 /**
+ * Match positional values from `_` against options that declare `positional`.
+ * `positional: true` is treated as 0; numeric values give explicit ordering.
+ * Options already provided via flag are skipped.
+ * At most one option can have `multiple: true` (acts like rest params).
+ * Pure: returns a new `{ flags, _ }`; the input is not mutated.
+ */
+export function matchPositionals ({ flags, _ }, schema) {
+	let outFlags = { ...flags };
+	let remaining = [..._];
+
+	let positionals = Object.entries(schema)
+		.filter(([key, opt]) => !(key in outFlags) && (opt.positional === true || typeof opt.positional === "number"))
+		.map(([key, opt]) => [key, opt, opt.positional === true ? 0 : opt.positional])
+		.sort(([, , a], [, , b]) => a - b);
+
+	let multiples = positionals.filter(([, opt]) => opt.multiple);
+	if (multiples.length > 1) {
+		console.warn(`At most one positional option can accept multiple values, but found ${multiples.length} (${ multiples.map(([key, opt]) => opt.long ?? key).join(", ") }).`
+		+ `Specify all but one via flags to resolve the ambiguity.`);
+	}
+
+	for (let i = 0; i < positionals.length && remaining.length > 0; i++) {
+		let [key, opt] = positionals[i];
+		outFlags[key] = opt.multiple
+			? remaining.splice(0, remaining.length - positionals.length + (i + 1))
+			: remaining.shift();
+	}
+
+	return { flags: outFlags, _: remaining };
+}
+
+/**
  * Merge a list of option schemas in precedence order, later winning per field.
  * Pass any number of plain `{ optionKey: definition }` objects (or null/undefined for
  * absent layers). Callers decide what counts as a layer — typically the global base,

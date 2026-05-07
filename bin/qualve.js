@@ -2,24 +2,21 @@
 import { prettyPrint, printError } from "./util/pretty-print.js";
 import { printHelp } from "./util/help.js";
 import { confirm } from "./util/ask.js";
-import ArgsReader from "./util/args.js";
+import { parseArgs } from "./util/args.js";
 import { Task } from "../src/index.js";
 import Config from "../src/config.js";
 import availableOptions from "../src/options.js";
 
-const argsReader = new ArgsReader(process.argv.slice(2));
+const argv = process.argv.slice(2);
 
-// First pass: canonicalize and match L1 positionals so we know taskId before loading
-// config / resolving the task.
-argsReader.canonicalize(availableOptions);
-argsReader.matchPositionals(availableOptions);
+// Parse against L1 to extract the config flag before loading config; once we have
+// config we re-parse against L1+L2 so entity-model option aliases (e.g., -q for
+// --question) are canonicalized.
+let options = parseArgs(argv, availableOptions);
+const config = await Config.from(options.config);
 
-const config = await Config.from(argsReader.flags.config);
-
-let { taskId, help } = argsReader.flags;
-
-if (!taskId) {
-	if (help) {
+if (!options.taskId) {
+	if (options.help) {
 		printHelp(config.availableOptions, Task.ids);
 		process.exit(0);
 	}
@@ -27,10 +24,7 @@ if (!taskId) {
 	process.exit(1);
 }
 
-// Pick up entity-model option aliases now that we have config
-argsReader.canonicalize(config.availableOptions);
-
-let { _: _u, taskId: _t, help: _h, ...options } = argsReader.args;
+options = parseArgs(argv, config.availableOptions);
 
 // Resolve truncated entity IDs (with confirmation prompt)
 for (let name in config.model) {
@@ -47,7 +41,7 @@ for (let name in config.model) {
 	options[name] = resolvedId;
 }
 
-let resolved = await Task.resolve(taskId);
+let resolved = await Task.resolve(options.taskId);
 let scopes = Task.getScopes(resolved.subtasks ?? resolved);
 
 for (let scope of scopes) {
@@ -66,15 +60,12 @@ for (let scope of scopes) {
 	}
 }
 
-// Construct the task without running. The constructor walks the dispatch chain
-// and builds the merged schema on the instance — read it for --help and for
-// matching any task-declared positionals.
-let task = await Task.fromId(taskId, { ...options, config });
+// Construct the task. Task-declared positional options are matched inside the
+// constructor against the leftover `_` from this parse — each task does that
+// against its own schema.
+let task = await Task.fromId(options.taskId, { ...options, config });
 
-argsReader.canonicalize(task.optionsSchema);
-argsReader.matchPositionals(task.optionsSchema);
-
-if (help) {
+if (options.help) {
 	printHelp(task.optionsSchema, Task.ids);
 	process.exit(0);
 }

@@ -291,6 +291,49 @@ export default {
 			],
 		},
 		{
+			name: "Task-declared positional options",
+			run: ({ task, options }) => {
+				let t = Task.create(task, { info: () => {}, options });
+				return t.feature;
+			},
+			tests: [
+				{
+					name: "Positional value from `_` is matched into the option",
+					arg: {
+						task: {
+							type: "data",
+							options: { feature: { positional: 0 } },
+							input: [{ contents: {}, filename: "t.json" }],
+						},
+						options: { _: ["my-feature"] },
+					},
+					expect: "my-feature",
+				},
+				{
+					name: "Sibling tasks with different positional schemas resolve independently",
+					run: ({ taskA, taskB, options }) => {
+						let a = Task.create(taskA, { info: () => {}, options });
+						let b = Task.create(taskB, { info: () => {}, options });
+						return [a.featureA, b.featureB];
+					},
+					arg: {
+						taskA: {
+							type: "data",
+							options: { featureA: { positional: 0 } },
+							input: [{ contents: {}, filename: "a.json" }],
+						},
+						taskB: {
+							type: "data",
+							options: { featureB: { positional: 0 } },
+							input: [{ contents: {}, filename: "b.json" }],
+						},
+						options: { _: ["x"] },
+					},
+					expect: ["x", "x"],
+				},
+			],
+		},
+		{
 			name: "Task-def field as per-task default",
 			run: ({ task, options }) => {
 				let t = Task.create(task, { info: () => {}, options });
