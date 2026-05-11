@@ -199,7 +199,7 @@ export function matchPositionals ({ flags, _ }, schema) {
 	let multiples = positionals.filter(([, opt]) => opt.multiple);
 	if (multiples.length > 1) {
 		console.warn(`At most one positional option can accept multiple values, but found ${multiples.length} (${ multiples.map(([key, opt]) => opt.long ?? key).join(", ") }).`
-		+ `Specify all but one via flags to resolve the ambiguity.`);
+		+ ` Specify all but one via flags to resolve the ambiguity.`);
 	}
 
 	for (let i = 0; i < positionals.length && remaining.length > 0; i++) {
