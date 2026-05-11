@@ -52,7 +52,7 @@ export default class Task {
 
 		// Framework controls: explicit args take precedence; parent inheritance fills gaps.
 		// (resolution may have set defaults like force=false; explicit set wins.)
-		this.force = force ?? this.parent?.force ?? false;
+		this.force = force ?? this.force ?? this.parent?.force ?? false;
 		this.dryRun = dryRun ?? this.parent?.dryRun ?? false;
 
 		// Unclaimed keys both apply as task-field overrides (preserving today's escape-hatch
