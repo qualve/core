@@ -35,7 +35,7 @@ export default class Task {
 		// matched by whoever produced rawOptions (bin/qualve.js or the parent task), so
 		// we don't re-match them here.
 		let classOptions = getClassChain(this.constructor)
-			.map(c => c.options)
+			.map(c => Object.hasOwn(c, "options") ? c.options : undefined)
 			.filter(Boolean);
 		let taskLayerSchema = assembleOptions(...classOptions, this.task.options);
 
