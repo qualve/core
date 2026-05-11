@@ -26,8 +26,8 @@ export default {
 				},
 				{
 					name: "Short alias",
-					arg: { bag: { pp: 50 }, key: "itemsPerPage", option: { short: "pp" } },
-					expect: ["pp", 50],
+					arg: { bag: { p: 50 }, key: "itemsPerPage", option: { short: "p" } },
+					expect: ["p", 50],
 				},
 				{
 					name: "Auto kebab fallback",
@@ -95,8 +95,10 @@ export default {
 				},
 				{
 					name: "parse skipped on non-string",
-					run: () => resolveValue({ key: "n", parse: Number }, 42),
-					expect: 42,
+					// `Number(true) === 1`, so passing `true` and getting `true` back
+					// proves `parse` was skipped rather than coincidentally idempotent.
+					run: () => resolveValue({ key: "n", parse: Number }, true),
+					expect: true,
 				},
 			],
 		},
@@ -143,11 +145,11 @@ export default {
 				{
 					name: "Alias claim records the alias key",
 					arg: {
-						schema: { itemsPerPage: { long: "items-per-page", short: "pp" } },
-						input: { pp: 50 },
+						schema: { itemsPerPage: { long: "items-per-page", short: "p" } },
+						input: { p: 50 },
 						taskFields: {},
 					},
-					expect: { resolved: { itemsPerPage: 50 }, claimed: new Set(["pp"]) },
+					expect: { resolved: { itemsPerPage: 50 }, claimed: new Set(["p"]) },
 				},
 			],
 		},

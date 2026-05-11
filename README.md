@@ -115,7 +115,7 @@ CLI: `qualve mytask --question=q1 --completeness=full --mode=inductive`. Program
 #### Schema fields
 
 - `default` — the value used when no other source provides one.
-- `short` — short flag (e.g., `pp` for `--pp`).
+- `short` — single-character short flag (e.g., `f` for `-f`).
 - `long` — long flag (defaults to the option's key, kebab-cased; only set if you want a different name).
 - `parse` — function applied to **string** values (CLI input). Typed values from the programmatic API skip this. If `parse: Number` returns `NaN`, the resolver throws.
 - `values` — array (member-of check) or `RegExp` (pattern match). Throws on mismatch.

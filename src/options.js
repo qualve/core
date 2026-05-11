@@ -116,6 +116,9 @@ export function resolveValue (option, value) {
 			);
 		}
 		if (!ok) {
+			// JSON.stringify quotes string members of the array (so users see "foo", "bar"
+			// they can copy/paste); for a RegExp, JSON.stringify returns "{}", so use
+			// .toString() to get the canonical /pattern/flags form.
 			let allowed = Array.isArray(option.values)
 				? option.values.map(v => JSON.stringify(v)).join(", ")
 				: option.values.toString();
