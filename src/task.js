@@ -86,7 +86,19 @@ export default class Task {
 		}
 		this.entityIds = ids ? toArray(ids) : this.entityModel?.ids;
 
-		this.debug = { title: this.prefix, type: this.type ?? "compound", scope: this.scope };
+		let resolvedTaskOptions = Object.fromEntries(
+			Object.keys(taskLayerSchema)
+				.filter(k => k in resolved && resolved[k] !== undefined)
+				.map(k => [k, resolved[k]]),
+		);
+
+		// Init after entity resolution: this.prefix reads this.entityIds.
+		this.debug = {
+			title: this.prefix,
+			type: this.type ?? "compound",
+			scope: this.scope,
+			...resolvedTaskOptions,
+		};
 
 		this.ready = Promise.resolve()
 			.then(() => this.initAsync())
