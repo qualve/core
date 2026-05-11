@@ -33,7 +33,7 @@ for (let name in config.model) {
 		continue;
 	}
 	let resolvedId = config.model[name].resolveId(rawId);
-	if (resolvedId !== rawId) {
+	if (resolvedId !== rawId && !options.help) {
 		if (!(await confirm({ prompt: `Did you mean "${resolvedId}" instead of "${rawId}"?` }))) {
 			process.exit(1);
 		}
@@ -47,14 +47,16 @@ let scopes = Task.getScopes(resolved.subtasks ?? resolved);
 for (let scope of scopes) {
 	let model = config.model?.[scope];
 	if (model?.multiple && !options[scope]) {
-		// Confirm when running an entity-scoped task for all entities
-		let runAll = await confirm({
-			prompt: `Are you sure you want to run the task for all ${model.plural}?`,
-		});
-		if (!runAll) {
-			throw new Error(
-				`Please provide a ${model.name} ID${model.flag ? ` via the ${model.flag} flag` : ""}. Available ids: ${model.ids.join(", ")}`,
-			);
+		if (!options.help) {
+			// Confirm when running an entity-scoped task for all entities
+			let runAll = await confirm({
+				prompt: `Are you sure you want to run the task for all ${model.plural}?`,
+			});
+			if (!runAll) {
+				throw new Error(
+					`Please provide a ${model.name} ID${model.flag ? ` via the ${model.flag} flag` : ""}. Available ids: ${model.ids.join(", ")}`,
+				);
+			}
 		}
 		options[scope] = model.ids;
 	}

@@ -35,7 +35,7 @@ export default class Task {
 		// matched by whoever produced rawOptions (bin/qualve.js or the parent task), so
 		// we don't re-match them here.
 		let classOptions = getClassChain(this.constructor)
-			.map(c => c.options)
+			.map(c => Object.hasOwn(c, "options") ? c.options : undefined)
 			.filter(Boolean);
 		let taskLayerSchema = assembleOptions(...classOptions, this.task.options);
 
@@ -52,7 +52,7 @@ export default class Task {
 
 		// Framework controls: explicit args take precedence; parent inheritance fills gaps.
 		// (resolution may have set defaults like force=false; explicit set wins.)
-		this.force = force ?? this.parent?.force ?? false;
+		this.force = force ?? this.force ?? this.parent?.force ?? false;
 		this.dryRun = dryRun ?? this.parent?.dryRun ?? false;
 
 		// Unclaimed keys both apply as task-field overrides (preserving today's escape-hatch
@@ -86,7 +86,19 @@ export default class Task {
 		}
 		this.entityIds = ids ? toArray(ids) : this.entityModel?.ids;
 
-		this.debug = { title: this.prefix, type: this.type ?? "compound", scope: this.scope };
+		let resolvedTaskOptions = Object.fromEntries(
+			Object.keys(taskLayerSchema)
+				.filter(k => k in resolved && resolved[k] !== undefined)
+				.map(k => [k, resolved[k]]),
+		);
+
+		// Init after entity resolution: this.prefix reads this.entityIds.
+		this.debug = {
+			title: this.prefix,
+			type: this.type ?? "compound",
+			scope: this.scope,
+			...resolvedTaskOptions,
+		};
 
 		this.ready = Promise.resolve()
 			.then(() => this.initAsync())

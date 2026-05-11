@@ -6,7 +6,7 @@ function parse (argv, options) {
 }
 
 export default {
-	name: "ArgsReader",
+	name: "Args parsing",
 	tests: [
 		{
 			name: "Positional matching",
