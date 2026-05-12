@@ -11,31 +11,73 @@ import File from "./file.js";
 import { existsSync } from "node:fs";
 import { ProgressIndicator } from "./util.js";
 import Config from "./config.js";
+import { assembleOptions, resolveOptions, matchPositionals } from "./options.js";
 
 export default class Task {
 	static File = File;
 
-	constructor (task, { parent = null, entityIds, info, force, dryRun, config } = {}) {
-		this.task = task instanceof Task ? task.task : task;
-
-		for (let key in task) {
-			if (!(key in this)) {
-				this[key] = task[key];
-			}
-		}
+	constructor (task, { parent = null, entityIds, info, force, dryRun, config, options: rawOptions } = {}) {
+		// Always shallow-copy so we don't mutate imported task definitions when applying overrides
+		let baseTask = task instanceof Task ? task.task : task;
+		this.task = { ...baseTask };
 
 		this.parent = parent;
 		this.config = config ?? this.parent?.config ?? new Config({});
-
-		normalizeFiles(this);
 		this.customInfo = info;
-
 		this.rawEntityIds = entityIds ?? this.parent?.rawEntityIds;
+		// Inherit the raw option bag from parent so CLI/programmatic flags propagate
+		// to subtasks created via per-entity expansion or batch slicing.
+		this.rawOptions = rawOptions ?? this.parent?.rawOptions ?? {};
 
-		this.force = force ?? this.parent?.force ?? false;
+		// Build the task's own option layer (subclass chain + this task's `options`).
+		// Match its positional declarations against the leftover `_`. Each task does
+		// this against its OWN layer — the config-level layer's positionals were already
+		// matched by whoever produced rawOptions (bin/qualve.js or the parent task), so
+		// we don't re-match them here.
+		let classOptions = getClassChain(this.constructor)
+			.map(c => Object.hasOwn(c, "options") ? c.options : undefined)
+			.filter(Boolean);
+		let taskLayerSchema = assembleOptions(...classOptions, this.task.options);
+
+		let { _: positionals = [], ...flagsBag } = this.rawOptions;
+		this.rawOptions = matchPositionals({ flags: flagsBag, _: positionals }, taskLayerSchema).flags;
+
+		// Stored on `this.optionsSchema` so consumers (e.g., --help) can introspect
+		// without re-walking. The name avoids collision with File.schema (JSON schema).
+		this.optionsSchema = assembleOptions(this.config.availableOptions, taskLayerSchema);
+
+		let { resolved, claimed } = resolveOptions(this.optionsSchema, this.rawOptions, this.task);
+
+		Object.assign(this, resolved);
+
+		// Framework controls: explicit args take precedence; parent inheritance fills gaps.
+		// (resolution may have set defaults like force=false; explicit set wins.)
+		this.force = force ?? this.force ?? this.parent?.force ?? false;
 		this.dryRun = dryRun ?? this.parent?.dryRun ?? false;
 
-		this.subtasks = task.subtasks?.map(t => this.createSubtask(t));
+		// Unclaimed keys both apply as task-field overrides (preserving today's escape-hatch
+		// behavior so --prompt='...' still mutates task.prompt even if undeclared) and
+		// surface in this.unknownOptions for discoverability.
+		let unknownOptions = {};
+		for (let key in this.rawOptions) {
+			if (claimed.has(key) || this.rawOptions[key] === undefined) {
+				continue;
+			}
+			unknownOptions[key] = this.rawOptions[key];
+			this.task[key] = this.rawOptions[key];
+		}
+		this.unknownOptions = unknownOptions;
+
+		// Copy task-def fields not already set by option resolution
+		for (let key in this.task) {
+			if (!(key in this)) {
+				this[key] = this.task[key];
+			}
+		}
+
+		normalizeFiles(this);
+
+		this.subtasks = this.task.subtasks?.map(t => this.createSubtask(t));
 
 		// Resolve after subtasks so this.scope is available for compound tasks
 		let ids = this.rawEntityIds;
@@ -44,11 +86,33 @@ export default class Task {
 		}
 		this.entityIds = ids ? toArray(ids) : this.entityModel?.ids;
 
-		this.debug = { title: this.prefix, type: this.type ?? "compound", scope: this.scope };
+		let resolvedTaskOptions = Object.fromEntries(
+			Object.keys(taskLayerSchema)
+				.filter(k => k in resolved && resolved[k] !== undefined)
+				.map(k => [k, resolved[k]]),
+		);
+
+		// Init after entity resolution: this.prefix reads this.entityIds.
+		this.debug = {
+			title: this.prefix,
+			type: this.type ?? "compound",
+			scope: this.scope,
+			...resolvedTaskOptions,
+		};
 
 		this.ready = Promise.resolve()
 			.then(() => this.initAsync())
 			.then(() => this.postInit());
+	}
+
+	/**
+	 * Read an option that may be a function (deferred) or a scalar.
+	 * Use this when a task wants to support either form for the same field —
+	 * e.g., `prompt` can be a string or a function returning a string.
+	 */
+	resolveOption (key) {
+		let value = this[key];
+		return typeof value === "function" ? value.call(this) : value;
 	}
 
 	get entityModel () {
@@ -56,7 +120,10 @@ export default class Task {
 	}
 
 	createSubtask (subtask = this.task, args = {}) {
-		return Task.create(subtask, { parent: this, ...args });
+		// Forward the parent's raw options so dispatch (e.g., LLMTask.create resolving `llm`)
+		// sees the same input the parent did. Without this, batch / per-entity subtasks
+		// would re-dispatch using only static defaults.
+		return Task.create(subtask, { parent: this, options: this.rawOptions, ...args });
 	}
 
 	info (message) {
@@ -722,21 +789,55 @@ export default class Task {
 		return task;
 	}
 
-	static async fromId (taskId, { entityIds, config, dryRun, ...overrides } = {}) {
+	/**
+	 * Construct a task instance by id without running it. Loads the task definition,
+	 * applies positional input/output overrides, splits entity IDs from the rest of
+	 * `options` (keys matching `config.model`), validates scoped tasks have explicit
+	 * entity IDs, and dispatches via Task.create. The returned instance exposes
+	 * `task.optionsSchema` for introspection (used by `--help`).
+	 */
+	static async fromId (taskId, { config, ...options } = {}) {
 		if (!taskId) {
 			throw new Error(`No task provided. Available tasks: ${this.ids.join(", ")}`);
 		}
 
+		config = await Config.from(config);
+
 		let task = await this.resolve(taskId);
-
 		task = { ...task };
-
 		normalizeFiles(task);
 
-		let { input, output, force, ...otherOverrides } = overrides;
+		// Split entity IDs (keys matching a config.model entry) from everything else.
+		let entityIds = {};
+		let rawOptions = {};
+		for (let key in options) {
+			if (options[key] === undefined) {
+				continue;
+			}
+			if (config.model?.[key]) {
+				entityIds[key] = options[key];
+			}
+			else {
+				rawOptions[key] = options[key];
+			}
+		}
+
+		// Validate scoped tasks have explicit entity IDs
+		let scopes = Task.getScopes(task.subtasks ?? task);
+		for (let scope of scopes) {
+			let model = config.model?.[scope];
+			if (model?.multiple && !entityIds[scope]) {
+				throw new Error(
+					`Entity IDs required for scope "${scope}". Available: ${model.ids.join(", ")}`,
+				);
+			}
+		}
 
 		// Unified positional override for both input and output.
 		// Falsy values at a given index skip that position: `-o 0 -o bar` overrides only the second output.
+		// This sits outside the option-resolution chain because the value is positionally
+		// merged into an array, not assigned wholesale.
+		let { input, output, force, dryRun, ...restOptions } = rawOptions;
 		for (let [key, override] of Object.entries({ input, output })) {
 			if (!override) {
 				continue;
@@ -754,13 +855,7 @@ export default class Task {
 			}
 		}
 
-		for (let key in otherOverrides) {
-			// Why not use Object.assign()? Because we want to ignore undefined values.
-			task[key] = overrides[key] ?? task[key];
-		}
-
-		config = await Config.from(config);
-		return Task.create(task, { entityIds, force, dryRun, config });
+		return Task.create(task, { entityIds, force, dryRun, config, options: restOptions });
 	}
 
 	static #registry = new Map();
@@ -777,10 +872,12 @@ export default class Task {
 
 	/**
 	 * Polymorphic factory: dispatch to the registered subclass for `task.type`.
-	 * Subclasses that need a further level of dispatch (e.g. LLMTask for providers)
-	 * override this; others fall through to `new Type(task, ...args)`.
+	 * Subclasses that need a further routing step (e.g., LLMTask resolves `llm` to a
+	 * provider) override this to do their own option resolution and call into the
+	 * next subclass's create. Each level claims its own options as it routes —
+	 * see LLMTask.create in @qualve/ai/core for an example.
 	 */
-	static create (task, ...args) {
+	static create (task, args = {}) {
 		let Type = Task.#registry.get(task.type);
 		if (!Type) {
 			if (task.type) {
@@ -788,14 +885,28 @@ export default class Task {
 					`Unknown task type: "${task.type}". Registered types: ${[...Task.#registry.keys()].join(", ") || "(none)"}`,
 				);
 			}
-
-			return new Task(task, ...args);
+			return new Task(task, args);
 		}
 		if (Type.create !== this.create) {
-			return Type.create(task, ...args);
+			return Type.create(task, args);
 		}
-		return new Type(task, ...args);
+		return new Type(task, args);
 	}
+}
+
+/**
+ * Walk a class's prototype chain returning [Task, ...subclasses, leaf].
+ * Used inside the constructor to assemble the chain's `static options`
+ * without re-running dispatch logic.
+ */
+function getClassChain (SubClass) {
+	let chain = [];
+	let cls = SubClass;
+	while (cls && cls !== Function.prototype && cls.name) {
+		chain.unshift(cls);
+		cls = Object.getPrototypeOf(cls);
+	}
+	return chain;
 }
 
 function normalizeFiles (task) {

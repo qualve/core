@@ -1,14 +1,12 @@
-import ArgsReader from "../bin/util/args.js";
+import { parseArgs } from "../bin/util/args.js";
 
-/**
- * Helper: create an ArgsReader and return args for given argv and option definitions.
- */
+/** Helper: parse argv against the given schema. */
 function parse (argv, options) {
-	return new ArgsReader(argv, options).args;
+	return parseArgs(argv, options);
 }
 
 export default {
-	name: "ArgsReader",
+	name: "Args parsing",
 	tests: [
 		{
 			name: "Positional matching",
