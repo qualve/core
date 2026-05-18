@@ -1,6 +1,6 @@
 {
   "name": "@qualve/openai",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "OpenAI provider for Qualve LLM tasks.",
   "type": "module",
   "engines": {
