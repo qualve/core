@@ -19,6 +19,9 @@
     "Dmitry Sharabin",
     "Lea Verou"
   ],
+  "scripts": {
+    "release": "npm login && release-it"
+  },
   "peerDependencies": {
     "qualve": "*"
   },

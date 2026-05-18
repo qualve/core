@@ -21,7 +21,8 @@
     "Dmitry Sharabin"
   ],
   "scripts": {
-    "test": "htest test/"
+    "test": "htest test/",
+    "release": "npm login && release-it"
   },
   "peerDependencies": {
     "qualve": "*"
