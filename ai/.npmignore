@@ -1,0 +1,6 @@
+/core/
+/providers/
+.prettierrc
+.prettierignore
+.vscode/
+.DS_Store
