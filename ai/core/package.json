@@ -24,6 +24,12 @@
     "test": "htest test/",
     "release": "npm login && release-it"
   },
+  "release-it": {
+    "git": {
+      "tagName": "${npm.name}@${version}",
+      "commitMessage": "Release ${npm.name}@${version}"
+    }
+  },
   "peerDependencies": {
     "qualve": "*"
   },
