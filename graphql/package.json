@@ -1,6 +1,6 @@
 {
   "name": "@qualve/graphql",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "GraphQL inputs for Qualve Tasks",
   "type": "module",
   "engines": {
