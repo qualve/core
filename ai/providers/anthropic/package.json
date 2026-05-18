@@ -24,6 +24,6 @@
   },
   "dependencies": {
     "@qualve/llm": "*",
-    "@anthropic-ai/sdk": "^0.79.0"
+    "@anthropic-ai/sdk": "^0.96.0"
   }
 }

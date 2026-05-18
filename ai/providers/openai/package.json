@@ -24,6 +24,6 @@
   },
   "dependencies": {
     "@qualve/llm": "*",
-    "openai": "^6.31.0"
+    "openai": "^6.38.0"
   }
 }

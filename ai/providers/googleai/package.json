@@ -24,6 +24,6 @@
   },
   "dependencies": {
     "@qualve/llm": "*",
-    "@google/genai": "^1.45.0"
+    "@google/genai": "^2.4.0"
   }
 }
