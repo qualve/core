@@ -20,9 +20,7 @@ export default class Claude extends LLMTask {
 	async listFiles () {
 		const meta = [];
 
-		for await (const file of this.client.beta.files.list({
-			betas: ["files-api-2025-04-14"],
-		})) {
+		for await (const file of this.client.beta.files.list()) {
 			meta.push(file);
 		}
 
@@ -58,17 +56,12 @@ export default class Claude extends LLMTask {
 
 	async createStream () {
 		let { system, prompt, output, input = [] } = this;
-		let responseSchema = output?.schema;
-		let output_format = responseSchema
-			? {
-					type: "json_schema",
-					schema: responseSchema.schema,
-				}
-			: undefined;
 		const stream = this.client.beta.messages.stream({
 			model: this.model,
 			max_tokens: 64000, // maximum for claude-sonnet-4-5
-			betas: ["structured-outputs-2025-11-13", "files-api-2025-04-14"],
+			// Required by the API to accept `file_id` document sources;
+			// the SDK auto-adds it for `client.beta.files.*` but not for messages.
+			betas: ["files-api-2025-04-14"],
 			system: system?.join("\n"),
 			messages: [
 				{
@@ -86,9 +79,7 @@ export default class Claude extends LLMTask {
 					],
 				},
 			],
-			// Claude API doesn't allow extra properties in the schema root.
-			// It throws an "invalid_request_error" error (output_format.description: Extra inputs are not permitted)
-			output_format,
+			output_config: output?.schema ? { format: output.schema } : undefined,
 		});
 
 		let stopReason;
