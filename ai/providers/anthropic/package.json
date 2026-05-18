@@ -1,6 +1,6 @@
 {
   "name": "@qualve/anthropic",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Anthropic Claude provider for Qualve LLM tasks.",
   "type": "module",
   "engines": {
