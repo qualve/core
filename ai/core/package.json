@@ -1,6 +1,6 @@
 {
   "name": "@qualve/llm",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "Core LLM task framework for Qualve.",
   "type": "module",
   "engines": {
