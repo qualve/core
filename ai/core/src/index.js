@@ -2,22 +2,42 @@ import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import Task from "qualve/task";
 import { ProgressIndicator, addFilenameSuffix } from "qualve/util";
+import { resolveOptions } from "qualve/options";
 import { handleStream, dedent } from "./util.js";
 import * as prompts from "./prompts.js";
 import LLMFile from "./file.js";
-import options from "qualve/options";
-
-Object.assign(options, {
-	// Options specific to LLM tasks
-	llm: {},
-	model: {},
-	thinking: {},
-});
 
 export { LLMFile };
 
 export default class LLMTask extends Task {
 	static File = LLMFile;
+
+	/**
+	 * Declared options for any LLM task. The chain in src/options.js merges these with
+	 * L1 (global), L2 (config), and L4 (task instance options) at construction time.
+	 * Declaring `prompt` and `system` here means a CLI flag like `--prompt='...'`
+	 * routes through the standard chain and lands on `this.prompt` instead of the
+	 * unknownOptions bag.
+	 */
+	static options = {
+		llm: {
+			default: "gemini",
+			description: "LLM provider (gemini, claude, openai, …)",
+		},
+		model: {
+			description: "Model name (provider-specific)",
+		},
+		thinking: {
+			description: "Thinking level: none, minimal, low, medium, high, xhigh (provider remaps unsupported levels)",
+		},
+		prompt: {
+			short: "p",
+			description: "Prompt content (string, array, or function)",
+		},
+		system: {
+			description: "System prompt (string, array, or function)",
+		},
+	};
 
 	// Subclass must define these
 	client = null;
@@ -61,18 +81,19 @@ export default class LLMTask extends Task {
 	}
 
 	/**
-	 * Select and instantiate the right provider subclass based on `task.llm`.
-	 * Overrides the base Task.create factory to add provider dispatch.
+	 * Resolve LLMTask's own options (llm, model, thinking, prompt, system) against the
+	 * input bag, then route to the provider class for the resolved `llm`. The provider's
+	 * constructor will see those resolved values via the standard task-field/default flow.
 	 */
-	static create (task, ...args) {
-		let id = task.llm ?? "gemini";
-		let Provider = LLMTask.#registry.get(id);
+	static create (task, args = {}) {
+		let { resolved } = resolveOptions(LLMTask.options, args.options ?? {}, task);
+		let Provider = LLMTask.#registry.get(resolved.llm);
 		if (!Provider) {
 			throw new Error(
-				`Unknown LLM provider: "${id}". Available: ${[...LLMTask.#registry.keys()].join(", ")}`,
+				`Unknown LLM provider: "${resolved.llm}". Available: ${[...LLMTask.#registry.keys()].join(", ")}`,
 			);
 		}
-		return new Provider(task, ...args);
+		return new Provider(task, args);
 	}
 
 	get capabilities () {
@@ -82,15 +103,6 @@ export default class LLMTask extends Task {
 	/** Provider display name (e.g., "Gemini"). */
 	get name () {
 		return this.constructor.name;
-	}
-
-	/**
-	 * Provider ID string (e.g., "gemini", "claude").
-	 * This getter also prevents the Task constructor from overwriting `this.llm`
-	 * with the raw string from task config data.
-	 */
-	get llm () {
-		return this.constructor.id;
 	}
 
 	/**
