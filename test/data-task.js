@@ -299,5 +299,98 @@ export default {
 				},
 			],
 		},
+		{
+			name: "Dynamic input",
+			async run (spec) {
+				let task = Task.create(
+					{ type: "data", title: "Test", ...spec },
+					{ info: () => {} },
+				);
+				await task.ready;
+				return (task.input ?? []).map(f => f.filename);
+			},
+			tests: [
+				{
+					name: "Resolves before runTask",
+					arg: {
+						input: () => ({ name: "in" }),
+					},
+					expect: ["in.json"],
+				},
+				{
+					name: "Returns undefined → no input",
+					description: "Mirrors a task that doesn't declare input.",
+					arg: { input: () => undefined },
+					expect: [],
+				},
+				{
+					name: "this is bound to Task",
+					arg: {
+						title: "Dynamic input",
+						input () {
+							return { name: this.title };
+						},
+					},
+					expect: ["Dynamic input.json"],
+				},
+				{
+					name: "Errors propagate through ready",
+					arg: {
+						input: () => {
+							throw new Error("input boom");
+						},
+					},
+					throws: e => e.message === "input boom",
+				},
+				{
+					name: "Subtask input resolution",
+					async run (spec) {
+						let task = Task.create(
+							{ type: "data", title: "Test", ...spec },
+							{ info: () => {} },
+						);
+						await task.ready;
+						let subtask = task.computedSubtasks[0];
+						await subtask.ready;
+						return (subtask.input ?? []).map(f => f.filename);
+					},
+					tests: [
+						{
+							name: "Each child resolves against its own this",
+							arg: {
+								subtasks: [
+									{
+										type: "data",
+										title: "Child",
+										input () {
+											return { name: `${this.parent.title}-${this.title}` };
+										},
+									},
+								],
+							},
+							expect: ["Test-Child.json"],
+						},
+						{
+							name: "Batching preserves non-batchable files",
+							description:
+								"Batchable entry becomes a slice descriptor; others pass through.",
+							arg: {
+								input: () => [
+									{ name: "meta" },
+									{
+										contents: [1, 2, 3, 4, 5],
+										name: "nums",
+										schema: { type: "array" },
+									},
+								],
+								itemsPerPage: 2,
+								output: { name: "out", schema: { type: "array" } },
+							},
+							expect: ["meta.json", "nums-0-1.json"],
+						},
+					],
+				},
+			],
+		},
 	],
 };
