@@ -296,14 +296,10 @@ export default class Task {
 	async postInit () {
 		let { File } = this.constructor;
 
+		this.input = this.resolveOption("input");
 		if (this.input) {
-			if (typeof this.input === "function") {
-				this.input = this.input.call(this);
-			}
-			if (this.input) {
-				this.input = toArray(this.input).map(input => File.get(input, this));
-				this.debug.input = this.input.map(f => f.debugInfo());
-			}
+			this.input = toArray(this.input).map(input => File.get(input, this));
+			this.debug.input = this.input.map(f => f.debugInfo());
 		}
 
 		// Dynamic output (function) stays as-is until resolved in run() after runTask.
