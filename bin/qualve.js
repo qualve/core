@@ -5,7 +5,7 @@ import { confirm } from "./util/ask.js";
 import { parseArgs } from "./util/args.js";
 import { Task } from "../src/index.js";
 import Config from "../src/config.js";
-import availableOptions from "../src/options.js";
+import availableOptions, { mergeSchemas } from "../src/options.js";
 
 const argv = process.argv.slice(2);
 
@@ -26,12 +26,19 @@ if (!options.taskId) {
 
 options = parseArgs(argv, config.availableOptions);
 
+let resolved = await Task.resolve(options.taskId);
+
+// Re-parse against the task tree's aggregated schema so subtask-declared flags
+// are canonicalized (e.g. -q → --question) and validated.
+let schema = mergeSchemas(config.availableOptions, Task.aggregateSchema(resolved));
+options = parseArgs(argv, schema);
+
 // Run each option's validator on the user-provided value. A single suggestion
 // triggers a "Did you mean…?" confirmation; anything else (false, empty, or
 // multiple matches) is rejected with the suggestions listed in the error.
 if (!options.help) {
-	for (let key in config.availableOptions) {
-		let option = config.availableOptions[key];
+	for (let key in schema) {
+		let option = schema[key];
 		if (!option.validate || options[key] === undefined) {
 			continue;
 		}

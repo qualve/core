@@ -463,6 +463,52 @@ export default {
 			],
 		},
 		{
+			name: "Task.aggregateSchema",
+			run: ({ taskDef }) => Object.keys(Task.aggregateSchema(taskDef)).sort(),
+			tests: [
+				{
+					name: "Leaf task: own options only",
+					arg: { taskDef: { options: { foo: {}, bar: {} } } },
+					expect: ["bar", "foo"],
+				},
+				{
+					name: "Compound: subtask options surfaced on parent",
+					arg: {
+						taskDef: {
+							options: { parentOpt: {} },
+							subtasks: [
+								{ options: { childOpt: {} } },
+								{ options: { otherOpt: {} } },
+							],
+						},
+					},
+					expect: ["childOpt", "otherOpt", "parentOpt"],
+				},
+				{
+					name: "Nested compounds recurse",
+					arg: {
+						taskDef: {
+							subtasks: [{ subtasks: [{ options: { deep: {} } }] }],
+						},
+					},
+					expect: ["deep"],
+				},
+				{
+					name: "Conflict: later subtask wins per field",
+					run: () => {
+						let s = Task.aggregateSchema({
+							subtasks: [
+								{ options: { x: { description: "first", default: 1 } } },
+								{ options: { x: { default: 2 } } },
+							],
+						});
+						return s.x.description === "first" && s.x.default === 2;
+					},
+					expect: true,
+				},
+			],
+		},
+		{
 			name: "Task option resolution in constructor",
 			run: ({ task, options }) => {
 				let t = Task.create(task, { info: () => {}, options });

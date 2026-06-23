@@ -17,6 +17,7 @@ import {
 	matchPositionals,
 	findValue,
 	camelToKebab,
+	mergeSchemas,
 } from "./options.js";
 
 export default class Task {
@@ -43,6 +44,11 @@ export default class Task {
 			.map(c => (Object.hasOwn(c, "options") ? c.options : undefined))
 			.filter(Boolean);
 		let taskLayerSchema = assembleOptions(...classOptions, this.task.options);
+		// Surface subtask-declared options on this compound task so they parse, validate,
+		// and inherit through `rawOptions` like any other option.
+		for (let sub of this.task.subtasks ?? []) {
+			taskLayerSchema = mergeSchemas(taskLayerSchema, Task.aggregateSchema(sub));
+		}
 
 		let { _: positionals = [], ...flagsBag } = this.rawOptions;
 		this.rawOptions = matchPositionals(
@@ -844,6 +850,24 @@ export default class Task {
 	 */
 	static register (SubClass) {
 		Task.#registry.set(SubClass.type, SubClass);
+	}
+
+	/**
+	 * Union the option schemas declared by a task definition and all its subtasks
+	 * (recursively). Used at parse time to make the CLI accept every flag the
+	 * task tree might want, and inside the constructor so a compound task's
+	 * optionsSchema surfaces its leaves' options.
+	 */
+	static aggregateSchema (taskDef) {
+		let Type = Task.#registry.get(taskDef.type) ?? Task;
+		let classOptions = getClassChain(Type)
+			.map(c => (Object.hasOwn(c, "options") ? c.options : undefined))
+			.filter(Boolean);
+		let schema = assembleOptions(...classOptions, taskDef.options);
+		for (let sub of taskDef.subtasks ?? []) {
+			schema = mergeSchemas(schema, Task.aggregateSchema(sub));
+		}
+		return schema;
 	}
 
 	/**
