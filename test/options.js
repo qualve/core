@@ -21,7 +21,11 @@ export default {
 				},
 				{
 					name: "Long alias",
-					arg: { bag: { "items-per-page": 50 }, key: "itemsPerPage", option: { long: "items-per-page" } },
+					arg: {
+						bag: { "items-per-page": 50 },
+						key: "itemsPerPage",
+						option: { long: "items-per-page" },
+					},
 					expect: ["items-per-page", 50],
 				},
 				{
@@ -92,6 +96,27 @@ export default {
 					name: "validate: true returns value",
 					run: () => resolveValue({ key: "x", validate: v => v > 0 }, 5),
 					expect: 5,
+				},
+				{
+					name: "validate: suggestion array surfaces in error message",
+					run: () => {
+						try {
+							resolveValue(
+								{ key: "x", long: "thing", validate: () => ["foo", "bar"] },
+								"fo",
+							);
+							return null;
+						}
+						catch (e) {
+							return e.message;
+						}
+					},
+					expect: `Invalid value for --thing: "fo". Did you mean: foo, bar?`,
+				},
+				{
+					name: "validate: empty suggestion array treated as false",
+					run: () => resolveValue({ key: "x", validate: () => [] }, "anything"),
+					throws: true,
 				},
 				{
 					name: "parse skipped on non-string",
@@ -169,9 +194,9 @@ export default {
 						let child = { x: { default: 2, validate: v => v > 0 } };
 						let merged = mergeSchemas(parent, child);
 						return (
-							merged.x.description === "p"
-							&& merged.x.default === 2
-							&& typeof merged.x.validate === "function"
+							merged.x.description === "p" &&
+							merged.x.default === 2 &&
+							typeof merged.x.validate === "function"
 						);
 					},
 					expect: true,
@@ -207,7 +232,12 @@ export default {
 				{
 					name: "Variadic with null/undefined entries skipped",
 					run: () => {
-						let s = assembleOptions({ a: { default: 1 } }, null, { b: { default: 2 } }, undefined);
+						let s = assembleOptions(
+							{ a: { default: 1 } },
+							null,
+							{ b: { default: 2 } },
+							undefined,
+						);
 						return s.a?.default === 1 && s.b?.default === 2;
 					},
 					expect: true,
@@ -229,7 +259,9 @@ export default {
 					arg: {
 						task: {
 							type: "data",
-							options: { detail: { default: "summary", values: ["summary", "full"] } },
+							options: {
+								detail: { default: "summary", values: ["summary", "full"] },
+							},
 							input: [{ contents: {}, filename: "t.json" }],
 						},
 						options: { detail: "full" },
@@ -385,7 +417,11 @@ export default {
 							options: { detail: { default: "x" } },
 							input: [{ contents: {}, filename: "t.json" }],
 						},
-						options: { detail: function () { return "called"; } },
+						options: {
+							detail: function () {
+								return "called";
+							},
+						},
 					},
 					expect: "called",
 				},

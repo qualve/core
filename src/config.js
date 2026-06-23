@@ -28,8 +28,11 @@ export default class Config {
 		// future work), this whole block goes away.
 		let modelOptions = {};
 		for (let name in this.model ?? {}) {
-			let opt = this.model[name].option;
+			let model = this.model[name];
+			let opt = model.option;
 			if (opt) {
+				// Attach the model's validator so the CLI's generic "Did you mean…?" path picks it up.
+				opt.validate = model.validate.bind(model);
 				modelOptions[name] = opt;
 			}
 		}

@@ -84,7 +84,10 @@ export function findValue (bag, key, option) {
  * Resolve a single value against a single option schema.
  * Functions pass through unchanged (same idiom as task.output / task.input — caller decides when to call).
  * Strings run through `option.parse` if declared.
- * Throws on parse-NaN, `values` mismatch, or `validate` returning false.
+ * Throws on parse-NaN, `values` mismatch, or `validate` rejecting the value.
+ * `validate` may return `true`, `false`, or an array of suggested values; suggestions
+ * appear in the error message ("Did you mean…?"). The CLI prompts on suggestions
+ * before resolution gets here; programmatic callers see them as a hint.
  */
 export function resolveValue (option, value) {
 	if (typeof value === "function") {
@@ -96,7 +99,9 @@ export function resolveValue (option, value) {
 	if (typeof value === "string" && option.parse) {
 		let parsed = option.parse(value);
 		if (option.parse === Number && Number.isNaN(parsed)) {
-			throw new Error(`Invalid value for ${name}: expected a number, got ${JSON.stringify(value)}`);
+			throw new Error(
+				`Invalid value for ${name}: expected a number, got ${JSON.stringify(value)}`,
+			);
 		}
 		value = parsed;
 	}
@@ -127,8 +132,15 @@ export function resolveValue (option, value) {
 		}
 	}
 
-	if (option.validate && !option.validate(value)) {
-		throw new Error(`Invalid value for ${name}: ${JSON.stringify(value)}`);
+	if (option.validate) {
+		let result = option.validate(value);
+		if (result !== true) {
+			let hint =
+				Array.isArray(result) && result.length
+					? `. Did you mean: ${result.join(", ")}?`
+					: "";
+			throw new Error(`Invalid value for ${name}: ${JSON.stringify(value)}${hint}`);
+		}
 	}
 
 	return value;
@@ -194,14 +206,20 @@ export function matchPositionals ({ flags, _ }, schema) {
 	let remaining = [..._];
 
 	let positionals = Object.entries(schema)
-		.filter(([key, opt]) => !(key in outFlags) && (opt.positional === true || typeof opt.positional === "number"))
+		.filter(
+			([key, opt]) =>
+				!(key in outFlags) &&
+				(opt.positional === true || typeof opt.positional === "number"),
+		)
 		.map(([key, opt]) => [key, opt, opt.positional === true ? 0 : opt.positional])
 		.sort(([, , a], [, , b]) => a - b);
 
 	let multiples = positionals.filter(([, opt]) => opt.multiple);
 	if (multiples.length > 1) {
-		console.warn(`At most one positional option can accept multiple values, but found ${multiples.length} (${ multiples.map(([key, opt]) => opt.long ?? key).join(", ") }).`
-		+ ` Specify all but one via flags to resolve the ambiguity.`);
+		console.warn(
+			`At most one positional option can accept multiple values, but found ${multiples.length} (${multiples.map(([key, opt]) => opt.long ?? key).join(", ")}).` +
+				` Specify all but one via flags to resolve the ambiguity.`,
+		);
 	}
 
 	for (let i = 0; i < positionals.length && remaining.length > 0; i++) {

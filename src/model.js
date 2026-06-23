@@ -152,21 +152,18 @@ export default class Model {
 	}
 
 	/**
-	 * Resolve a (possibly abbreviated) ID prefix to the full ID.
-	 * The prefix must be at least as long as the entity's truncated ID.
+	 * Validator in the shape expected by the option system: returns `true` for an exact
+	 * id match, an array of prefix-matched ids when the value is an abbreviation, or
+	 * `false` if nothing plausible matches. The CLI surfaces suggestions as a
+	 * "Did you mean…?" prompt.
 	 */
-	resolveId (prefix) {
-		if (this.fromId(prefix)) {
-			return prefix;
+	validate (value) {
+		if (this.fromId(value)) {
+			return true;
 		}
 
-		let matches = this.ids.filter(id => id.startsWith(prefix));
-
-		if (matches.length === 1 && prefix.length >= this.truncatedIds[matches[0]].length) {
-			return matches[0];
-		}
-
-		return prefix;
+		let matches = this.ids.filter(id => id.startsWith(value));
+		return matches.length > 0 ? matches : false;
 	}
 
 	/** Returns the shortest unique prefix for `id` within `all`. */
