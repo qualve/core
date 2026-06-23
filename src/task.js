@@ -43,12 +43,15 @@ export default class Task {
 		let classOptions = getClassChain(this.constructor)
 			.map(c => (Object.hasOwn(c, "options") ? c.options : undefined))
 			.filter(Boolean);
-		let taskLayerSchema = assembleOptions(...classOptions, this.task.options);
 		// Surface subtask-declared options on this compound task so they parse, validate,
-		// and inherit through `rawOptions` like any other option.
+		// and inherit through `rawOptions` like any other option. Subtasks merge first
+		// (sibling-later wins), then this task's own class chain + options layer on top
+		// so its declarations win on conflict.
+		let subtaskSchemas = {};
 		for (let sub of this.task.subtasks ?? []) {
-			taskLayerSchema = mergeSchemas(taskLayerSchema, Task.aggregateSchema(sub));
+			subtaskSchemas = mergeSchemas(subtaskSchemas, Task.aggregateSchema(sub));
 		}
+		let taskLayerSchema = assembleOptions(subtaskSchemas, ...classOptions, this.task.options);
 
 		let { _: positionals = [], ...flagsBag } = this.rawOptions;
 		this.rawOptions = matchPositionals(
@@ -863,11 +866,14 @@ export default class Task {
 		let classOptions = getClassChain(Type)
 			.map(c => (Object.hasOwn(c, "options") ? c.options : undefined))
 			.filter(Boolean);
-		let schema = assembleOptions(...classOptions, taskDef.options);
+		// Aggregate subtasks first (sibling-later wins), then layer this task's own
+		// class chain and options on top so the parent's declarations override
+		// anything it merely surfaces from its subtree.
+		let subtasks = {};
 		for (let sub of taskDef.subtasks ?? []) {
-			schema = mergeSchemas(schema, Task.aggregateSchema(sub));
+			subtasks = mergeSchemas(subtasks, Task.aggregateSchema(sub));
 		}
-		return schema;
+		return assembleOptions(subtasks, ...classOptions, taskDef.options);
 	}
 
 	/**

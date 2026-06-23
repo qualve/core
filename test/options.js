@@ -494,7 +494,7 @@ export default {
 					expect: ["deep"],
 				},
 				{
-					name: "Conflict: later subtask wins per field",
+					name: "Conflict: later sibling subtask wins per field",
 					run: () => {
 						let s = Task.aggregateSchema({
 							subtasks: [
@@ -505,6 +505,17 @@ export default {
 						return s.x.description === "first" && s.x.default === 2;
 					},
 					expect: true,
+				},
+				{
+					name: "Conflict: parent options win over subtask options",
+					run: () => {
+						let s = Task.aggregateSchema({
+							options: { x: { description: "parent" } },
+							subtasks: [{ options: { x: { description: "child" } } }],
+						});
+						return s.x.description;
+					},
+					expect: "parent",
 				},
 			],
 		},
