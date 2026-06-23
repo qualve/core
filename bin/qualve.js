@@ -26,19 +26,44 @@ if (!options.taskId) {
 
 options = parseArgs(argv, config.availableOptions);
 
-// Resolve truncated entity IDs (with confirmation prompt)
-for (let name in config.model) {
-	let rawId = options[name];
-	if (!rawId) {
-		continue;
-	}
-	let resolvedId = config.model[name].resolveId(rawId);
-	if (resolvedId !== rawId && !options.help) {
-		if (!(await confirm({ prompt: `Did you mean "${resolvedId}" instead of "${rawId}"?` }))) {
-			process.exit(1);
+// Run each option's validator on the user-provided value. A single suggestion
+// triggers a "Did you mean…?" confirmation; anything else (false, empty, or
+// multiple matches) is rejected with the suggestions listed in the error.
+if (!options.help) {
+	for (let key in config.availableOptions) {
+		let option = config.availableOptions[key];
+		if (!option.validate || options[key] === undefined) {
+			continue;
 		}
+		let isArray = Array.isArray(options[key]);
+		let values = isArray ? [...options[key]] : [options[key]];
+		for (let i = 0; i < values.length; i++) {
+			let result = option.validate(values[i]);
+			if (result === true) {
+				continue;
+			}
+			if (Array.isArray(result) && result.length === 1) {
+				let ok = await confirm({
+					prompt: `Did you mean "${result[0]}" instead of "${values[i]}"?`,
+				});
+				if (!ok) {
+					process.exit(1);
+				}
+				values[i] = result[0];
+			}
+			else {
+				let hint =
+					Array.isArray(result) && result.length
+						? `. Did you mean: ${result.join(", ")}?`
+						: "";
+				console.error(
+					`Invalid value for --${option.long ?? key}: ${JSON.stringify(values[i])}${hint}`,
+				);
+				process.exit(1);
+			}
+		}
+		options[key] = isArray ? values : values[0];
 	}
-	options[name] = resolvedId;
 }
 
 let resolved = await Task.resolve(options.taskId);
