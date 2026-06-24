@@ -303,23 +303,23 @@ export default {
 					expect: { resolved: { b: "fallback" }, claimed: new Set() },
 				},
 				{
-					name: "required: true with no value throws",
-					run: () => resolveOptions({ x: { long: "x", required: true } }),
+					name: "present: true with no value throws",
+					run: () => resolveOptions({ x: { long: "x", present: true } }),
 					throws: /Required option missing: --x/,
 				},
 				{
-					name: "required: true with value passes",
-					arg: { schema: { x: { required: true } }, input: { x: "v" } },
+					name: "present: true with value passes",
+					arg: { schema: { x: { present: true } }, input: { x: "v" } },
 					expect: { resolved: { x: "v" }, claimed: new Set(["x"]) },
 				},
 				{
-					name: "required: function reads other options",
+					name: "present: function returning true throws if no value",
 					run: () =>
 						resolveOptions({
 							scope: { default: "question" },
 							question: {
 								long: "question",
-								required () {
+								present () {
 									return this.scope === "question";
 								},
 							},
@@ -327,13 +327,16 @@ export default {
 					throws: /Required option missing: --question/,
 				},
 				{
-					name: "required: function returning false leaves option optional",
+					name: "present: function returning undefined leaves option optional",
 					arg: {
 						schema: {
 							scope: { default: "survey" },
 							question: {
-								required () {
-									return this.scope === "question";
+								present () {
+									if (this.scope === "question") {
+										return true;
+									}
+									// Undefined for any other scope → optional.
 								},
 							},
 						},
@@ -343,29 +346,29 @@ export default {
 					expect: { resolved: { scope: "survey" }, claimed: new Set() },
 				},
 				{
-					name: "allowed: false with external value throws",
-					run: () => resolveOptions({ x: { long: "x", allowed: false } }, { x: "v" }),
+					name: "present: false with external value throws",
+					run: () => resolveOptions({ x: { long: "x", present: false } }, { x: "v" }),
 					throws: /Option not allowed for this task: --x/,
 				},
 				{
-					name: "allowed: false with no value skips default",
+					name: "present: false with no value skips default",
 					arg: {
-						schema: { x: { allowed: false, default: "fallback" } },
+						schema: { x: { present: false, default: "fallback" } },
 						input: {},
 						taskFields: {},
 					},
 					expect: { resolved: {}, claimed: new Set() },
 				},
 				{
-					name: "allowed: function reads other options",
+					name: "present: function returning false (forbidden) throws on value",
 					run: () =>
 						resolveOptions(
 							{
 								scope: { default: "survey" },
 								question: {
 									long: "question",
-									allowed () {
-										return this.scope === "question";
+									present () {
+										return this.scope === "question" ? true : false;
 									},
 								},
 							},
@@ -374,26 +377,18 @@ export default {
 					throws: /Option not allowed for this task: --question/,
 				},
 				{
-					name: "required: true with allowed: false throws (contradiction)",
-					run: () =>
-						resolveOptions({
-							x: { long: "x", required: true, allowed: false },
-						}),
-					throws: /required: true and allowed: false/,
-				},
-				{
-					name: "required: false is a no-op",
+					name: "present: undefined (absent field) is optional, no errors",
 					arg: {
-						schema: { x: { required: false } },
+						schema: { x: {} },
 						input: {},
 						taskFields: {},
 					},
 					expect: { resolved: {}, claimed: new Set() },
 				},
 				{
-					name: "default returning undefined satisfies required",
+					name: "default returning undefined satisfies present: true",
 					arg: {
-						schema: { x: { required: true, default: () => undefined } },
+						schema: { x: { present: true, default: () => undefined } },
 						input: {},
 						taskFields: {},
 					},

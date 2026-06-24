@@ -205,27 +205,19 @@ export function resolveOptions (schema, input = {}, taskFields = {}) {
 			let option = schema[key];
 			option.key ??= key;
 
-			// `required` and `allowed` may be booleans or functions; functions run
-			// through the same Proxy as defaults, so they can depend on other options.
-			let required = Boolean(call(option.required, context));
-			let allowedRaw = call(option.allowed, context);
+			// `present` is a tri-state: true = must be present (required),
+			// false = must not be present (forbidden), undefined = optional.
+			// May be a function evaluated through the same Proxy as defaults.
+			let present = call(option.present, context);
 			let flagName = () => "--" + (option.long ?? camelToKebab(key));
-
-			// `required: true` implies `allowed: true` (config bug if explicitly disallowed).
-			if (required && allowedRaw === false) {
-				throw new Error(
-					`Option ${flagName()} declares required: true and allowed: false — pick one.`,
-				);
-			}
-			let allowed = required || allowedRaw !== false;
 
 			let [aliasUsed, externalValue] = findValue(input, key, option);
 
-			if (!allowed) {
+			if (present === false) {
 				if (externalValue !== undefined) {
 					throw new Error(`Option not allowed for this task: ${flagName()}`);
 				}
-				// Disallowed and unset: skip default/validate; resolved[key] stays unset.
+				// Forbidden and unset: skip default/validate; resolved[key] stays unset.
 			}
 			else if (externalValue !== undefined) {
 				resolved[key] = resolveValue(option, externalValue);
@@ -243,7 +235,7 @@ export function resolveOptions (schema, input = {}, taskFields = {}) {
 
 			// `key in resolved` instead of `=== undefined` so `default: () => undefined`
 			// counts as "user-satisfied" (the option WAS set, just to undefined).
-			if (required && !(key in resolved)) {
+			if (present === true && !(key in resolved)) {
 				throw new Error(`Required option missing: ${flagName()}`);
 			}
 
