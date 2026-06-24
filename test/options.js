@@ -176,6 +176,124 @@ export default {
 					},
 					expect: { resolved: { itemsPerPage: 50 }, claimed: new Set(["p"]) },
 				},
+				{
+					name: "Function default called eagerly",
+					arg: {
+						schema: { x: { default: () => 42 } },
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: { x: 42 }, claimed: new Set() },
+				},
+				{
+					name: "Function default reads another option through `this`",
+					arg: {
+						schema: {
+							a: { default: 2 },
+							b: {
+								default () {
+									return this.a * 3;
+								},
+							},
+						},
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: { a: 2, b: 6 }, claimed: new Set() },
+				},
+				{
+					name: "Order-independent: dependent declared before dependency",
+					arg: {
+						schema: {
+							b: {
+								default () {
+									return this.a * 3;
+								},
+							},
+							a: { default: 2 },
+						},
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: { b: 6, a: 2 }, claimed: new Set() },
+				},
+				{
+					name: "External value wins over function default",
+					arg: {
+						schema: {
+							a: { default: 1 },
+							b: {
+								default () {
+									return this.a * 100;
+								},
+							},
+						},
+						input: { b: 7 },
+						taskFields: {},
+					},
+					expect: { resolved: { a: 1, b: 7 }, claimed: new Set(["b"]) },
+				},
+				{
+					name: "Cycle detected and thrown",
+					run: () =>
+						resolveOptions({
+							a: {
+								default () {
+									return this.b;
+								},
+							},
+							b: {
+								default () {
+									return this.a;
+								},
+							},
+						}),
+					throws: /Cycle/,
+				},
+				{
+					name: "Default returns undefined → consumers see undefined, no throw",
+					arg: {
+						schema: { a: { default: () => undefined } },
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: { a: undefined }, claimed: new Set() },
+				},
+				{
+					name: "Default reads option claimed by external input",
+					arg: {
+						schema: {
+							a: { default: "fallback" },
+							b: {
+								default () {
+									return this.a + "-suffix";
+								},
+							},
+						},
+						input: { a: "external" },
+						taskFields: {},
+					},
+					expect: {
+						resolved: { a: "external", b: "external-suffix" },
+						claimed: new Set(["a"]),
+					},
+				},
+				{
+					name: "Default reads option with no default → undefined",
+					arg: {
+						schema: {
+							a: { description: "no default" },
+							b: {
+								default () {
+									return this.a ?? "fallback";
+								},
+							},
+						},
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: { b: "fallback" }, claimed: new Set() },
+				},
 			],
 		},
 		{

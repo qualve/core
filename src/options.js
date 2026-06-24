@@ -148,7 +148,11 @@ export function resolveValue (option, value) {
 
 /**
  * Resolve a schema against an input bag, with optional per-task default fields.
- * Resolution order per option: input bag → taskFields → schema's static `default`.
+ * Resolution order per option: input bag → taskFields → schema's `default`.
+ *
+ * A function-valued `default` is called with `this` bound to a Proxy that
+ * resolves other options on access — so defaults can freely depend on each
+ * other regardless of declaration order. Cycles throw.
  * @param {object} schema - Map of optionKey → option definition
  * @param {object} input - Raw bag of values (from CLI or programmatic API)
  * @param {object} taskFields - Task-definition fields acting as per-task defaults
@@ -157,25 +161,64 @@ export function resolveValue (option, value) {
 export function resolveOptions (schema, input = {}, taskFields = {}) {
 	let resolved = {};
 	let claimed = new Set();
+	let inProgress = new Set();
+	// Keys we've attempted (regardless of whether a value landed). Prevents
+	// re-running side-effectful function defaults / future required / allowed
+	// predicates when an unresolved key is read multiple times.
+	let done = new Set();
+
+	let context = new Proxy(resolved, {
+		get (target, key) {
+			if (typeof key === "symbol" || key in target || !(key in schema)) {
+				return target[key];
+			}
+			resolveOne(key);
+			return target[key];
+		},
+	});
+
+	function resolveOne (key) {
+		if (done.has(key)) {
+			return;
+		}
+		if (inProgress.has(key)) {
+			let chain = [...inProgress, key];
+			throw new Error(
+				`Cycle in option resolution: ${chain.slice(chain.indexOf(key)).join(" → ")}`,
+			);
+		}
+		inProgress.add(key);
+
+		try {
+			let option = schema[key];
+			option.key ??= key;
+			let [aliasUsed, externalValue] = findValue(input, key, option);
+
+			if (externalValue !== undefined) {
+				resolved[key] = resolveValue(option, externalValue);
+				claimed.add(aliasUsed);
+			}
+			else if (key in taskFields && taskFields[key] !== undefined) {
+				// Task-def field as per-task default. Doesn't claim any input alias.
+				resolved[key] = resolveValue(option, taskFields[key]);
+			}
+			else if ("default" in option) {
+				// Function-valued defaults run eagerly with the resolution Proxy bound to
+				// `this`, so they can read other options. Scalars pass through unvalidated.
+				resolved[key] =
+					typeof option.default === "function"
+						? option.default.call(context)
+						: option.default;
+			}
+		}
+		finally {
+			inProgress.delete(key);
+			done.add(key);
+		}
+	}
 
 	for (let key in schema) {
-		let option = schema[key];
-		option.key ??= key;
-
-		let [aliasUsed, externalValue] = findValue(input, key, option);
-
-		if (externalValue !== undefined) {
-			resolved[key] = resolveValue(option, externalValue);
-			claimed.add(aliasUsed);
-		}
-		else if (key in taskFields && taskFields[key] !== undefined) {
-			// Task-def field as per-task default. Doesn't claim any input alias.
-			resolved[key] = resolveValue(option, taskFields[key]);
-		}
-		else if ("default" in option) {
-			// Schema's static default passes through unvalidated (author-asserted).
-			resolved[key] = option.default;
-		}
+		resolveOne(key);
 	}
 
 	return { resolved, claimed };
