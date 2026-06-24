@@ -82,16 +82,23 @@ export function findValue (bag, key, option) {
 
 /**
  * Resolve a single value against a single option schema.
- * Functions pass through unchanged (same idiom as task.output / task.input — caller decides when to call).
  * Strings run through `option.parse` if declared.
  * Throws on parse-NaN, `values` mismatch, or `validate` rejecting the value.
  * `validate` may return `true`, `false`, or an array of suggested values; suggestions
  * appear in the error message ("Did you mean…?"). The CLI prompts on suggestions
  * before resolution gets here; programmatic callers see them as a hint.
+ *
+ * Function values: without `context` they pass through unchanged (caller decides
+ * when to call — same idiom as task.output / task.input). With `context`, the
+ * function is called with `this` bound to it and the return value flows through
+ * the rest of the pipeline.
  */
-export function resolveValue (option, value) {
+export function resolveValue (option, value, context) {
 	if (typeof value === "function") {
-		return value;
+		if (context === undefined) {
+			return value;
+		}
+		value = value.call(context);
 	}
 
 	let name = "--" + (option.long ?? camelToKebab(option.key ?? "(unknown)"));
@@ -203,12 +210,9 @@ export function resolveOptions (schema, input = {}, taskFields = {}) {
 				resolved[key] = resolveValue(option, taskFields[key]);
 			}
 			else if ("default" in option) {
-				// Function-valued defaults run eagerly with the resolution Proxy bound to
-				// `this`, so they can read other options. Scalars pass through unvalidated.
-				resolved[key] =
-					typeof option.default === "function"
-						? option.default.call(context)
-						: option.default;
+				// `context` makes function-valued defaults run eagerly with the resolution
+				// Proxy bound to `this`, so they can read other options.
+				resolved[key] = resolveValue(option, option.default, context);
 			}
 		}
 		finally {

@@ -279,6 +279,14 @@ export default {
 					},
 				},
 				{
+					name: "Default runs through validate (tightening: was author-asserted)",
+					run: () =>
+						resolveOptions({
+							x: { default: -1, validate: v => v > 0 },
+						}),
+					throws: true,
+				},
+				{
 					name: "Default reads option with no default → undefined",
 					arg: {
 						schema: {
