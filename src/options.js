@@ -174,6 +174,11 @@ export function resolveOptions (schema, input = {}, taskFields = {}) {
 	// predicates when an unresolved key is read multiple times.
 	let done = new Set();
 
+	// Invoke a field that may be a boolean or a function. Functions run with
+	// `this` bound to the dependency-tracking Proxy. Returns undefined if the
+	// field isn't set, so callers can distinguish absent from explicit false.
+	let call = (field, ctx) => (typeof field === "function" ? field.call(ctx) : field);
+
 	let context = new Proxy(resolved, {
 		get (target, key) {
 			if (typeof key === "symbol" || key in target || !(key in schema)) {
@@ -199,9 +204,30 @@ export function resolveOptions (schema, input = {}, taskFields = {}) {
 		try {
 			let option = schema[key];
 			option.key ??= key;
+
+			// `required` and `allowed` may be booleans or functions; functions run
+			// through the same Proxy as defaults, so they can depend on other options.
+			let required = Boolean(call(option.required, context));
+			let allowedRaw = call(option.allowed, context);
+			let flagName = () => "--" + (option.long ?? camelToKebab(key));
+
+			// `required: true` implies `allowed: true` (config bug if explicitly disallowed).
+			if (required && allowedRaw === false) {
+				throw new Error(
+					`Option ${flagName()} declares required: true and allowed: false — pick one.`,
+				);
+			}
+			let allowed = required || allowedRaw !== false;
+
 			let [aliasUsed, externalValue] = findValue(input, key, option);
 
-			if (externalValue !== undefined) {
+			if (!allowed) {
+				if (externalValue !== undefined) {
+					throw new Error(`Option not allowed for this task: ${flagName()}`);
+				}
+				// Disallowed and unset: skip default/validate; resolved[key] stays unset.
+			}
+			else if (externalValue !== undefined) {
 				resolved[key] = resolveValue(option, externalValue);
 				claimed.add(aliasUsed);
 			}
@@ -214,10 +240,19 @@ export function resolveOptions (schema, input = {}, taskFields = {}) {
 				// Proxy bound to `this`, so they can read other options.
 				resolved[key] = resolveValue(option, option.default, context);
 			}
+
+			// `key in resolved` instead of `=== undefined` so `default: () => undefined`
+			// counts as "user-satisfied" (the option WAS set, just to undefined).
+			if (required && !(key in resolved)) {
+				throw new Error(`Required option missing: ${flagName()}`);
+			}
+
+			// Mark done only on success — on throw, re-reads re-attempt (and re-throw)
+			// rather than silently returning a phantom undefined.
+			done.add(key);
 		}
 		finally {
 			inProgress.delete(key);
-			done.add(key);
 		}
 	}
 

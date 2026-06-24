@@ -302,6 +302,103 @@ export default {
 					},
 					expect: { resolved: { b: "fallback" }, claimed: new Set() },
 				},
+				{
+					name: "required: true with no value throws",
+					run: () => resolveOptions({ x: { long: "x", required: true } }),
+					throws: /Required option missing: --x/,
+				},
+				{
+					name: "required: true with value passes",
+					arg: { schema: { x: { required: true } }, input: { x: "v" } },
+					expect: { resolved: { x: "v" }, claimed: new Set(["x"]) },
+				},
+				{
+					name: "required: function reads other options",
+					run: () =>
+						resolveOptions({
+							scope: { default: "question" },
+							question: {
+								long: "question",
+								required () {
+									return this.scope === "question";
+								},
+							},
+						}),
+					throws: /Required option missing: --question/,
+				},
+				{
+					name: "required: function returning false leaves option optional",
+					arg: {
+						schema: {
+							scope: { default: "survey" },
+							question: {
+								required () {
+									return this.scope === "question";
+								},
+							},
+						},
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: { scope: "survey" }, claimed: new Set() },
+				},
+				{
+					name: "allowed: false with external value throws",
+					run: () => resolveOptions({ x: { long: "x", allowed: false } }, { x: "v" }),
+					throws: /Option not allowed for this task: --x/,
+				},
+				{
+					name: "allowed: false with no value skips default",
+					arg: {
+						schema: { x: { allowed: false, default: "fallback" } },
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: {}, claimed: new Set() },
+				},
+				{
+					name: "allowed: function reads other options",
+					run: () =>
+						resolveOptions(
+							{
+								scope: { default: "survey" },
+								question: {
+									long: "question",
+									allowed () {
+										return this.scope === "question";
+									},
+								},
+							},
+							{ question: "react" },
+						),
+					throws: /Option not allowed for this task: --question/,
+				},
+				{
+					name: "required: true with allowed: false throws (contradiction)",
+					run: () =>
+						resolveOptions({
+							x: { long: "x", required: true, allowed: false },
+						}),
+					throws: /required: true and allowed: false/,
+				},
+				{
+					name: "required: false is a no-op",
+					arg: {
+						schema: { x: { required: false } },
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: {}, claimed: new Set() },
+				},
+				{
+					name: "default returning undefined satisfies required",
+					arg: {
+						schema: { x: { required: true, default: () => undefined } },
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: { x: undefined }, claimed: new Set() },
+				},
 			],
 		},
 		{
