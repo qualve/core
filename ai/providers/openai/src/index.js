@@ -3,7 +3,7 @@ import LLMTask from "@qualve/llm";
 import OpenAIFile from "./file.js";
 
 export default class OpenAI extends LLMTask {
-	static models = ["gpt-5.4", "gpt-5-mini", "gpt-5-nano"];
+	static models = ["gpt-5.5", "gpt-5.4-mini", "gpt-5.4-nano"];
 	static id = "openai";
 	static name = "OpenAI";
 	static File = OpenAIFile;

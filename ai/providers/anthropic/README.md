@@ -38,9 +38,9 @@ export default {
 
 | Model | Context window | Max output |
 | --- | --- | --- |
-| `claude-sonnet-4-6` (default) | 1M | 64K |
-| `claude-haiku-4-6` | 200K | 64K |
-| `claude-opus-4-5` | 1M | 128K |
+| `claude-opus-4-8` (default) | 1M | 128K |
+| `claude-sonnet-4-6` | 1M | 64K |
+| `claude-haiku-4-5` | 200K | 64K |
 
 ## Capabilities
 

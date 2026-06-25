@@ -8,8 +8,8 @@ export default class Gemini extends LLMTask {
 	static File = GeminiFile;
 	static models = [
 		"gemini-3.1-pro-preview",
-		"gemini-3.1-flash-preview",
-		"gemini-3.1-flash-lite-preview",
+		"gemini-3.5-flash",
+		"gemini-3.1-flash-lite",
 	];
 	static levelMap = { none: "minimal", xhigh: "high" };
 	static capabilities = {

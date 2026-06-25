@@ -39,8 +39,8 @@ export default {
 | Model | Context window | Max output |
 | --- | --- | --- |
 | `gemini-3.1-pro-preview` (default) | 1,048,576 | 65,536 |
-| `gemini-3.1-flash-preview` | 1,048,576 | 65,536 |
-| `gemini-3.1-flash-lite-preview` | 1,048,576 | 65,536 |
+| `gemini-3.5-flash` | 1,048,576 | 65,536 |
+| `gemini-3.1-flash-lite` | 1,048,576 | 65,536 |
 
 ## Capabilities
 

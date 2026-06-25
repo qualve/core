@@ -38,9 +38,9 @@ export default {
 
 | Model | Context window | Max output |
 | --- | --- | --- |
-| `gpt-5.4` (default) | 1,050,000 | 128K |
-| `gpt-5-mini` | 400K | 128K |
-| `gpt-5-nano` | 400K | 128K |
+| `gpt-5.5` (default) | 1,050,000 | 128K |
+| `gpt-5.4-mini` | 400K | 128K |
+| `gpt-5.4-nano` | 400K | 128K |
 
 ## Capabilities
 

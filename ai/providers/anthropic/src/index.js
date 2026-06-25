@@ -6,7 +6,7 @@ export default class Claude extends LLMTask {
 	static id = "claude";
 	static name = "Claude";
 	static File = ClaudeFile;
-	static models = ["claude-sonnet-4-6", "claude-haiku-4-6", "claude-opus-4-5"];
+	static models = ["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"];
 	static capabilities = {
 		inputDescriptions: true,
 		outputSchema: true,
@@ -58,7 +58,7 @@ export default class Claude extends LLMTask {
 		let { system, prompt, output, input = [] } = this;
 		const stream = this.client.beta.messages.stream({
 			model: this.model,
-			max_tokens: 64000, // maximum for claude-sonnet-4-5
+			max_tokens: 64000, // maximum for claude-sonnet-4-6 and claude-haiku-4-5; claude-opus-4-8 supports up to 128K
 			// Required by the API to accept `file_id` document sources;
 			// the SDK auto-adds it for `client.beta.files.*` but not for messages.
 			betas: ["files-api-2025-04-14"],
