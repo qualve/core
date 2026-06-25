@@ -22,10 +22,7 @@ import {
 export default class Task {
 	static File = File;
 
-	constructor (
-		task,
-		{ parent = null, entityIds, info, force, dryRun, config, options: rawOptions } = {},
-	) {
+	constructor (task, { parent = null, info, force, dryRun, config, options: rawOptions } = {}) {
 		// Always shallow-copy so we don't mutate imported task definitions when applying overrides
 		let baseTask = task instanceof Task ? task.task : task;
 		this.task = { ...baseTask };
@@ -33,9 +30,8 @@ export default class Task {
 		this.parent = parent;
 		this.config = config ?? this.parent?.config ?? new Config({});
 		this.customInfo = info;
-		this.rawEntityIds = entityIds ?? this.parent?.rawEntityIds;
 		// Inherit the raw option bag from parent so CLI/programmatic flags propagate
-		// to subtasks created via per-entity expansion or batch slicing.
+		// to subtasks created via fan-out or batch slicing.
 		this.rawOptions = rawOptions ?? this.parent?.rawOptions ?? {};
 
 		// Build the task's own option layer (subclass chain + this task's `options`).
@@ -91,20 +87,12 @@ export default class Task {
 
 		this.subtasks = this.task.subtasks?.map(t => this.createSubtask(t));
 
-		// Resolve after subtasks so this.scope is available for compound tasks
-		let ids = this.rawEntityIds;
-		if (ids && typeof ids === "object" && !Array.isArray(ids)) {
-			ids = ids[this.scope];
-		}
-		this.entityIds = ids ? toArray(ids) : this.entityModel?.ids;
-
 		let resolvedTaskOptions = Object.fromEntries(
 			Object.keys(taskLayerSchema)
 				.filter(k => k in resolved && resolved[k] !== undefined)
 				.map(k => [k, resolved[k]]),
 		);
 
-		// Init after entity resolution: this.prefix reads this.entityIds.
 		this.debug = {
 			title: this.prefix,
 			type: this.type ?? "compound",
@@ -127,13 +115,9 @@ export default class Task {
 		return typeof value === "function" ? value.call(this) : value;
 	}
 
-	get entityModel () {
-		return this.config.model?.[this.scope];
-	}
-
 	createSubtask (subtask = this.task, args = {}) {
 		// Forward the parent's raw options so dispatch (e.g., LLMTask.create resolving `llm`)
-		// sees the same input the parent did. Without this, batch / per-entity subtasks
+		// sees the same input the parent did. Without this, batch / fan-out subtasks
 		// would re-dispatch using only static defaults.
 		return Task.create(subtask, { parent: this, options: this.rawOptions, ...args });
 	}
@@ -156,10 +140,12 @@ export default class Task {
 
 	/**
 	 * Find an option that drives fan-out: declared `multiple: true` (and not
-	 * a positional, since `multiple` doubles as rest-args for positionals)
-	 * and resolved to an array of length > 1. Returns `{ key, option, values }`
-	 * for the driver, or `undefined` if none qualify. Throws if more than one
-	 * qualifies — pick one.
+	 * a positional, since `multiple` doubles as rest-args for positionals),
+	 * `present: true` for this task (so options that are optional or merely
+	 * inherited from a parent don't trigger fan-out on tasks that don't need
+	 * them), and resolved to an array of length > 1. Returns
+	 * `{ key, option, values }` for the driver, or `undefined` if none qualify.
+	 * Throws if more than one qualifies — pick one.
 	 */
 	findFanoutDriver () {
 		let drivers = [];
@@ -172,6 +158,11 @@ export default class Task {
 				continue;
 			}
 			if (option.positional === true || typeof option.positional === "number") {
+				continue;
+			}
+			let present =
+				typeof option.present === "function" ? option.present.call(this) : option.present;
+			if (present !== true) {
 				continue;
 			}
 			let value = this[key];
@@ -196,25 +187,6 @@ export default class Task {
 		}
 	}
 
-	get scope () {
-		if (this.task.scope) {
-			return this.task.scope;
-		}
-
-		if (this.subtasks) {
-			let scopes = Task.getScopes(this.subtasks);
-
-			// Prefer scopes with multiple entities — those drive entity selection
-			for (let scope of scopes) {
-				if (this.config.model?.[scope]?.multiple) {
-					return scope;
-				}
-			}
-
-			return [...scopes][0];
-		}
-	}
-
 	static getScopes (tasks) {
 		if (!Array.isArray(tasks)) {
 			let scope = tasks?.scope;
@@ -229,31 +201,7 @@ export default class Task {
 	}
 
 	get prefix () {
-		let ret = this.title ?? this.id;
-
-		if (this.entityModel?.multiple) {
-			ret += " for ";
-			if (this.entityIds?.length === 1) {
-				if (this.parent && this.parent.entityIds) {
-					ret = "";
-				}
-
-				ret += this.entityIds[0];
-			}
-			else {
-				ret += `${this.entityIds.length} ${this.entityModel.plural}`;
-			}
-		}
-
-		return ret;
-	}
-
-	get entityId () {
-		return this.entityModel && this.entityIds?.length === 1 ? this.entityIds[0] : undefined;
-	}
-
-	get entity () {
-		return this.entityId ? this.entityModel?.fromId(this.entityId) : undefined;
+		return this.title ?? this.id;
 	}
 
 	/** Whether this task splits its input into batches (i.e. `itemsPerPage > 0`). */
@@ -263,7 +211,7 @@ export default class Task {
 
 	/**
 	 * The effective list of child tasks for this run, regardless of source
-	 * (explicit subtasks, per-entity expansion, or batch pagination).
+	 * (explicit subtasks, option-driven fan-out, or batch pagination).
 	 * Memoized on first access — subsequent reads return the cached array.
 	 * Empty array for leaf tasks.
 	 */
@@ -275,12 +223,6 @@ export default class Task {
 		}
 		else if (this.subtasks) {
 			value = this.subtasks;
-		}
-		else if (this.entityModel?.multiple && !this.entityId) {
-			// Entity-driven fan-out (legacy). Wins over the generic branch below for
-			// today's question-shaped tasks. Goes away when entity options migrate
-			// to regular options (qualve/core#40).
-			value = this.entityIds.map(id => this.createSubtask(this.task, { entityIds: [id] }));
 		}
 		else {
 			// Generic option-driven fan-out: any option declared `multiple: true`
@@ -315,15 +257,6 @@ export default class Task {
 	 */
 	get concurrency () {
 		return this.task.concurrency ?? Infinity;
-	}
-
-	get cwd () {
-		if (!this.entityModel) {
-			return "";
-		}
-
-		let { path } = this.entityModel;
-		return typeof path === "function" ? path(this.entityId) : path;
 	}
 
 	getMessage (args = {}) {
@@ -859,10 +792,8 @@ export default class Task {
 
 	/**
 	 * Construct a task instance by id without running it. Loads the task definition,
-	 * applies positional input/output overrides, splits entity IDs from the rest of
-	 * `options` (keys matching `config.model`), validates scoped tasks have explicit
-	 * entity IDs, and dispatches via Task.create. The returned instance exposes
-	 * `task.optionsSchema` for introspection (used by `--help`).
+	 * applies positional input/output overrides, and dispatches via Task.create.
+	 * The returned instance exposes `task.optionsSchema` for introspection (used by `--help`).
 	 */
 	static async fromId (taskId, { config, ...options } = {}) {
 		if (!taskId) {
@@ -875,29 +806,11 @@ export default class Task {
 		task = { ...task };
 		normalizeFiles(task);
 
-		// Split entity IDs (keys matching a config.model entry) from everything else.
-		let entityIds = {};
+		// Drop undefined entries so they don't shadow per-task defaults in resolveOptions.
 		let rawOptions = {};
 		for (let key in options) {
-			if (options[key] === undefined) {
-				continue;
-			}
-			if (config.model?.[key]) {
-				entityIds[key] = options[key];
-			}
-			else {
+			if (options[key] !== undefined) {
 				rawOptions[key] = options[key];
-			}
-		}
-
-		// Validate scoped tasks have explicit entity IDs
-		let scopes = Task.getScopes(task.subtasks ?? task);
-		for (let scope of scopes) {
-			let model = config.model?.[scope];
-			if (model?.multiple && !entityIds[scope]) {
-				throw new Error(
-					`Entity IDs required for scope "${scope}". Available: ${model.ids.join(", ")}`,
-				);
 			}
 		}
 
@@ -923,7 +836,7 @@ export default class Task {
 			}
 		}
 
-		return Task.create(task, { entityIds, force, dryRun, config, options: restOptions });
+		return Task.create(task, { force, dryRun, config, options: restOptions });
 	}
 
 	static #registry = new Map();

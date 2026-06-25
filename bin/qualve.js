@@ -10,8 +10,8 @@ import availableOptions from "../src/options.js";
 const argv = process.argv.slice(2);
 
 // Parse against L1 to extract the config flag before loading config; once we have
-// config we re-parse against L1+L2 so entity-model option aliases (e.g., -q for
-// --question) are canonicalized.
+// config we re-parse against L1+L2 so config-contributed option aliases (e.g., -q
+// for --question) are canonicalized.
 let options = parseArgs(argv, availableOptions);
 const config = await Config.from(options.config);
 
@@ -63,27 +63,6 @@ if (!options.help) {
 			}
 		}
 		options[key] = isArray ? values : values[0];
-	}
-}
-
-let resolved = await Task.resolve(options.taskId);
-let scopes = Task.getScopes(resolved.subtasks ?? resolved);
-
-for (let scope of scopes) {
-	let model = config.model?.[scope];
-	if (model?.multiple && !options[scope]) {
-		if (!options.help) {
-			// Confirm when running an entity-scoped task for all entities
-			let runAll = await confirm({
-				prompt: `Are you sure you want to run the task for all ${model.plural}?`,
-			});
-			if (!runAll) {
-				throw new Error(
-					`Please provide a ${model.name} ID${model.flag ? ` via the ${model.flag} flag` : ""}. Available ids: ${model.ids.join(", ")}`,
-				);
-			}
-		}
-		options[scope] = model.ids;
 	}
 }
 

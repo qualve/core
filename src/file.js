@@ -69,7 +69,7 @@ export default class File {
 	}
 
 	resolveValue (value) {
-		return typeof value === "function" ? value.call(this.context, this.context?.entity) : value;
+		return typeof value === "function" ? value.call(this.context) : value;
 	}
 
 	get glob () {

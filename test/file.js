@@ -36,8 +36,8 @@ new FileTestBinaryFormat();
  * @param {object} [entity] - Entity object for resolveValue
  * @param {object} [extra] - Additional context properties (e.g. model)
  */
-function context (id, entity, extra) {
-	return { id, entity, cwd: "", ...extra };
+function context (id, extra) {
+	return { id, cwd: "", ...extra };
 }
 
 function tmpFile (suffix) {
@@ -260,21 +260,23 @@ export default {
 									return `coding-${this.model}`;
 								},
 							},
-							context("test", null, { model: "gpt-4" }),
+							context("test", { model: "gpt-4" }),
 						);
 						return file.name;
 					},
 					expect: "coding-gpt-4",
 				},
 				{
-					name: "Description as arrow function with entity",
+					name: "Description as method reading context property",
 					run () {
 						let file = File.get(
 							{
 								name: "codebook",
-								description: question => `codebook for "${question.text}"`,
+								description () {
+									return `codebook for "${this.questionEntity.text}"`;
+								},
 							},
-							context("test", { text: "What tools do you use?" }),
+							context("test", { questionEntity: { text: "What tools do you use?" } }),
 						);
 						return file.description;
 					},
@@ -283,7 +285,7 @@ export default {
 				{
 					name: "Description as method using this.config",
 					run () {
-						let ctx = context("test", null, {
+						let ctx = context("test", {
 							config: { survey: { name: "CSS", description: "about CSS usage" } },
 						});
 						let file = File.get(
@@ -402,7 +404,7 @@ export default {
 									return `coding-${this.model}`;
 								},
 							},
-							context("test", null, { model: "gemini-3-flash" }),
+							context("test", { model: "gemini-3-flash" }),
 						);
 						return { name: file.name, filename: file.filename };
 					},
