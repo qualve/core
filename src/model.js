@@ -154,10 +154,13 @@ export default class Model {
 	/**
 	 * Validator in the shape expected by the option system: returns `true` for an exact
 	 * id match, an array of prefix-matched ids when the value is an abbreviation, or
-	 * `false` if nothing plausible matches. The CLI surfaces suggestions as a
+	 * `false` if nothing plausible matches. The CLI surfaces the array as a
 	 * "Did you mean…?" prompt.
 	 */
 	validate (value) {
+		if (!value) {
+			return false;
+		}
 		if (this.fromId(value)) {
 			return true;
 		}
