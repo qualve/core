@@ -170,6 +170,21 @@ export default {
 					expect: 0,
 				},
 				{
+					name: "Explicit `positional: false` is still a valid fan-out driver",
+					run: () => {
+						let task = Task.create(
+							{
+								type: "data",
+								options: { target: { multiple: true, positional: false } },
+								input: [{ contents: {}, filename: "in.json" }],
+							},
+							{ info: () => {}, options: { target: ["a", "b"] } },
+						);
+						return task.computedSubtasks.length;
+					},
+					expect: 2,
+				},
+				{
 					name: "Positional `multiple: true` is not a fan-out driver",
 					run: () => {
 						let task = Task.create(

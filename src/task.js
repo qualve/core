@@ -11,7 +11,13 @@ import File from "./file.js";
 import { existsSync } from "node:fs";
 import { ProgressIndicator } from "./util.js";
 import Config from "./config.js";
-import { assembleOptions, resolveOptions, matchPositionals, findValue } from "./options.js";
+import {
+	assembleOptions,
+	resolveOptions,
+	matchPositionals,
+	findValue,
+	camelToKebab,
+} from "./options.js";
 
 export default class Task {
 	static File = File;
@@ -159,7 +165,13 @@ export default class Task {
 		let drivers = [];
 		for (let key in this.optionsSchema) {
 			let option = this.optionsSchema[key];
-			if (!option.multiple || option.positional != null) {
+			// `multiple: true` doubles as rest-args for positionals — exclude those
+			// using the same shape check that matchPositionals does (`=== true` or
+			// numeric). Explicit `positional: false` stays a valid driver.
+			if (!option.multiple) {
+				continue;
+			}
+			if (option.positional === true || typeof option.positional === "number") {
 				continue;
 			}
 			let value = this[key];
