@@ -11,12 +11,15 @@ import File from "./file.js";
 import { existsSync } from "node:fs";
 import { ProgressIndicator } from "./util.js";
 import Config from "./config.js";
-import { assembleOptions, resolveOptions, matchPositionals } from "./options.js";
+import { assembleOptions, resolveOptions, matchPositionals, findValue } from "./options.js";
 
 export default class Task {
 	static File = File;
 
-	constructor (task, { parent = null, entityIds, info, force, dryRun, config, options: rawOptions } = {}) {
+	constructor (
+		task,
+		{ parent = null, entityIds, info, force, dryRun, config, options: rawOptions } = {},
+	) {
 		// Always shallow-copy so we don't mutate imported task definitions when applying overrides
 		let baseTask = task instanceof Task ? task.task : task;
 		this.task = { ...baseTask };
@@ -35,12 +38,15 @@ export default class Task {
 		// matched by whoever produced rawOptions (bin/qualve.js or the parent task), so
 		// we don't re-match them here.
 		let classOptions = getClassChain(this.constructor)
-			.map(c => Object.hasOwn(c, "options") ? c.options : undefined)
+			.map(c => (Object.hasOwn(c, "options") ? c.options : undefined))
 			.filter(Boolean);
 		let taskLayerSchema = assembleOptions(...classOptions, this.task.options);
 
 		let { _: positionals = [], ...flagsBag } = this.rawOptions;
-		this.rawOptions = matchPositionals({ flags: flagsBag, _: positionals }, taskLayerSchema).flags;
+		this.rawOptions = matchPositionals(
+			{ flags: flagsBag, _: positionals },
+			taskLayerSchema,
+		).flags;
 
 		// Stored on `this.optionsSchema` so consumers (e.g., --help) can introspect
 		// without re-walking. The name avoids collision with File.schema (JSON schema).
@@ -124,6 +130,48 @@ export default class Task {
 		// sees the same input the parent did. Without this, batch / per-entity subtasks
 		// would re-dispatch using only static defaults.
 		return Task.create(subtask, { parent: this, options: this.rawOptions, ...args });
+	}
+
+	/**
+	 * Build one subtask for an option-driven fan-out element. Strips whichever
+	 * rawOptions alias carried the driver's value (long, short, kebab, or canonical)
+	 * before adding the canonical override, so the subtask doesn't see the parent's
+	 * full array under a stale alias key.
+	 */
+	createFanoutSubtask (driver, value) {
+		let [aliasUsed] = findValue(this.rawOptions, driver.key, driver.option);
+		let options = { ...this.rawOptions };
+		if (aliasUsed !== null) {
+			delete options[aliasUsed];
+		}
+		options[driver.key] = [value];
+		return this.createSubtask(this.task, { options });
+	}
+
+	/**
+	 * Find an option that drives fan-out: declared `multiple: true` (and not
+	 * a positional, since `multiple` doubles as rest-args for positionals)
+	 * and resolved to an array of length > 1. Returns `{ key, option, values }`
+	 * for the driver, or `undefined` if none qualify. Throws if more than one
+	 * qualifies — pick one.
+	 */
+	findFanoutDriver () {
+		let drivers = [];
+		for (let key in this.optionsSchema) {
+			let option = this.optionsSchema[key];
+			if (!option.multiple || option.positional != null) {
+				continue;
+			}
+			let value = this[key];
+			if (Array.isArray(value) && value.length > 1) {
+				drivers.push({ key, option, values: value });
+			}
+		}
+		if (drivers.length > 1) {
+			let names = drivers.map(d => "--" + (d.option.long ?? d.key)).join(", ");
+			throw new Error(`Ambiguous fan-out: ${names} are all multi-valued — specify one.`);
+		}
+		return drivers[0];
 	}
 
 	info (message) {
@@ -217,10 +265,19 @@ export default class Task {
 			value = this.subtasks;
 		}
 		else if (this.entityModel?.multiple && !this.entityId) {
+			// Entity-driven fan-out (legacy). Wins over the generic branch below for
+			// today's question-shaped tasks. Goes away when entity options migrate
+			// to regular options (qualve/core#40).
 			value = this.entityIds.map(id => this.createSubtask(this.task, { entityIds: [id] }));
 		}
 		else {
-			value = [];
+			// Generic option-driven fan-out: any option declared `multiple: true`
+			// whose resolved value is an array > 1 replicates the task per element.
+			// Strip whichever alias carried the driver value out of rawOptions before
+			// adding the canonical override — otherwise the subtask sees both the
+			// alias (with the parent's full array) and the canonical (with its slice).
+			let driver = this.findFanoutDriver();
+			value = driver ? driver.values.map(v => this.createFanoutSubtask(driver, v)) : [];
 		}
 
 		if (value.length > 0) {

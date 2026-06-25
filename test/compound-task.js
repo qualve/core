@@ -122,6 +122,141 @@ export default {
 			],
 		},
 		{
+			name: "Option-driven fan-out",
+			tests: [
+				{
+					name: "Multi-valued option with array > 1 fans out",
+					run: () => {
+						let task = Task.create(
+							{
+								type: "data",
+								options: { target: { multiple: true } },
+								input: [{ contents: {}, filename: "in.json" }],
+							},
+							{ info: () => {}, options: { target: ["a", "b", "c"] } },
+						);
+						return task.computedSubtasks.length;
+					},
+					expect: 3,
+				},
+				{
+					name: "Multi-valued option with single value does not fan out",
+					run: () => {
+						let task = Task.create(
+							{
+								type: "data",
+								options: { target: { multiple: true } },
+								input: [{ contents: {}, filename: "in.json" }],
+							},
+							{ info: () => {}, options: { target: "a" } },
+						);
+						return task.computedSubtasks.length;
+					},
+					expect: 0,
+				},
+				{
+					name: "Multi-valued option with array of 1 does not fan out",
+					run: () => {
+						let task = Task.create(
+							{
+								type: "data",
+								options: { target: { multiple: true } },
+								input: [{ contents: {}, filename: "in.json" }],
+							},
+							{ info: () => {}, options: { target: ["only"] } },
+						);
+						return task.computedSubtasks.length;
+					},
+					expect: 0,
+				},
+				{
+					name: "Positional `multiple: true` is not a fan-out driver",
+					run: () => {
+						let task = Task.create(
+							{
+								type: "data",
+								options: { rest: { multiple: true, positional: true } },
+								input: [{ contents: {}, filename: "in.json" }],
+							},
+							{ info: () => {}, options: { rest: ["a", "b", "c"] } },
+						);
+						return task.computedSubtasks.length;
+					},
+					expect: 0,
+				},
+				{
+					name: "Two multi-valued drivers throws",
+					run: () => {
+						let task = Task.create(
+							{
+								type: "data",
+								options: {
+									a: { multiple: true },
+									b: { multiple: true },
+								},
+								input: [{ contents: {}, filename: "in.json" }],
+							},
+							{ info: () => {}, options: { a: [1, 2], b: ["x", "y"] } },
+						);
+						return task.computedSubtasks;
+					},
+					throws: /Ambiguous fan-out/,
+				},
+				{
+					name: "Driver passed in via kebab alias doesn't leak to subtask under alias key",
+					run: () => {
+						let task = Task.create(
+							{
+								type: "data",
+								options: { targetEnv: { long: "target-env", multiple: true } },
+								input: [{ contents: {}, filename: "in.json" }],
+							},
+							{
+								info: () => {},
+								// Mirrors how the CLI parses `--target-env a --target-env b` —
+								// the kebab alias is the bag key, not the canonical name.
+								options: { "target-env": ["a", "b"] },
+							},
+						);
+						let [first] = task.computedSubtasks;
+						return {
+							canonical: first.targetEnv,
+							kebabInTask: first.task["target-env"],
+							kebabInUnknown: first.unknownOptions["target-env"],
+						};
+					},
+					// Bug regression: subtask used to carry the parent's full array
+					// under "target-env" via the unknown-options escape hatch.
+					expect: {
+						canonical: ["a"],
+						kebabInTask: undefined,
+						kebabInUnknown: undefined,
+					},
+				},
+				{
+					name: "Explicit subtasks win over option-driven fan-out",
+					run: () => {
+						let task = Task.create(
+							{
+								type: "data",
+								options: { target: { multiple: true } },
+								input: [{ contents: {}, filename: "in.json" }],
+								subtasks: [
+									{
+										type: "data",
+										input: [{ contents: {}, filename: "s.json" }],
+									},
+								],
+							},
+							{ info: () => {}, options: { target: ["a", "b", "c"] } },
+						);
+						return task.computedSubtasks.length;
+					},
+					expect: 1,
+				},
+			],
+		},
+		{
 			name: "Dry run",
 			async run (spec) {
 				let task = Task.create(
