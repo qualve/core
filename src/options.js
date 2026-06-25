@@ -82,16 +82,23 @@ export function findValue (bag, key, option) {
 
 /**
  * Resolve a single value against a single option schema.
- * Functions pass through unchanged (same idiom as task.output / task.input — caller decides when to call).
  * Strings run through `option.parse` if declared.
  * Throws on parse-NaN, `values` mismatch, or `validate` rejecting the value.
  * `validate` may return `true`, `false`, or an array of suggested values; suggestions
  * appear in the error message ("Did you mean…?"). The CLI prompts on suggestions
  * before resolution gets here; programmatic callers see them as a hint.
+ *
+ * Function values: without `context` they pass through unchanged (caller decides
+ * when to call — same idiom as task.output / task.input). With `context`, the
+ * function is called with `this` bound to it and the return value flows through
+ * the rest of the pipeline.
  */
-export function resolveValue (option, value) {
+export function resolveValue (option, value, context) {
 	if (typeof value === "function") {
-		return value;
+		if (context === undefined) {
+			return value;
+		}
+		value = value.call(context);
 	}
 
 	let name = "--" + (option.long ?? camelToKebab(option.key ?? "(unknown)"));
@@ -148,7 +155,11 @@ export function resolveValue (option, value) {
 
 /**
  * Resolve a schema against an input bag, with optional per-task default fields.
- * Resolution order per option: input bag → taskFields → schema's static `default`.
+ * Resolution order per option: input bag → taskFields → schema's `default`.
+ *
+ * A function-valued `default` is called with `this` bound to a Proxy that
+ * resolves other options on access — so defaults can freely depend on each
+ * other regardless of declaration order. Cycles throw.
  * @param {object} schema - Map of optionKey → option definition
  * @param {object} input - Raw bag of values (from CLI or programmatic API)
  * @param {object} taskFields - Task-definition fields acting as per-task defaults
@@ -157,25 +168,88 @@ export function resolveValue (option, value) {
 export function resolveOptions (schema, input = {}, taskFields = {}) {
 	let resolved = {};
 	let claimed = new Set();
+	let inProgress = new Set();
+	// Keys we've attempted (regardless of whether a value landed). Prevents
+	// re-running side-effectful function defaults / future required / allowed
+	// predicates when an unresolved key is read multiple times.
+	let done = new Set();
+
+	// Invoke a field that may be a boolean or a function. Functions run with
+	// `this` bound to the dependency-tracking Proxy. Returns undefined if the
+	// field isn't set, so callers can distinguish absent from explicit false.
+	let call = (field, ctx) => (typeof field === "function" ? field.call(ctx) : field);
+
+	let context = new Proxy(resolved, {
+		get (target, key) {
+			if (typeof key === "symbol" || key in target || !(key in schema)) {
+				return target[key];
+			}
+			resolveOne(key);
+			return target[key];
+		},
+	});
+
+	function resolveOne (key) {
+		if (done.has(key)) {
+			return;
+		}
+		if (inProgress.has(key)) {
+			let chain = [...inProgress, key];
+			throw new Error(
+				`Cycle in option resolution: ${chain.slice(chain.indexOf(key)).join(" → ")}`,
+			);
+		}
+		inProgress.add(key);
+
+		try {
+			let option = schema[key];
+			option.key ??= key;
+
+			// `present` is a tri-state: true = must be present (required),
+			// false = must not be present (forbidden), undefined = optional.
+			// May be a function evaluated through the same Proxy as defaults.
+			let present = call(option.present, context);
+			let flagName = () => "--" + (option.long ?? camelToKebab(key));
+
+			let [aliasUsed, externalValue] = findValue(input, key, option);
+
+			if (present === false) {
+				if (externalValue !== undefined) {
+					throw new Error(`Option not allowed for this task: ${flagName()}`);
+				}
+				// Forbidden and unset: skip default/validate; resolved[key] stays unset.
+			}
+			else if (externalValue !== undefined) {
+				resolved[key] = resolveValue(option, externalValue);
+				claimed.add(aliasUsed);
+			}
+			else if (key in taskFields && taskFields[key] !== undefined) {
+				// Task-def field as per-task default. Doesn't claim any input alias.
+				resolved[key] = resolveValue(option, taskFields[key]);
+			}
+			else if ("default" in option) {
+				// `context` makes function-valued defaults run eagerly with the resolution
+				// Proxy bound to `this`, so they can read other options.
+				resolved[key] = resolveValue(option, option.default, context);
+			}
+
+			// `key in resolved` instead of `=== undefined` so `default: () => undefined`
+			// counts as "user-satisfied" (the option WAS set, just to undefined).
+			if (present === true && !(key in resolved)) {
+				throw new Error(`Required option missing: ${flagName()}`);
+			}
+
+			// Mark done only on success — on throw, re-reads re-attempt (and re-throw)
+			// rather than silently returning a phantom undefined.
+			done.add(key);
+		}
+		finally {
+			inProgress.delete(key);
+		}
+	}
 
 	for (let key in schema) {
-		let option = schema[key];
-		option.key ??= key;
-
-		let [aliasUsed, externalValue] = findValue(input, key, option);
-
-		if (externalValue !== undefined) {
-			resolved[key] = resolveValue(option, externalValue);
-			claimed.add(aliasUsed);
-		}
-		else if (key in taskFields && taskFields[key] !== undefined) {
-			// Task-def field as per-task default. Doesn't claim any input alias.
-			resolved[key] = resolveValue(option, taskFields[key]);
-		}
-		else if ("default" in option) {
-			// Schema's static default passes through unvalidated (author-asserted).
-			resolved[key] = option.default;
-		}
+		resolveOne(key);
 	}
 
 	return { resolved, claimed };

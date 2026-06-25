@@ -176,6 +176,224 @@ export default {
 					},
 					expect: { resolved: { itemsPerPage: 50 }, claimed: new Set(["p"]) },
 				},
+				{
+					name: "Function default called eagerly",
+					arg: {
+						schema: { x: { default: () => 42 } },
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: { x: 42 }, claimed: new Set() },
+				},
+				{
+					name: "Function default reads another option through `this`",
+					arg: {
+						schema: {
+							a: { default: 2 },
+							b: {
+								default () {
+									return this.a * 3;
+								},
+							},
+						},
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: { a: 2, b: 6 }, claimed: new Set() },
+				},
+				{
+					name: "Order-independent: dependent declared before dependency",
+					arg: {
+						schema: {
+							b: {
+								default () {
+									return this.a * 3;
+								},
+							},
+							a: { default: 2 },
+						},
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: { b: 6, a: 2 }, claimed: new Set() },
+				},
+				{
+					name: "External value wins over function default",
+					arg: {
+						schema: {
+							a: { default: 1 },
+							b: {
+								default () {
+									return this.a * 100;
+								},
+							},
+						},
+						input: { b: 7 },
+						taskFields: {},
+					},
+					expect: { resolved: { a: 1, b: 7 }, claimed: new Set(["b"]) },
+				},
+				{
+					name: "Cycle detected and thrown",
+					run: () =>
+						resolveOptions({
+							a: {
+								default () {
+									return this.b;
+								},
+							},
+							b: {
+								default () {
+									return this.a;
+								},
+							},
+						}),
+					throws: /Cycle/,
+				},
+				{
+					name: "Default returns undefined → consumers see undefined, no throw",
+					arg: {
+						schema: { a: { default: () => undefined } },
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: { a: undefined }, claimed: new Set() },
+				},
+				{
+					name: "Default reads option claimed by external input",
+					arg: {
+						schema: {
+							a: { default: "fallback" },
+							b: {
+								default () {
+									return this.a + "-suffix";
+								},
+							},
+						},
+						input: { a: "external" },
+						taskFields: {},
+					},
+					expect: {
+						resolved: { a: "external", b: "external-suffix" },
+						claimed: new Set(["a"]),
+					},
+				},
+				{
+					name: "Default runs through validate (tightening: was author-asserted)",
+					run: () =>
+						resolveOptions({
+							x: { default: -1, validate: v => v > 0 },
+						}),
+					throws: true,
+				},
+				{
+					name: "Default reads option with no default → undefined",
+					arg: {
+						schema: {
+							a: { description: "no default" },
+							b: {
+								default () {
+									return this.a ?? "fallback";
+								},
+							},
+						},
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: { b: "fallback" }, claimed: new Set() },
+				},
+				{
+					name: "present: true with no value throws",
+					run: () => resolveOptions({ x: { long: "x", present: true } }),
+					throws: /Required option missing: --x/,
+				},
+				{
+					name: "present: true with value passes",
+					arg: { schema: { x: { present: true } }, input: { x: "v" } },
+					expect: { resolved: { x: "v" }, claimed: new Set(["x"]) },
+				},
+				{
+					name: "present: function returning true throws if no value",
+					run: () =>
+						resolveOptions({
+							scope: { default: "question" },
+							question: {
+								long: "question",
+								present () {
+									return this.scope === "question";
+								},
+							},
+						}),
+					throws: /Required option missing: --question/,
+				},
+				{
+					name: "present: function returning undefined leaves option optional",
+					arg: {
+						schema: {
+							scope: { default: "survey" },
+							question: {
+								present () {
+									if (this.scope === "question") {
+										return true;
+									}
+									// Undefined for any other scope → optional.
+								},
+							},
+						},
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: { scope: "survey" }, claimed: new Set() },
+				},
+				{
+					name: "present: false with external value throws",
+					run: () => resolveOptions({ x: { long: "x", present: false } }, { x: "v" }),
+					throws: /Option not allowed for this task: --x/,
+				},
+				{
+					name: "present: false with no value skips default",
+					arg: {
+						schema: { x: { present: false, default: "fallback" } },
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: {}, claimed: new Set() },
+				},
+				{
+					name: "present: function returning false (forbidden) throws on value",
+					run: () =>
+						resolveOptions(
+							{
+								scope: { default: "survey" },
+								question: {
+									long: "question",
+									present () {
+										return this.scope === "question" ? true : false;
+									},
+								},
+							},
+							{ question: "react" },
+						),
+					throws: /Option not allowed for this task: --question/,
+				},
+				{
+					name: "present: undefined (absent field) is optional, no errors",
+					arg: {
+						schema: { x: {} },
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: {}, claimed: new Set() },
+				},
+				{
+					name: "default returning undefined satisfies present: true",
+					arg: {
+						schema: { x: { present: true, default: () => undefined } },
+						input: {},
+						taskFields: {},
+					},
+					expect: { resolved: { x: undefined }, claimed: new Set() },
+				},
 			],
 		},
 		{
