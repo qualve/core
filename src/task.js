@@ -168,7 +168,7 @@ export default class Task {
 			}
 		}
 		if (drivers.length > 1) {
-			let names = drivers.map(d => "--" + (d.option.long ?? d.key)).join(", ");
+			let names = drivers.map(d => "--" + (d.option.long ?? camelToKebab(d.key))).join(", ");
 			throw new Error(`Ambiguous fan-out: ${names} are all multi-valued — specify one.`);
 		}
 		return drivers[0];
