@@ -96,7 +96,6 @@ export default class Task {
 		this.debug = {
 			title: this.prefix,
 			type: this.type ?? "compound",
-			scope: this.scope,
 			...resolvedTaskOptions,
 		};
 
@@ -160,6 +159,11 @@ export default class Task {
 			if (option.positional === true || typeof option.positional === "number") {
 				continue;
 			}
+			// `present` runs against the task instance here, not the resolution Proxy
+			// used in resolveOptions — by the time we're computing subtasks, the
+			// constructor has already assigned all resolved options as own properties,
+			// so `this.scope` and friends resolve the same either way for predicates
+			// that just read other options.
 			let present =
 				typeof option.present === "function" ? option.present.call(this) : option.present;
 			if (present !== true) {
@@ -185,15 +189,6 @@ export default class Task {
 			message = "\t".repeat(this.level) + message;
 			(this.customInfo ?? console.info)(message);
 		}
-	}
-
-	static getScopes (tasks) {
-		if (!Array.isArray(tasks)) {
-			let scope = tasks?.scope;
-			return new Set(scope ? [scope] : []);
-		}
-
-		return new Set(tasks.flatMap(t => t.scope).filter(Boolean));
 	}
 
 	get level () {

@@ -33,8 +33,7 @@ new FileTestBinaryFormat();
 /**
  * Minimal context stub for File resolution tests.
  * @param {string} id - Task id
- * @param {object} [entity] - Entity object for resolveValue
- * @param {object} [extra] - Additional context properties (e.g. model)
+ * @param {object} [extra] - Additional context properties (e.g. model, config)
  */
 function context (id, extra) {
 	return { id, cwd: "", ...extra };
