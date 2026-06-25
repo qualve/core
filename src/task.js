@@ -43,27 +43,32 @@ export default class Task {
 		let classOptions = getClassChain(this.constructor)
 			.map(c => (Object.hasOwn(c, "options") ? c.options : undefined))
 			.filter(Boolean);
-		// Surface subtask-declared options on this compound task so they parse, validate,
-		// and inherit through `rawOptions` like any other option. Subtasks merge first
-		// (sibling-later wins), then this task's own class chain + options layer on top
-		// so its declarations win on conflict.
+		// Options this task itself consumes. Used for resolveOptions — predicates
+		// (default, present) only run against options the task actually declares.
+		let consumedLayer = assembleOptions(...classOptions, this.task.options);
+		// Aggregated subtree schema. Used for CLI parse, --help, and positional matching.
+		// Subtask-declared options surface here so they parse and inherit through
+		// rawOptions, but their predicates aren't evaluated against this parent.
 		let subtaskSchemas = {};
 		for (let sub of this.task.subtasks ?? []) {
 			subtaskSchemas = mergeSchemas(subtaskSchemas, Task.aggregateSchema(sub));
 		}
-		let taskLayerSchema = assembleOptions(subtaskSchemas, ...classOptions, this.task.options);
+		let aggregatedLayer = assembleOptions(subtaskSchemas, consumedLayer);
 
 		let { _: positionals = [], ...flagsBag } = this.rawOptions;
 		this.rawOptions = matchPositionals(
 			{ flags: flagsBag, _: positionals },
-			taskLayerSchema,
+			aggregatedLayer,
 		).flags;
 
-		// Stored on `this.optionsSchema` so consumers (e.g., --help) can introspect
-		// without re-walking. The name avoids collision with File.schema (JSON schema).
-		this.optionsSchema = assembleOptions(this.config.availableOptions, taskLayerSchema);
+		// Public schemas: aggregated for --help / introspection, consumed for resolution.
+		this.optionsSchema = assembleOptions(this.config.availableOptions, aggregatedLayer);
+		this.consumedSchema = assembleOptions(this.config.availableOptions, consumedLayer);
 
-		let { resolved, claimed } = resolveOptions(this.optionsSchema, this.rawOptions, this.task);
+		// Resolve only against what this task consumes. Subtask-only options stay
+		// in rawOptions and propagate down via the unknown-options escape hatch
+		// (and via the rawOptions forwarding in createSubtask).
+		let { resolved, claimed } = resolveOptions(this.consumedSchema, this.rawOptions, this.task);
 
 		Object.assign(this, resolved);
 
@@ -97,7 +102,7 @@ export default class Task {
 		this.subtasks = this.task.subtasks?.map(t => this.createSubtask(t));
 
 		let resolvedTaskOptions = Object.fromEntries(
-			Object.keys(taskLayerSchema)
+			Object.keys(consumedLayer)
 				.filter(k => k in resolved && resolved[k] !== undefined)
 				.map(k => [k, resolved[k]]),
 		);
