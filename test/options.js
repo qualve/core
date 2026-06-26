@@ -573,6 +573,34 @@ export default {
 						subtaskX: "value",
 					},
 				},
+				{
+					name: "Subtask-declared fan-out driver fans out at the subtask, not the parent",
+					description:
+						"A subtask declaring `{multiple: true, present: true}` for an option the " +
+						"parent doesn't own should drive fan-out at the subtask layer only. The " +
+						"parent's `optionsSchema` surfaces the option (so --help and CLI parse " +
+						"see it), but findFanoutDriver iterates `consumedSchema`, so the parent " +
+						"doesn't fan out on something it doesn't own.",
+					run: () => {
+						let parent = Task.create(
+							{
+								subtasks: [
+									{
+										type: "data",
+										options: { x: { multiple: true, present: true } },
+										input: [{ contents: {}, filename: "s.json" }],
+									},
+								],
+							},
+							{ info: () => {}, options: { x: ["a", "b"] } },
+						);
+						return {
+							parentFanout: parent.computedSubtasks.length,
+							subtaskFanout: parent.subtasks[0].computedSubtasks.length,
+						};
+					},
+					expect: { parentFanout: 1, subtaskFanout: 2 },
+				},
 			],
 		},
 		{

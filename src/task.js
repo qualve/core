@@ -162,8 +162,12 @@ export default class Task {
 	 */
 	findFanoutDriver () {
 		let drivers = [];
-		for (let key in this.optionsSchema) {
-			let option = this.optionsSchema[key];
+		// Iterate the consumed schema (what this task itself declares), not the
+		// aggregated optionsSchema. A subtask-declared option leaking through the
+		// unknown-options escape hatch shouldn't drive fan-out at the parent level —
+		// the subtask that owns the option fans out on its own.
+		for (let key in this.consumedSchema) {
+			let option = this.consumedSchema[key];
 			// `multiple: true` doubles as rest-args for positionals — exclude those
 			// using the same shape check that matchPositionals does (`=== true` or
 			// numeric). Explicit `positional: false` stays a valid driver.
