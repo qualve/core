@@ -49,11 +49,12 @@ export default class LLMFile extends File {
 
 	/**
 	 * Provider-namespaced remote filename for upload.
-	 * Prefixes with the entity's shortest unique ID for uniqueness.
-	 * For shared files (not under an entity), no prefix is needed.
+	 * Prefixes with `context.uniquePrefix` (configured per consumer — e.g., the
+	 * shortest unique id of the current entity) to avoid filename collisions across
+	 * runs. Shared files without a prefix get the bare filename.
 	 */
 	get remoteFilename () {
-		let prefix = this.context?.entity?.uniquePrefix;
+		let prefix = this.context?.uniquePrefix;
 		let name = path.basename(this.path);
 		return (prefix ? prefix + "-" : "") + name;
 	}
