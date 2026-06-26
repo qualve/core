@@ -130,7 +130,7 @@ export default {
 						let task = Task.create(
 							{
 								type: "data",
-								options: { target: { multiple: true } },
+								options: { target: { multiple: true, present: true } },
 								input: [{ contents: {}, filename: "in.json" }],
 							},
 							{ info: () => {}, options: { target: ["a", "b", "c"] } },
@@ -145,7 +145,7 @@ export default {
 						let task = Task.create(
 							{
 								type: "data",
-								options: { target: { multiple: true } },
+								options: { target: { multiple: true, present: true } },
 								input: [{ contents: {}, filename: "in.json" }],
 							},
 							{ info: () => {}, options: { target: "a" } },
@@ -160,7 +160,7 @@ export default {
 						let task = Task.create(
 							{
 								type: "data",
-								options: { target: { multiple: true } },
+								options: { target: { multiple: true, present: true } },
 								input: [{ contents: {}, filename: "in.json" }],
 							},
 							{ info: () => {}, options: { target: ["only"] } },
@@ -175,7 +175,7 @@ export default {
 						let task = Task.create(
 							{
 								type: "data",
-								options: { target: { multiple: true, positional: false } },
+								options: { target: { multiple: true, positional: false, present: true } },
 								input: [{ contents: {}, filename: "in.json" }],
 							},
 							{ info: () => {}, options: { target: ["a", "b"] } },
@@ -183,6 +183,21 @@ export default {
 						return task.computedSubtasks.length;
 					},
 					expect: 2,
+				},
+				{
+					name: "Optional multi-valued option does not fan out (inheritance noise)",
+					run: () => {
+						let task = Task.create(
+							{
+								type: "data",
+								options: { target: { multiple: true } },
+								input: [{ contents: {}, filename: "in.json" }],
+							},
+							{ info: () => {}, options: { target: ["a", "b", "c"] } },
+						);
+						return task.computedSubtasks.length;
+					},
+					expect: 0,
 				},
 				{
 					name: "Positional `multiple: true` is not a fan-out driver",
@@ -206,8 +221,8 @@ export default {
 							{
 								type: "data",
 								options: {
-									a: { multiple: true },
-									b: { multiple: true },
+									a: { multiple: true, present: true },
+									b: { multiple: true, present: true },
 								},
 								input: [{ contents: {}, filename: "in.json" }],
 							},
@@ -223,7 +238,9 @@ export default {
 						let task = Task.create(
 							{
 								type: "data",
-								options: { targetEnv: { long: "target-env", multiple: true } },
+								options: {
+									targetEnv: { long: "target-env", multiple: true, present: true },
+								},
 								input: [{ contents: {}, filename: "in.json" }],
 							},
 							{
@@ -254,7 +271,7 @@ export default {
 						let task = Task.create(
 							{
 								type: "data",
-								options: { target: { multiple: true } },
+								options: { target: { multiple: true, present: true } },
 								input: [{ contents: {}, filename: "in.json" }],
 								subtasks: [
 									{

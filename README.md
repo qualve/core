@@ -60,8 +60,8 @@ Qualve can be configured with a `qualve.config.js` file in your CWD.
 To use a different config file, you can pass the `--config`/`-c` option to the CLI or the `config` option to the programmatic API.
 
 The config file is a JavaScript file that exports an object with the following properties:
-- `model`: An object that defines any entities specific to the use case (e.g. a qualtiative analysis tool for a survey may have a `survey` entity and a `question` entity)
-- (Any plugin-specific options)
+- `options`: Additional options to contribute to the global schema. Each entry has the same shape as a task-declared option (`short`, `long`, `multiple`, `present`, `default`, `validate`, etc.). This is where consumers wire up domain-specific flags — e.g. an `--llm` flag for an AI consumer, or a `--question` flag for a survey-analysis consumer.
+- (Any plugin-specific config — e.g. `graphql` for the @qualve/graphql plugin)
 
 Also, the config file is the place to import any plugins you need.
 
