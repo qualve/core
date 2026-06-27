@@ -17,6 +17,7 @@ import {
 	matchPositionals,
 	findValue,
 	camelToKebab,
+	mergeSchemas,
 } from "./options.js";
 
 export default class Task {
@@ -42,19 +43,32 @@ export default class Task {
 		let classOptions = getClassChain(this.constructor)
 			.map(c => (Object.hasOwn(c, "options") ? c.options : undefined))
 			.filter(Boolean);
-		let taskLayerSchema = assembleOptions(...classOptions, this.task.options);
+		// Options this task itself consumes. Used for resolveOptions — predicates
+		// (default, present) only run against options the task actually declares.
+		let consumedLayer = assembleOptions(...classOptions, this.task.options);
+		// Aggregated subtree schema. Used for CLI parse, --help, and positional matching.
+		// Subtask-declared options surface here so they parse and inherit through
+		// rawOptions, but their predicates aren't evaluated against this parent.
+		let subtaskSchemas = {};
+		for (let sub of this.task.subtasks ?? []) {
+			subtaskSchemas = mergeSchemas(subtaskSchemas, Task.aggregateSchema(sub));
+		}
+		let aggregatedLayer = assembleOptions(subtaskSchemas, consumedLayer);
 
 		let { _: positionals = [], ...flagsBag } = this.rawOptions;
 		this.rawOptions = matchPositionals(
 			{ flags: flagsBag, _: positionals },
-			taskLayerSchema,
+			aggregatedLayer,
 		).flags;
 
-		// Stored on `this.optionsSchema` so consumers (e.g., --help) can introspect
-		// without re-walking. The name avoids collision with File.schema (JSON schema).
-		this.optionsSchema = assembleOptions(this.config.availableOptions, taskLayerSchema);
+		// Public schemas: aggregated for --help / introspection, consumed for resolution.
+		this.optionsSchema = assembleOptions(this.config.availableOptions, aggregatedLayer);
+		this.consumedSchema = assembleOptions(this.config.availableOptions, consumedLayer);
 
-		let { resolved, claimed } = resolveOptions(this.optionsSchema, this.rawOptions, this.task);
+		// Resolve only against what this task consumes. Subtask-only options stay
+		// in rawOptions and propagate down via the unknown-options escape hatch
+		// (and via the rawOptions forwarding in createSubtask).
+		let { resolved, claimed } = resolveOptions(this.consumedSchema, this.rawOptions, this.task);
 
 		Object.assign(this, resolved);
 
@@ -88,7 +102,7 @@ export default class Task {
 		this.subtasks = this.task.subtasks?.map(t => this.createSubtask(t));
 
 		let resolvedTaskOptions = Object.fromEntries(
-			Object.keys(taskLayerSchema)
+			Object.keys(consumedLayer)
 				.filter(k => k in resolved && resolved[k] !== undefined)
 				.map(k => [k, resolved[k]]),
 		);
@@ -148,8 +162,12 @@ export default class Task {
 	 */
 	findFanoutDriver () {
 		let drivers = [];
-		for (let key in this.optionsSchema) {
-			let option = this.optionsSchema[key];
+		// Iterate the consumed schema (what this task itself declares), not the
+		// aggregated optionsSchema. A subtask-declared option leaking through the
+		// unknown-options escape hatch shouldn't drive fan-out at the parent level —
+		// the subtask that owns the option fans out on its own.
+		for (let key in this.consumedSchema) {
+			let option = this.consumedSchema[key];
 			// `multiple: true` doubles as rest-args for positionals — exclude those
 			// using the same shape check that matchPositionals does (`=== true` or
 			// numeric). Explicit `positional: false` stays a valid driver.
@@ -844,6 +862,27 @@ export default class Task {
 	 */
 	static register (SubClass) {
 		Task.#registry.set(SubClass.type, SubClass);
+	}
+
+	/**
+	 * Union the option schemas declared by a task definition and all its subtasks
+	 * (recursively). Used at parse time to make the CLI accept every flag the
+	 * task tree might want, and inside the constructor so a compound task's
+	 * optionsSchema surfaces its leaves' options.
+	 */
+	static aggregateSchema (taskDef) {
+		let Type = Task.#registry.get(taskDef.type) ?? Task;
+		let classOptions = getClassChain(Type)
+			.map(c => (Object.hasOwn(c, "options") ? c.options : undefined))
+			.filter(Boolean);
+		// Aggregate subtasks first (sibling-later wins), then layer this task's own
+		// class chain and options on top so the parent's declarations override
+		// anything it merely surfaces from its subtree.
+		let subtasks = {};
+		for (let sub of taskDef.subtasks ?? []) {
+			subtasks = mergeSchemas(subtasks, Task.aggregateSchema(sub));
+		}
+		return assembleOptions(subtasks, ...classOptions, taskDef.options);
 	}
 
 	/**

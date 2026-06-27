@@ -463,6 +463,147 @@ export default {
 			],
 		},
 		{
+			name: "Task.aggregateSchema",
+			run: ({ taskDef }) => Object.keys(Task.aggregateSchema(taskDef)).sort(),
+			tests: [
+				{
+					name: "Leaf task: own options only",
+					arg: { taskDef: { options: { foo: {}, bar: {} } } },
+					expect: ["bar", "foo"],
+				},
+				{
+					name: "Compound: subtask options surfaced on parent",
+					arg: {
+						taskDef: {
+							options: { parentOpt: {} },
+							subtasks: [
+								{ options: { childOpt: {} } },
+								{ options: { otherOpt: {} } },
+							],
+						},
+					},
+					expect: ["childOpt", "otherOpt", "parentOpt"],
+				},
+				{
+					name: "Nested compounds recurse",
+					arg: {
+						taskDef: {
+							subtasks: [{ subtasks: [{ options: { deep: {} } }] }],
+						},
+					},
+					expect: ["deep"],
+				},
+				{
+					name: "Conflict: later sibling subtask wins per field",
+					run: () => {
+						let s = Task.aggregateSchema({
+							subtasks: [
+								{ options: { x: { description: "first", default: 1 } } },
+								{ options: { x: { default: 2 } } },
+							],
+						});
+						return s.x.description === "first" && s.x.default === 2;
+					},
+					expect: true,
+				},
+				{
+					name: "Conflict: parent options win over subtask options",
+					run: () => {
+						let s = Task.aggregateSchema({
+							options: { x: { description: "parent" } },
+							subtasks: [{ options: { x: { description: "child" } } }],
+						});
+						return s.x.description;
+					},
+					expect: "parent",
+				},
+			],
+		},
+		{
+			name: "Compound resolution: subtask-only options don't run predicates against the parent",
+			description:
+				"A subtask declaring an option with a scope-conditional `present` predicate " +
+				"should not have that predicate evaluated against the parent. The parent surfaces " +
+				"the option via optionsSchema (for CLI parse / --help) but only resolves against " +
+				"consumedSchema (its own declarations). Without this split, a present predicate " +
+				"like `this.scope === 'leaf'` would return false on a scope-less parent and " +
+				"incorrectly reject user input meant for the subtask.",
+			tests: [
+				{
+					name: "Subtask option is in aggregated optionsSchema but not consumedSchema",
+					run: () => {
+						let t = Task.create(
+							{
+								subtasks: [
+									{
+										type: "data",
+										mode: "leaf",
+										// Subtask declares both scope (so its predicate can read it
+										// via the Proxy) and x (whose presence depends on scope).
+										options: {
+											mode: {},
+											x: {
+												present () {
+													return this.mode === "leaf";
+												},
+											},
+										},
+										input: [{ contents: {}, filename: "s.json" }],
+									},
+								],
+							},
+							{ info: () => {}, options: { x: "value" } },
+						);
+						return {
+							optionsHasX: "x" in t.optionsSchema,
+							consumedHasX: "x" in t.consumedSchema,
+							parentX: t.x,
+							subtaskX: t.subtasks[0].x,
+						};
+					},
+					// Parent doesn't claim x through resolveOptions (it's not in
+					// consumedSchema), but the unknown-options escape hatch still
+					// surfaces the value on the instance. The key win: parent's
+					// present predicate is never evaluated. Value rides down to the
+					// subtask via rawOptions inheritance; subtask resolves it.
+					expect: {
+						optionsHasX: true,
+						consumedHasX: false,
+						parentX: "value",
+						subtaskX: "value",
+					},
+				},
+				{
+					name: "Subtask-declared fan-out driver fans out at the subtask, not the parent",
+					description:
+						"A subtask declaring `{multiple: true, present: true}` for an option the " +
+						"parent doesn't own should drive fan-out at the subtask layer only. The " +
+						"parent's `optionsSchema` surfaces the option (so --help and CLI parse " +
+						"see it), but findFanoutDriver iterates `consumedSchema`, so the parent " +
+						"doesn't fan out on something it doesn't own.",
+					run: () => {
+						let parent = Task.create(
+							{
+								subtasks: [
+									{
+										type: "data",
+										options: { x: { multiple: true, present: true } },
+										input: [{ contents: {}, filename: "s.json" }],
+									},
+								],
+							},
+							{ info: () => {}, options: { x: ["a", "b"] } },
+						);
+						return {
+							parentFanout: parent.computedSubtasks.length,
+							subtaskFanout: parent.subtasks[0].computedSubtasks.length,
+						};
+					},
+					expect: { parentFanout: 1, subtaskFanout: 2 },
+				},
+			],
+		},
+		{
 			name: "Task option resolution in constructor",
 			run: ({ task, options }) => {
 				let t = Task.create(task, { info: () => {}, options });
