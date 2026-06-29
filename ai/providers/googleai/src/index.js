@@ -38,7 +38,7 @@ export default class Gemini extends LLMTask {
 		const result = await this.client.models.countTokens({
 			model: this.model,
 			contents: createUserContent([
-				// FIXME: Correctly pass system instructions via `config.systemInstruction` instead of including them in contents once countTokens supports it.
+				// FIXME: Pass system instructions via `config.systemInstruction` once the Gemini Developer API supports it on countTokens (Vertex AI does; the Developer API rejects it at request build).
 				...system,
 				...prompt,
 				...input
