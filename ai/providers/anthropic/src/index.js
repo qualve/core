@@ -79,7 +79,7 @@ export default class Claude extends LLMTask {
 					],
 				},
 			],
-			output_config: output?.schema ? { format: output.schema } : undefined,
+			output_config: output?.[0]?.schema ? { format: output[0].schema } : undefined,
 		});
 
 		let stopReason;

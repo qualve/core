@@ -53,10 +53,10 @@ export default class Gemini extends LLMTask {
 	async createStream () {
 		let { system, prompt, output, input = [] } = this;
 		let responseSchema;
-		if (output?.schema) {
+		if (output?.[0]?.schema) {
 			responseSchema = {
 				responseMimeType: "application/json",
-				responseJsonSchema: output?.schema.schema,
+				responseJsonSchema: output[0].schema.schema,
 			};
 		}
 

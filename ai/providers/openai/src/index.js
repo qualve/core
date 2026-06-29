@@ -30,8 +30,8 @@ export default class OpenAI extends LLMTask {
 
 	async createStream () {
 		let { system, prompt, output, input = [] } = this;
-		let responseSchema = output?.schema;
-		let hasRootObject = output?.schemaType === "object";
+		let responseSchema = output?.[0]?.schema;
+		let hasRootObject = output?.[0]?.schemaType === "object";
 
 		if (responseSchema) {
 			// All object properties in the response schema must be required.
