@@ -68,6 +68,9 @@ export default class Gemini extends LLMTask {
 			]),
 			config: {
 				systemInstruction: system?.join("\n"),
+				// Low temperature favors focused, on-task output; the small nonzero
+				// margin lets the model follow constrained schemas without refusing.
+				temperature: 0.1,
 				tools: this.capabilities.webSearch ? [{ googleSearch: {} }] : undefined,
 				...responseSchema,
 				thinkingConfig: {
