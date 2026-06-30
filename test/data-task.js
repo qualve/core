@@ -110,6 +110,16 @@ export default {
 			expect: {},
 		},
 		{
+			name: "Empty glob match",
+			description:
+				"#56 — a glob with no matches drops entirely, instead of leaking its parent File (whose contents are undefined).",
+			arg: {
+				resultType: "array",
+				input: __dirname + "files/no-such-prefix-*",
+			},
+			expect: {},
+		},
+		{
 			name: "Dry run",
 			description: "dryRun: true returns debug info without processing data",
 			data: { full: true, dryRun: true },

@@ -4,8 +4,8 @@ export default class DataTask extends Task {
 	static type = "data";
 
 	async runTask () {
-		// Flatten: each input File may have children from glob expansion
-		let files = this.input.flatMap(f => f.children?.length > 0 ? f.children : [f]);
+		// Flatten: globs expand to children (empty array if no matches); leaves stay as-is.
+		let files = this.input.flatMap(f => f.glob ? f.children : [f]);
 
 		if (this.dryRun) {
 			Object.assign(this.debug, {
