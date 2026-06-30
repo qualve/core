@@ -340,6 +340,16 @@ export default {
 					},
 					expect: undefined,
 				},
+				{
+					name: "optional on source",
+					run () {
+						return File.get(
+							{ name: "additional-codes", optional: true },
+							context("test"),
+						).optional;
+					},
+					expect: true,
+				},
 			],
 		},
 		{
@@ -368,6 +378,11 @@ export default {
 				{
 					name: "Child inherits paginate",
 					args: [{ paginate: true }, { filename: "a.json" }, "paginate"],
+					expect: true,
+				},
+				{
+					name: "Child inherits optional",
+					args: [{ optional: true }, { filename: "a.json" }, "optional"],
 					expect: true,
 				},
 			],
