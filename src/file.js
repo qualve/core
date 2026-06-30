@@ -1,4 +1,4 @@
-import { existsSync, globSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, globSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { addFilenameSuffix, getExtension, isGlob } from "./util.js";
 import Format from "./format.js";
@@ -327,6 +327,7 @@ export default class File {
 	 */
 	write (data) {
 		let contents = this.format.serialize(data);
+		mkdirSync(path.dirname(this.path), { recursive: true });
 		writeFileSync(this.path, contents);
 		this.#contents.value = data;
 		return contents?.length;
