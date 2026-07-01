@@ -39,6 +39,9 @@ if (!options.help && candidates.length > 1 && process.stdin.isTTY) {
 	}
 }
 
+// Don't fold these two branches into one call: a picked entry must go through `load`, not
+// `resolve(picked.taskId)` — resolve re-matches and would re-expand a same-id pick back into
+// "All"; and it treats any object arg as an inline def, so `resolve(picked)` breaks too.
 let resolved =
 	typeof picked === "string" ? await Task.resolve(picked, config) : await Task.load(picked);
 
@@ -89,7 +92,7 @@ if (!options.help) {
 
 // Construct the task. Task-declared positional options are matched inside the
 // constructor against the leftover `_` from this parse — each task does that
-// against its own schema.
+// against its own schema. Reuse `resolved`; re-resolving by id would re-ambiguate a same-id pick.
 let task = await Task.fromId(resolved, { ...options, config });
 
 if (options.help) {
