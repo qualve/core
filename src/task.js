@@ -818,9 +818,9 @@ export default class Task {
 		return tasks;
 	}
 
-	/** Ids of all discoverable tasks for a config (glob order, unsorted). */
+	/** Distinct ids of all discoverable tasks for a config, in discovery order. */
 	static ids (config) {
-		return Task.#discover(config).map(task => task.taskId);
+		return [...new Set(Task.#discover(config).map(task => task.taskId))];
 	}
 
 	/**
