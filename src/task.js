@@ -1,14 +1,15 @@
 import {
 	formatDuration,
 	formatSize,
-	readDirectorySync,
 	addFilenameSuffix,
 	mapAsync,
 	toArray,
 	importCwd,
+	isGlob,
 } from "./util.js";
 import File from "./file.js";
-import { existsSync } from "node:fs";
+import { globSync } from "node:fs";
+import path from "node:path";
 import { ProgressIndicator } from "./util.js";
 import Config from "./config.js";
 import {
@@ -762,33 +763,118 @@ export default class Task {
 		return new Error("Not implemented in " + this.constructor.name);
 	}
 
-	static #ids = null;
-	static get ids () {
-		if (!this.#ids) {
-			this.#ids = readDirectorySync(`tasks`, { type: "file" })
-				.filter(file => file.endsWith(".js") && !file.startsWith("_"))
-				.map(file => file.replace(".js", ""));
+	// Discovered task entries, keyed by Config instance.
+	static #cache = new WeakMap();
+
+	/**
+	 * All discoverable tasks for a config, as `{ taskId, taskPath }` entries.
+	 * Globs each configured location (a bare dir expands to `<dir>/**​/*.js`, then skips `_`-prefixed files and dirs),
+	 * derives ids relative to each glob's non-wildcard base, and dedupes by
+	 * canonical path. Memoized per Config instance.
+	 * @param {Config} config
+	 * @returns {{ taskId: string, taskPath: string }[]}
+	 */
+	static #discover (config) {
+		let tasks = this.#cache.get(config);
+		if (tasks) {
+			return tasks;
 		}
-		return this.#ids;
+
+		let seen = new Set();
+		tasks = [];
+		for (let glob of toArray(config.tasks ?? "tasks").filter(Boolean)) {
+			// A bare directory expands to a deep search; an explicit glob is used as written.
+			// Either way, `_`-prefixed files and dirs are skipped as private (a framework
+			// convention). The check runs on ids (the wildcard portion), so `_` in a glob's
+			// fixed base is still honored.
+			let bare = !isGlob(glob);
+			glob = bare ? `${glob}/**/*.js` : glob;
+			// Ids are relative to the glob's base — its leading path before the first wildcard segment.
+			let parts = glob.split("/");
+			let wildcardIndex = parts.findIndex(isGlob);
+			let base = parts.slice(0, wildcardIndex < 0 ? parts.length : wildcardIndex).join("/");
+			for (let entry of globSync(glob, { withFileTypes: true })) {
+				if (!entry.isFile() || !entry.name.endsWith(".js")) {
+					continue;
+				}
+				let taskPath = path.join(entry.parentPath, entry.name);
+				let taskId = path
+					.relative(base, taskPath)
+					.replaceAll(path.sep, "/")
+					.replace(/\.js$/, "");
+				if (taskId.startsWith("_") || taskId.includes("/_")) {
+					continue;
+				}
+				let key = path.resolve(taskPath);
+				if (seen.has(key)) {
+					continue;
+				}
+				seen.add(key);
+				tasks.push({ taskId, taskPath });
+			}
+		}
+
+		this.#cache.set(config, tasks);
+		return tasks;
 	}
 
-	static async resolve (taskId) {
+	/** Ids of all discoverable tasks for a config (glob order, unsorted). */
+	static ids (config) {
+		return Task.#discover(config).map(task => task.taskId);
+	}
+
+	/**
+	 * Candidate tasks for a task id: exact id matches win; if none, fall back to
+	 * basename matches across subdirectories. Empty when nothing matches.
+	 * @param {string} taskId
+	 * @param {Config} config
+	 * @returns {{ taskId: string, taskPath: string }[]}
+	 */
+	static match (taskId, config) {
+		let tasks = Task.#discover(config);
+		let matched = tasks.filter(task => task.taskId === taskId);
+		return matched.length > 0
+			? matched
+			: tasks.filter(task => path.posix.basename(task.taskId) === taskId);
+	}
+
+	/**
+	 * Resolve a task id to a single task definition, or an on-the-fly compound of
+	 * all matches (the "All" case). An inline task def (object) or falsy value
+	 * passes through unchanged, preserving today's `fromId(def)` contract.
+	 * @param {string | object} taskId
+	 * @param {Config} config
+	 */
+	static async resolve (taskId, config) {
 		if (!taskId || typeof taskId === "object") {
 			return taskId;
 		}
 
-		let task;
-		let taskPath = `tasks/${taskId}.js`;
-
-		if (!existsSync(taskPath)) {
-			throw new Error(`Invalid task ID “${taskId}”. Available tasks: ${this.ids.join(", ")}`);
+		let matched = this.match(taskId, config);
+		if (matched.length === 0) {
+			throw new Error(
+				`Invalid task ID “${taskId}”. Available tasks: ${this.ids(config).join(", ")}`,
+			);
 		}
+		if (matched.length === 1) {
+			return Task.load(matched[0]);
+		}
+		return {
+			title: `${taskId} (${matched.length} matches)`,
+			subtasks: await Promise.all(matched.map(task => Task.load(task))),
+		};
+	}
 
+	/**
+	 * Load a discovered entry into its task definition: import the file, unwrap a
+	 * Task instance, and attach the id on a copy (never mutating the module object).
+	 * @param {{ taskId: string, taskPath: string }} entry
+	 * @returns {Promise<object>}
+	 */
+	static async load ({ taskId, taskPath }) {
+		let task;
 		try {
-			task = await importCwd(taskPath).then(m => {
-				m.id = taskId;
-				return m;
-			});
+			task = await importCwd(taskPath);
 		}
 		catch (e) {
 			throw new Error(`Task ${taskId} at ${taskPath} is invalid.`, { cause: e });
@@ -802,7 +888,7 @@ export default class Task {
 			task = task.task;
 		}
 
-		return task;
+		return { ...task, id: taskId };
 	}
 
 	/**
@@ -811,13 +897,13 @@ export default class Task {
 	 * The returned instance exposes `task.optionsSchema` for introspection (used by `--help`).
 	 */
 	static async fromId (taskId, { config, ...options } = {}) {
-		if (!taskId) {
-			throw new Error(`No task provided. Available tasks: ${this.ids.join(", ")}`);
-		}
-
 		config = await Config.from(config);
 
-		let task = await this.resolve(taskId);
+		if (!taskId) {
+			throw new Error(`No task provided. Available tasks: ${this.ids(config).join(", ")}`);
+		}
+
+		let task = await this.resolve(taskId, config);
 		task = { ...task };
 		normalizeFiles(task);
 

@@ -27,7 +27,11 @@ const { task, output } = await qualve("<task-id>", { /* options */ });
 ## Tasks
 
 Tasks are the core building blocks of Qualve.
-By default, Qualve will look for tasks in the `tasks/` directory of your CWD.
+By default, Qualve looks for tasks **recursively** in the `tasks/` directory of your CWD, so you can organize them into subdirectories.
+Run a task by its id (`build`) or, when the same filename appears in more than one subdirectory, by its path (`codes/update`).
+If a bare id matches several tasks, the CLI asks which one to run — or **All**, which runs them together as a compound task.
+Files and directories whose name starts with `_` (e.g. `tasks/_helpers.js`, `tasks/_shared/`) are treated as private and are never discovered as tasks.
+Configure where Qualve looks with the `tasks` option (see [Configuration](#configuration)).
 Each task is a JavaScript file that exports an object that defines the task.
 
 Broadly, a task object describes how to transform data from one or more inputs to one or more outputs.
@@ -61,6 +65,11 @@ To use a different config file, you can pass the `--config`/`-c` option to the C
 
 The config file is a JavaScript file that exports an object with the following properties:
 - `options`: Additional options to contribute to the global schema. Each entry has the same shape as a task-declared option (`short`, `long`, `multiple`, `present`, `default`, `validate`, etc.). This is where consumers wire up domain-specific flags — e.g. an `--llm` flag for an AI consumer, or a `--question` flag for a survey-analysis consumer.
+- `tasks`: Where to look for tasks. A glob, a directory, or an array of either (default `"tasks"`). A bare directory expands to a recursive deep search; a glob is used as written, so you control depth and can reach outside the CWD. Either way, only `.js` files are discovered, and `_`-prefixed files and directories are skipped as private:
+  - `tasks: "tasks"` — recursive `tasks/` (the default).
+  - `tasks: "tasks/*.js"` — only the top level of `tasks/` (a glob controls depth).
+  - `tasks: "../tasks/*.js"` — a single level in a sibling directory.
+  - `tasks: ["tasks", "../shared/**/*.js"]` — multiple locations, unioned.
 - (Any plugin-specific config — e.g. `graphql` for the @qualve/graphql plugin)
 
 Also, the config file is the place to import any plugins you need.

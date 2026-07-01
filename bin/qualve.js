@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { prettyPrint, printError } from "./util/pretty-print.js";
 import { printHelp } from "./util/help.js";
-import { confirm } from "./util/ask.js";
+import { confirm, chooseTask } from "./util/ask.js";
 import { parseArgs } from "./util/args.js";
 import { Task } from "../src/index.js";
 import Config from "../src/config.js";
@@ -17,16 +17,30 @@ const config = await Config.from(options.config);
 
 if (!options.taskId) {
 	if (options.help) {
-		printHelp(config.availableOptions, Task.ids);
+		printHelp(config.availableOptions, Task.ids(config));
 		process.exit(0);
 	}
-	console.info(`Available tasks:\n${Task.ids.join("\n")}`);
+	console.info(`Available tasks:\n${Task.ids(config).join("\n")}`);
 	process.exit(1);
 }
 
 options = parseArgs(argv, config.availableOptions);
 
-let resolved = await Task.resolve(options.taskId);
+// When a bare id is ambiguous and we're interactive, let the user pick one match or run
+// All; otherwise resolve the id as-is — a single task, an error, or the "All" compound
+// for a non-TTY session or --help. A chosen entry loads exactly that task.
+let taskId = options.taskId;
+let candidates = Task.match(taskId, config);
+let picked = taskId;
+if (!options.help && candidates.length > 1 && process.stdin.isTTY) {
+	picked = await chooseTask(taskId, candidates);
+	if (picked === null) {
+		process.exit(1);
+	}
+}
+
+let resolved =
+	typeof picked === "string" ? await Task.resolve(picked, config) : await Task.load(picked);
 
 // Re-parse against the task tree's aggregated schema so subtask-declared flags
 // are canonicalized (e.g. -q → --question) and validated.
@@ -76,10 +90,10 @@ if (!options.help) {
 // Construct the task. Task-declared positional options are matched inside the
 // constructor against the leftover `_` from this parse — each task does that
 // against its own schema.
-let task = await Task.fromId(options.taskId, { ...options, config });
+let task = await Task.fromId(resolved, { ...options, config });
 
 if (options.help) {
-	printHelp(task.optionsSchema, Task.ids);
+	printHelp(task.optionsSchema, Task.ids(config));
 	process.exit(0);
 }
 
