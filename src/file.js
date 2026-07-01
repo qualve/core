@@ -237,6 +237,15 @@ export default class File {
 		return this.#getMemoizedOrInherit("temporary");
 	}
 
+	/**
+	 * Whether this file may be absent on disk. If true and the file does not exist,
+	 * it is dropped from the task's `input` array entirely. No-op for globs, which
+	 * already degrade gracefully (an unmatched glob expands to zero children).
+	 */
+	get optional () {
+		return this.#getMemoizedOrInherit("optional");
+	}
+
 	/** Whether this file should be re-uploaded fresh, bypassing the provider cache. */
 	get fresh () {
 		return this.#getMemoizedOrInherit("fresh");

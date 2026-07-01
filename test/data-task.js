@@ -402,5 +402,36 @@ export default {
 				},
 			],
 		},
+		{
+			name: "Optional input",
+			tests: [
+				{
+					name: "Absent optional file is filtered out",
+					arg: {
+						input: [
+							{ contents: { a: 1 }, filename: "kept.json" },
+							{ filename: __dirname + "files/does-not-exist.json", optional: true },
+						],
+					},
+					expect: { a: 1 },
+				},
+				{
+					name: "Present optional file is kept",
+					arg: {
+						input: [{ filename: __dirname + "files/greeting.txt", optional: true }],
+					},
+					expect: "Hello, world!",
+				},
+				{
+					name: "Required absent files surface read errors",
+					description:
+						"Without optional, missing files stay in input and fail loudly at read time — the contract is no silent skipping.",
+					arg: {
+						input: [{ filename: __dirname + "files/does-not-exist.json" }],
+					},
+					throws: e => e.code === "ENOENT",
+				},
+			],
+		},
 	],
 };

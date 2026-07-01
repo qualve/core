@@ -313,7 +313,9 @@ export default class Task {
 
 		this.input = this.resolveOption("input");
 		if (this.input) {
-			this.input = toArray(this.input).map(input => File.get(input, this));
+			this.input = toArray(this.input)
+				.map(input => File.get(input, this))
+				.filter(f => !f.optional || f.glob || f.exists());
 			this.debug.input = this.input.map(f => f.debugInfo());
 		}
 
