@@ -1,0 +1,14 @@
+{
+	"npm": false,
+	"git": {
+		"tagName": "v${version}",
+		"tagMatch": "v*",
+		"commitMessage": "Release v${version}"
+	},
+	"plugins": {
+		"@release-it-plugins/workspaces": true
+	},
+	"hooks": {
+		"after:release": "npm publish --access public"
+	}
+}
