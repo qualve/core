@@ -152,9 +152,13 @@ Options that aren't declared anywhere both apply as task-field overrides (so `--
 
 ## Plugins
 
+<details>
+<summary>Plugins</summary>
+	
 - [@qualve/graphql](https://www.npmjs.com/package/@qualve/graphql) - GraphQL inputs for Qualve Tasks
 - [@qualve/ai](https://www.npmjs.com/package/@qualve/ai) - LLM tasks (core + all official providers)
   - [@qualve/llm](https://www.npmjs.com/package/@qualve/llm) - Core LLM task framework
   - [@qualve/anthropic](https://www.npmjs.com/package/@qualve/anthropic) - Claude provider
   - [@qualve/openai](https://www.npmjs.com/package/@qualve/openai) - OpenAI provider
   - [@qualve/googleai](https://www.npmjs.com/package/@qualve/googleai) - Gemini provider
+</details>
