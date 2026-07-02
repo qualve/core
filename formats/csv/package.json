@@ -1,35 +1,35 @@
 {
-	"name": "@qualve/csv",
-	"version": "0.0.1",
-	"description": "CSV and TSV format plugin for Qualve.",
-	"type": "module",
-	"engines": {
-		"node": ">=23"
-	},
-	"main": "src/index.js",
-	"exports": {
-		".": "./src/index.js"
-	},
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/qualve/formats.git",
-		"directory": "csv"
-	},
-	"author": "Lea Verou",
-	"contributors": [
-		"Dmitry Sharabin"
-	],
-	"scripts": {
-		"test": "npx htest test"
-	},
-	"publishConfig": {
-		"access": "public"
-	},
-	"peerDependencies": {
-		"qualve": "*"
-	},
-	"dependencies": {
-		"csv-parse": "^5.6.0",
-		"csv-stringify": "^6.5.2"
-	}
+ "name": "@qualve/csv",
+ "version": "0.0.1",
+ "description": "CSV and TSV format plugin for Qualve.",
+ "type": "module",
+ "engines": {
+  "node": ">=23"
+ },
+ "main": "src/index.js",
+ "exports": {
+  ".": "./src/index.js"
+ },
+ "repository": {
+  "type": "git",
+  "url": "https://github.com/qualve/formats.git",
+  "directory": "csv"
+ },
+ "author": "Lea Verou",
+ "contributors": [
+  "Dmitry Sharabin"
+ ],
+ "scripts": {
+  "test": "npx htest test"
+ },
+ "publishConfig": {
+  "access": "public"
+ },
+ "peerDependencies": {
+  "qualve": "*"
+ },
+ "dependencies": {
+  "csv-parse": "^5.6.0",
+  "csv-stringify": "^6.5.2"
+ }
 }
