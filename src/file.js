@@ -44,6 +44,14 @@ export default class File {
 				source[key] = this.resolveValue(this.source[key]);
 			}
 
+			// Object sources need the same glob detection string sources get via resolveString()
+			// — e.g. `{ name: () => "coding-*" }` should resolve to a glob too. filename wins
+			// over name, matching the derivation order below.
+			let pattern = source.filename ?? source.name;
+			if (pattern && isGlob(pattern)) {
+				source.glob = File.resolveString(pattern).glob;
+			}
+
 			if (!source.glob) {
 				if (!source.filename && !source.name) {
 					source.name = this.context?.id;

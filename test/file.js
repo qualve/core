@@ -223,6 +223,18 @@ export default {
 						extension: "json",
 					},
 				},
+				{
+					name: "Glob-like name resolves as a glob",
+					arg: { name: "coding-*" },
+					run: arg => File.get(arg, context("test")).glob,
+					expect: "coding-*.json",
+				},
+				{
+					name: "Glob-like filename resolves as a glob",
+					arg: { filename: "coding-*.json" },
+					run: arg => File.get(arg, context("test")).glob,
+					expect: "coding-*.json",
+				},
 			],
 		},
 		{
@@ -264,6 +276,22 @@ export default {
 						return file.name;
 					},
 					expect: "coding-gpt-4",
+				},
+				{
+					name: "Name as method function returning a glob",
+					description: "A dynamic name (e.g. reading a --codebook option) can resolve to a glob pattern",
+					run () {
+						let file = File.get(
+							{
+								name () {
+									return `coding-${this.codebook}-*`;
+								},
+							},
+							context("test", { codebook: "default" }),
+						);
+						return file.glob;
+					},
+					expect: "coding-default-*.json",
 				},
 				{
 					name: "Description as method reading context property",
