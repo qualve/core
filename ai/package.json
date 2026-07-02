@@ -27,7 +27,7 @@
     "Lea Verou"
   ],
   "scripts": {
-    "release": "npm login && release-it"
+    "release": "npm whoami >/dev/null 2>&1 || npm login && release-it"
   },
   "release-it": {
     "git": {
