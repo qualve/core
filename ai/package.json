@@ -29,21 +29,16 @@
   "scripts": {
     "release": "npm whoami >/dev/null 2>&1 || npm login && release-it"
   },
-  "release-it": {
-    "git": {
-      "tagName": "${npm.name}@${version}",
-      "commitMessage": "Release ${npm.name}@${version}"
-    }
-  },
   "peerDependencies": {
     "qualve": "*"
   },
   "devDependencies": {
+    "@release-it-plugins/workspaces": "^6.0.0",
     "prettier": "^3.8.1",
     "prettier-plugin-brace-style": "^0.10.0",
     "prettier-plugin-merge": "^0.10.0",
     "prettier-plugin-space-before-function-paren": "^0.1.0",
-    "release-it": "^20.0.0"
+    "release-it": "^19.0.0"
   },
   "dependencies": {
     "@qualve/llm": "*",

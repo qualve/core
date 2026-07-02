@@ -20,14 +20,7 @@
     "Lea Verou"
   ],
   "scripts": {
-    "test": "npx htest test",
-    "release": "npm whoami >/dev/null 2>&1 || npm login && release-it"
-  },
-  "release-it": {
-    "git": {
-      "tagName": "${npm.name}@${version}",
-      "commitMessage": "Release ${npm.name}@${version}"
-    }
+    "test": "npx htest test"
   },
   "peerDependencies": {
     "qualve": "*"
