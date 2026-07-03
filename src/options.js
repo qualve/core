@@ -1,4 +1,29 @@
-// L1: global options. Frozen — extension happens via mergeSchemas in assembleOptions, not mutation.
+/**
+ * @typedef {Object} Option
+ * An option's schema: how a value for it is aliased, parsed, defaulted, validated, and displayed.
+ * All fields are optional; a bare `{}` is a valid string option.
+ * @property {string} [long] Long flag name; defaults to the kebab-cased key.
+ * @property {string} [short] Single-character flag alias.
+ * @property {boolean | number} [positional] Accept a positional arg — `true` for index 0, or an explicit index.
+ * @property {boolean} [multiple] Accept several values (resolves to an array); as a positional, acts as rest args.
+ * @property {boolean | (() => boolean)} [present] Tri-state presence: `true` = required, `false` = forbidden,
+ *   omitted = optional. A function is evaluated with `this` bound to the other resolved options.
+ * @property {* | (() => *)} [default] Value when unset. A function is called with `this` bound to the other
+ *   resolved options, so defaults may depend on each other (resolution order doesn't matter; cycles throw).
+ * @property {(value: *) => *} [parse] Normalize/coerce a provided value (e.g. `Number`). Runs on strings only.
+ * @property {(value: *) => (boolean | string[])} [validate] Return `true` to accept, `false` to reject, or an
+ *   array of suggestions surfaced in the error ("Did you mean…?").
+ * @property {*[] | RegExp} [values] Constrain accepted values to a list of members or a pattern.
+ * @property {boolean} [config] Mark this as a *config option* — resolved and owned by `Config` (see Config.from),
+ *   rather than a *task option* resolved per-run at task construction.
+ * @property {string} [description] Help text.
+ * @property {string} [key] The canonical key; set internally during resolution, not by authors.
+ */
+
+/**
+ * L1: global options. Frozen — extension happens via mergeSchemas in assembleOptions, not mutation.
+ * @type {Readonly<Record<string, Option>>}
+ */
 const availableOptions = Object.freeze({
 	taskId: {
 		long: "task",
