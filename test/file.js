@@ -271,6 +271,29 @@ export default {
 					},
 				},
 				{
+					name: "Mutual input cycle terminates via task-id fallback",
+					run () {
+						let ctxA = context("task-a");
+						let ctxB = context("task-b");
+						let a = File.get({ suffix: "-a" }, ctxA);
+						let b = File.get({ suffix: "-b" }, ctxB);
+						ctxA.input = [b];
+						ctxB.input = [a];
+						return { a: a.filename, b: b.filename };
+					},
+					expect: { a: "task-b-a.json", b: "task-b-b.json" },
+				},
+				{
+					name: "Empty-string input name falls back to task id",
+					run () {
+						let ctx = context("fallback-task");
+						ctx.input = [File.get({ filename: "x.json", name: "" }, ctx)];
+						let file = File.get({ suffix: "-out" }, ctx);
+						return file.filename;
+					},
+					expect: "fallback-task-out.json",
+				},
+				{
 					name: "Suffix derives name from task id without input",
 					args: [{ suffix: "-normalized" }, "answers-normalize"],
 					expect: {
