@@ -230,6 +230,12 @@ export default {
 					expect: "coding-*.json",
 				},
 				{
+					name: "Glob-like name doesn't leak the pattern into name",
+					arg: { name: "coding-*" },
+					run: arg => File.get(arg, context("test")).name,
+					expect: undefined,
+				},
+				{
 					name: "Glob-like filename resolves as a glob",
 					arg: { filename: "coding-*.json" },
 					run: arg => File.get(arg, context("test")).glob,
@@ -282,6 +288,16 @@ export default {
 						return { a: a.filename, b: b.filename };
 					},
 					expect: { a: "task-b-a.json", b: "task-b-b.json" },
+				},
+				{
+					name: "Glob input (no name) falls back to task id",
+					run () {
+						let ctx = context("merge-unique");
+						ctx.input = [File.get({ name: "coding-*" }, ctx)];
+						let file = File.get({ suffix: "-merged" }, ctx);
+						return file.filename;
+					},
+					expect: "merge-unique-merged.json",
 				},
 				{
 					name: "Empty-string input name falls back to task id",

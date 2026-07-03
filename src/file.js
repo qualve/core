@@ -54,7 +54,10 @@ export default class File {
 				// over name, matching the derivation order below.
 				let pattern = source.filename ?? source.name;
 				if (pattern && isGlob(pattern)) {
+					// Globs have no single name — clear the pattern out so it doesn't leak,
+					// matching resolveString()'s contract for string globs.
 					source.glob = File.resolveString(pattern).glob;
+					source.name = source.filename = source.extension = undefined;
 				}
 
 				if (!source.glob) {
