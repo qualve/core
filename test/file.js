@@ -238,14 +238,40 @@ export default {
 			],
 		},
 		{
-			name: "Suffix-only (name from task id)",
+			name: "Suffix-only (derived base name)",
 			run (source, id) {
 				let file = File.get(source, context(id));
 				return { name: file.name, filename: file.filename };
 			},
 			tests: [
 				{
-					name: "Suffix derives name from task id",
+					name: "Suffix derives name from the task's input",
+					run () {
+						let ctx = context("widgets-unique");
+						ctx.input = [File.get("widgets-raw", ctx)];
+						let file = File.get({ suffix: "-unique" }, ctx);
+						return { name: file.name, filename: file.filename };
+					},
+					expect: {
+						name: "widgets-raw",
+						filename: "widgets-raw-unique.json",
+					},
+				},
+				{
+					name: "File that IS the input falls back to task id",
+					run () {
+						let ctx = context("widgets-unique");
+						let file = File.get({ suffix: "-raw" }, ctx);
+						ctx.input = [file];
+						return { name: file.name, filename: file.filename };
+					},
+					expect: {
+						name: "widgets-unique",
+						filename: "widgets-unique-raw.json",
+					},
+				},
+				{
+					name: "Suffix derives name from task id without input",
 					args: [{ suffix: "-normalized" }, "answers-normalize"],
 					expect: {
 						name: "answers-normalize",

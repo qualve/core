@@ -54,7 +54,10 @@ export default class File {
 
 			if (!source.glob) {
 				if (!source.filename && !source.name) {
-					source.name = this.context?.id;
+					// Derive the base name from the task's input, unless this file IS that
+					// input (would recurse) — then fall back to the task id.
+					let input = this.context?.input?.[0];
+					source.name = (input === this ? undefined : input?.name) ?? this.context?.id;
 				}
 
 				if (source.name) {
