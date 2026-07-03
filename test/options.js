@@ -1,4 +1,4 @@
-import {
+import availableOptions, {
 	findValue,
 	resolveValue,
 	resolveOptions,
@@ -68,6 +68,27 @@ export default {
 					throws: true,
 				},
 				{
+					name: "parse runs on non-string values",
+					run: () => resolveValue({ key: "x", parse: v => v.length }, ["a", "b"]),
+					expect: 2,
+				},
+				{
+					name: "tasks: shorthands normalize, fill from the default, and array-ify exclude",
+					run: () => {
+						let option = availableOptions.tasks;
+						return [
+							resolveValue(option, "pipelines/**/*.js"),
+							resolveValue(option, { include: "pipelines/**/*.js" }),
+							resolveValue(option, { include: "a/*.js", exclude: [] }),
+						];
+					},
+					expect: [
+						{ include: "pipelines/**/*.js", exclude: ["**/_*"] },
+						{ include: "pipelines/**/*.js", exclude: ["**/_*"] },
+						{ include: "a/*.js", exclude: [] },
+					],
+				},
+				{
 					name: "values: array accepts member",
 					run: () => resolveValue({ key: "x", values: ["a", "b"] }, "a"),
 					expect: "a",
@@ -119,11 +140,10 @@ export default {
 					throws: true,
 				},
 				{
-					name: "parse skipped on non-string",
-					// `Number(true) === 1`, so passing `true` and getting `true` back
-					// proves `parse` was skipped rather than coincidentally idempotent.
+					name: "parse runs on any defined value",
+					// `Number(true) === 1` — parse is normalization, not just string coercion
 					run: () => resolveValue({ key: "n", parse: Number }, true),
-					expect: true,
+					expect: 1,
 				},
 			],
 		},

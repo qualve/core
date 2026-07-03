@@ -17,16 +17,17 @@ const config = await Config.from(options.config, options);
 
 if (!options.taskId) {
 	if (options.help) {
-		printHelp(config.availableOptions, Task.ids);
+		printHelp(config.availableOptions, config.taskIds);
 		process.exit(0);
 	}
-	console.info(`Available tasks:\n${Task.ids.join("\n")}`);
+	console.info(`Available tasks:\n${config.taskIds.join("\n")}`);
 	process.exit(1);
 }
 
 options = parseArgs(argv, config.availableOptions);
 
-let resolved = await Task.resolve(options.taskId);
+let path = config.resolveTask(options.taskId);
+let resolved = await Task.load(path);
 
 // Re-parse against the task tree's aggregated schema so subtask-declared flags
 // are canonicalized (e.g. -q → --question) and validated.
@@ -76,10 +77,10 @@ if (!options.help) {
 // Construct the task. Task-declared positional options are matched inside the
 // constructor against the leftover `_` from this parse — each task does that
 // against its own schema.
-let task = await Task.fromId(options.taskId, { ...options, config });
+let task = await Task.fromPath(path, { ...options, config });
 
 if (options.help) {
-	printHelp(task.optionsSchema, Task.ids);
+	printHelp(task.optionsSchema, config.taskIds);
 	process.exit(0);
 }
 

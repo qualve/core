@@ -1,3 +1,7 @@
+import { toArray } from "./util.js";
+
+const DEFAULT_TASKS = { include: "tasks/**/*.js", exclude: "**/_*" };
+
 /**
  * @typedef {Object} Option
  * An option's schema: how a value for it is aliased, parsed, defaulted, validated, and displayed.
@@ -10,7 +14,7 @@
  *   omitted = optional. A function is evaluated with `this` bound to the other resolved options.
  * @property {* | (() => *)} [default] Value when unset. A function is called with `this` bound to the other
  *   resolved options, so defaults may depend on each other (resolution order doesn't matter; cycles throw).
- * @property {(value: *) => *} [parse] Normalize/coerce a provided value (e.g. `Number`). Runs on strings only.
+ * @property {(value: *) => *} [parse] Normalize/coerce a provided value (e.g. `Number`).
  * @property {(value: *) => (boolean | string[])} [validate] Return `true` to accept, `false` to reject, or an
  *   array of suggestions surfaced in the error ("Did you mean…?").
  * @property {*[] | RegExp} [values] Constrain accepted values to a list of members or a pattern.
@@ -29,6 +33,21 @@ const availableOptions = Object.freeze({
 		long: "task",
 		positional: true,
 		description: "Task to run",
+	},
+	tasks: {
+		config: true,
+		default: DEFAULT_TASKS,
+		// Normalize to { include, exclude }: glob(s) shorthand → include, missing keys
+		// from the default, and exclude to an array (globSync's exclude rejects a bare string).
+		parse: tasks => {
+			let { include, exclude } =
+				typeof tasks === "string" || Array.isArray(tasks) ? { include: tasks } : tasks;
+			return {
+				include: include ?? DEFAULT_TASKS.include,
+				exclude: toArray(exclude ?? DEFAULT_TASKS.exclude),
+			};
+		},
+		description: "Glob(s) of task files, or { include, exclude } globs",
 	},
 	config: {
 		short: "c",
@@ -107,7 +126,7 @@ export function findValue (bag, key, option) {
 
 /**
  * Resolve a single value against a single option schema.
- * Strings run through `option.parse` if declared.
+ * Values run through `option.parse` if declared (normalization, not just string coercion).
  * Throws on parse-NaN, `values` mismatch, or `validate` rejecting the value.
  * `validate` may return `true`, `false`, or an array of suggested values; suggestions
  * appear in the error message ("Did you mean…?"). The CLI prompts on suggestions
@@ -128,7 +147,7 @@ export function resolveValue (option, value, context) {
 
 	let name = "--" + (option.long ?? camelToKebab(option.key ?? "(unknown)"));
 
-	if (typeof value === "string" && option.parse) {
+	if (option.parse && value !== undefined) {
 		let parsed = option.parse(value);
 		if (option.parse === Number && Number.isNaN(parsed)) {
 			throw new Error(
