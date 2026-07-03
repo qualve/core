@@ -1,8 +1,4 @@
-import {
-	readFileSync,
-	writeFileSync,
-	readdirSync,
-} from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -38,25 +34,6 @@ export function writeJSONSync (path, data, indent = "\t", replacer = null) {
 	let contents = JSON.stringify(data, replacer, indent);
 	writeFileSync(path, contents);
 	return contents;
-}
-
-export function readDirectorySync (directory, { type } = {}) {
-	try {
-		let ret = readdirSync(directory, { withFileTypes: true });
-
-		if (type) {
-			ret = ret.filter(item => item[type === "directory" ? "isDirectory" : "isFile"]());
-		}
-
-		return ret.map(item => item.name);
-	}
-	catch (e) {
-		if (e.code === "ENOENT") {
-			return [];
-		}
-
-		throw e;
-	}
 }
 
 export function camelCase (str) {
