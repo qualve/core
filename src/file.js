@@ -61,6 +61,10 @@ export default class File {
 				}
 			}
 
+			// Define glob even when absent, so first resolution memoizes it — the getter
+			// would otherwise re-run #resolve (and re-derive names) on every .glob access.
+			source.glob ??= null;
+
 			// A glob-looking pattern may still name a real file (e.g. `report[1].json`).
 			// If it's marked literal or exists on disk, it's a filename, not a glob.
 			if (
