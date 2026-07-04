@@ -287,6 +287,8 @@ export default {
 				},
 				{
 					name: "Mutual input cycle terminates via task-id fallback",
+					description:
+						"Only termination is contractual here. Which task id wins the cycle is an access-order artifact (a resolves first below), not guaranteed behavior.",
 					run () {
 						let ctxA = context("task-a");
 						let ctxB = context("task-b");
