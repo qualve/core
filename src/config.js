@@ -1,5 +1,5 @@
-import { globSync } from "node:fs";
-import { join, relative } from "node:path";
+import { existsSync, globSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
 import { importCwd } from "./util.js";
 import availableOptions, { mergeSchemas, resolveOptions } from "./options.js";
 import { resolveTask, taskId } from "./task-discovery.js";
@@ -112,9 +112,11 @@ export default class Config {
 
 	/**
 	 * Resolves a config source to a plain config object.
-	 * - undefined: auto-discovers `qualve.config.js` in process.cwd()
+	 * - undefined: auto-discovers `qualve.config.js` in process.cwd(); defaults to `{}` if absent
 	 * - string: imports the file at that path (relative to cwd)
 	 * - object: used as-is
+	 * A config that exists but fails to load (bad import, syntax error) always throws its real
+	 * error instead of silently degrading to defaults; only a missing *auto-discovered* file defaults.
 	 * @param {string | object | undefined} source
 	 * @returns {Promise<object>}
 	 */
@@ -123,28 +125,24 @@ export default class Config {
 			return null;
 		}
 
-		let wasConfigProvided = !!source;
-
 		if (typeof source === "object") {
 			return source;
 		}
 
+		let wasProvided = source !== undefined;
 		source ??= DEFAULT_CONFIG_FILE;
 
-		if (typeof source === "string") {
-			try {
-				return await importCwd(source);
-			}
-			catch (e) {
-				if (wasConfigProvided) {
-					// If user provides a config explicitly, we want to throw if it's not found
-					throw new Error(`Could not load config from "${source}": ${e.message}`, {
-						cause: e,
-					});
-				}
-			}
+		// No config file is a valid state only when auto-discovering — fall back to defaults.
+		// An explicitly-requested file that's missing is an error, as is any file that fails to load.
+		if (!wasProvided && !existsSync(resolve(process.cwd(), source))) {
+			return {};
 		}
 
-		return {};
+		try {
+			return await importCwd(source);
+		}
+		catch (e) {
+			throw new Error(`Could not load config from "${source}": ${e.message}`, { cause: e });
+		}
 	}
 }

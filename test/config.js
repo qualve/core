@@ -36,5 +36,15 @@ export default {
 			run: async () => (await Config.from({ options: TASK_OPTION, limit: "42" })).limit,
 			expect: "42",
 		},
+		{
+			name: "Missing auto-discovered config falls back to defaults",
+			run: async () => Object.keys(await Config.resolveConfig()).length,
+			expect: 0,
+		},
+		{
+			name: "Explicitly-provided missing config throws",
+			run: () => Config.resolveConfig("./does-not-exist.config.js"),
+			throws: e => /Could not load config/.test(e.message),
+		},
 	],
 };

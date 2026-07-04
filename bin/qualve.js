@@ -13,7 +13,15 @@ const argv = process.argv.slice(2);
 // config we re-parse against L1+L2 so config-contributed option aliases (e.g., -q
 // for --question) are canonicalized.
 let options = parseArgs(argv, availableOptions);
-const config = await Config.from(options.config, options);
+
+let config;
+try {
+	config = await Config.from(options.config, options);
+}
+catch (e) {
+	printError(e);
+	process.exit(1);
+}
 
 if (!options.taskId) {
 	if (options.help) {
