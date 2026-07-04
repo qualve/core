@@ -73,10 +73,8 @@ export default class File {
 
 			if (!source.glob) {
 				if (!source.filename && !source.name) {
-					// Derive the base name from the task's input, falling back to the task id
-					// (|| also covers input chains that cycle back here — the guard above
-					// makes the reentrant read return undefined — and nameless glob inputs).
-					source.name = this.context?.input?.[0]?.name || this.context?.id;
+					// The naming policy for unnamed files belongs to the context (Task.baseName).
+					source.name = this.context?.baseName;
 				}
 
 				if (source.name) {
