@@ -308,6 +308,16 @@ export default class Task {
 
 	async initAsync () {}
 
+	/**
+	 * Base name for files that don't specify one: the first input's name,
+	 * falling back to the task id. || rather than ?? so empty names and
+	 * cyclic input chains (File's reentrancy guard returns undefined) fall
+	 * through to the id too.
+	 */
+	get baseName () {
+		return this.input?.[0]?.name || this.id;
+	}
+
 	async postInit () {
 		let { File } = this.constructor;
 

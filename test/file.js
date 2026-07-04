@@ -31,12 +31,19 @@ class FileTestBinaryFormat extends BinaryFormat {
 new FileTestBinaryFormat();
 
 /**
- * Minimal context stub for File resolution tests.
+ * Minimal context stub for File resolution tests, mirroring Task's naming policy.
  * @param {string} id - Task id
  * @param {object} [extra] - Additional context properties (e.g. model, config)
  */
 function context (id, extra) {
-	return { id, cwd: "", ...extra };
+	return {
+		id,
+		cwd: "",
+		get baseName () {
+			return this.input?.[0]?.name || this.id;
+		},
+		...extra,
+	};
 }
 
 function tmpFile (suffix) {
@@ -332,6 +339,20 @@ export default {
 					name: "Empty source uses task id",
 					args: [{}, "my-task"],
 					expect: { name: "my-task", filename: "my-task.json" },
+				},
+				{
+					name: "Resolution is frozen on first access",
+					description:
+						"Later context.input changes must not re-derive an already-resolved name (filename would silently diverge from the memoized filePath).",
+					run () {
+						let ctx = context("stable");
+						let file = File.get({ suffix: "-x" }, ctx);
+						let before = file.filename;
+						ctx.input = [File.get("other", ctx)];
+						file.glob;
+						return { before, after: file.filename };
+					},
+					expect: { before: "stable-x.json", after: "stable-x.json" },
 				},
 			],
 		},
@@ -758,6 +779,65 @@ export default {
 						return { type: blob.type, text: await blob.text() };
 					},
 					expect: { type: "", text: "hello" },
+				},
+			],
+		},
+		{
+			name: "Glob-vs-literal",
+			description:
+				"Glob metacharacters are legal in real filenames — a glob-looking pattern that names an existing file must resolve as a literal file, not a glob.",
+			tests: [
+				{
+					name: "Object source: existing glob-looking filename is a literal file",
+					run () {
+						let dir = tmpdir();
+						let filename = `qualve-file-test-${Date.now()}-report[1].json`;
+						try {
+							writeFileSync(join(dir, filename), '{"ok": true}');
+							let file = File.get({ filename }, context("test", { cwd: dir }));
+							return {
+								glob: file.glob,
+								filenameKept: file.filename === filename,
+								contents: file.contents,
+							};
+						}
+						finally {
+							rmSync(join(dir, filename), { force: true });
+						}
+					},
+					expect: { glob: null, filenameKept: true, contents: { ok: true } },
+				},
+				{
+					name: "String source: existing glob-looking filename is a literal file",
+					run () {
+						let dir = tmpdir();
+						let filename = `qualve-file-test-${Date.now()}-str[1].json`;
+						try {
+							writeFileSync(join(dir, filename), '{"ok": true}');
+							let file = File.get(filename, context("test", { cwd: dir }));
+							return {
+								glob: file.glob,
+								filenameKept: file.filename === filename,
+								nameKept: file.name === filename.slice(0, -5),
+								contents: file.contents,
+							};
+						}
+						finally {
+							rmSync(join(dir, filename), { force: true });
+						}
+					},
+					expect: { glob: null, filenameKept: true, nameKept: true, contents: { ok: true } },
+				},
+				{
+					name: "Glob-looking filename with no literal match stays a glob",
+					run () {
+						let file = File.get(
+							{ filename: "no-such-file-[1].json" },
+							context("test", { cwd: tmpdir() }),
+						);
+						return { glob: file.glob, name: file.name };
+					},
+					expect: { glob: "no-such-file-[1].json", name: undefined },
 				},
 			],
 		},
