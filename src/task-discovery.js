@@ -6,13 +6,20 @@
  */
 
 /**
+ * @typedef {object} Match A path that matched a query, with its ranking coordinates.
+ * @property {string} path The matched task path
+ * @property {number} unconsumed Leading path segments the query didn't cover (fewer wins)
+ * @property {number} collapsed Separators written as `-` instead of `/` (fewer wins)
+ */
+
+/**
  * Resolve a task query to the single closest matching path.
  * @param {string} query
  * @param {string[]} paths
  * @returns {string}
  * @throws If no task matches, or several match equally well
  */
-export function resolveTasks (query, paths) {
+export function resolveTask (query, paths) {
 	let matches = rankMatches(query, paths);
 
 	if (matches.length === 0) {
@@ -25,11 +32,7 @@ export function resolveTasks (query, paths) {
 	}
 
 	let [best] = matches;
-	return matches.filter(m => sameRank(m, best));
-}
-
-export function resolveTask (query, paths) {
-	let tied = resolveTasks(query, paths);
+	let tied = matches.filter(m => sameRank(m, best));
 
 	if (tied.length > 1) {
 		let ids = tied.map(m => taskId(m.path, paths));
@@ -74,6 +77,7 @@ export function taskId (path, paths) {
  * (so `foo-bar` prefers the file `foo-bar.js`, while `foo/bar` targets `foo/bar.js`).
  * The query may include the file's extension, which then must match —
  * so `build.mjs` never resolves to `build.js`.
+ * @returns {Match[]} Matching paths, closest first
  */
 function rankMatches (query, paths) {
 	let parts = query.split("/");
