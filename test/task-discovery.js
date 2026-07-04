@@ -1,5 +1,6 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { resolveTask, taskId } from "../src/task-discovery.js";
 import Task from "../src/task.js";
 import Config from "../src/config.js";
@@ -273,6 +274,26 @@ export default {
 					name: "Zero matches",
 					arg: `${FIXTURES}/nonexistent/**/*.js`,
 					expect: [],
+				},
+				{
+					// Symlinked task files must be discovered — a Dirent symlink reports
+					// isSymbolicLink(), not isFile(), so filtering must exclude only directories.
+					name: "Symlinked task files are discovered",
+					run: async () => {
+						let dir = mkdtempSync(join(tmpdir(), "qualve-symlink-"));
+						writeFileSync(join(dir, "real.js"), "export default {};\n");
+						symlinkSync(join(dir, "real.js"), join(dir, "linked.js"));
+						let cwd = process.cwd();
+						process.chdir(dir);
+						try {
+							return (await Config.from({ tasks: "*.js" })).taskPaths.sort();
+						}
+						finally {
+							process.chdir(cwd);
+							rmSync(dir, { recursive: true, force: true });
+						}
+					},
+					expect: ["linked.js", "real.js"],
 				},
 				{
 					name: "Self-overwrites: same array on every access",

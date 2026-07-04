@@ -21,10 +21,21 @@ export default class Config {
 		}
 
 		// Configs may contribute additional options to the global schema.
-		this.availableOptions = mergeSchemas(availableOptions, spec.options ?? {});
+		this.availableOptions = mergeSchemas(availableOptions, spec?.options ?? {});
 
 		// Option values arrive already resolved through the pipeline (Config.from); just store them.
 		Object.assign(this, options);
+	}
+
+	/**
+	 * The options tasks resolve — everything except config options (`config: true`),
+	 * which Config owns and resolves once in `Config.from`. Tasks never re-resolve them.
+	 * @type {object}
+	 */
+	get taskOptions () {
+		return Object.fromEntries(
+			Object.entries(this.availableOptions).filter(([, option]) => !option.config),
+		);
 	}
 
 	/**
@@ -39,7 +50,7 @@ export default class Config {
 		// Directories are never tasks — broad patterns like `tasks/**` also match them.
 		// Paths are normalized to /-separated.
 		let paths = globSync(include, { exclude, withFileTypes: true })
-			.filter(entry => entry.isFile())
+			.filter(entry => !entry.isDirectory())
 			.map(entry =>
 				relative(process.cwd(), join(entry.parentPath, entry.name))
 					.split(/[\\/]/)

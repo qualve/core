@@ -60,8 +60,10 @@ export default class Task {
 		).flags;
 
 		// Public schemas: aggregated for --help / introspection, consumed for resolution.
+		// optionsSchema keeps config options (e.g. --tasks) so they parse and show in help;
+		// consumedSchema excludes them — Config already resolved them, tasks don't re-resolve.
 		this.optionsSchema = assembleOptions(this.config.availableOptions, aggregatedLayer);
-		this.consumedSchema = assembleOptions(this.config.availableOptions, consumedLayer);
+		this.consumedSchema = assembleOptions(this.config.taskOptions, consumedLayer);
 
 		// Resolve only against what this task consumes. Subtask-only options stay
 		// in rawOptions and propagate down via the unknown-options escape hatch
