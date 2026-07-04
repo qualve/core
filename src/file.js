@@ -23,51 +23,68 @@ export default class File {
 		this.context = context;
 	}
 
+	/** Reentrancy guard: deriving a name may read other files' names, whose chain can lead back here. */
+	#resolving = false;
+
 	#resolve (prop) {
-		if (!this.source) {
+		if (!this.source || this.#resolving) {
 			return;
 		}
 
 		let source;
 
-		if (typeof this.source === "string") {
-			source = File.resolveString(this.source);
+		this.#resolving = true;
+		try {
+			if (typeof this.source === "string") {
+				source = File.resolveString(this.source);
+			}
+			else if (typeof this.source === "object") {
+				source = {};
+
+				for (let key of ["name", "extension", "filename", "suffix"]) {
+					if (!(key in this.source)) {
+						continue;
+					}
+
+					source[key] = this.resolveValue(this.source[key]);
+				}
+
+				// Object sources need the same glob detection string sources get via resolveString()
+				// — e.g. `{ name: () => "coding-*" }` should resolve to a glob too. filename wins
+				// over name, matching the derivation order below.
+				let pattern = source.filename ?? source.name;
+				if (pattern && isGlob(pattern)) {
+					// Globs have no single name — clear the pattern out so it doesn't leak,
+					// matching resolveString()'s contract for string globs.
+					source.glob = File.resolveString(pattern).glob;
+					source.name = source.filename = source.extension = undefined;
+				}
+
+				if (!source.glob) {
+					if (!source.filename && !source.name) {
+						// Derive the base name from the task's input, falling back to the task id
+						// (|| also covers input chains that cycle back here — the guard above
+						// makes the reentrant read return undefined — and nameless glob inputs).
+						source.name = this.context?.input?.[0]?.name || this.context?.id;
+					}
+
+					if (source.name) {
+						source.filename ??= source.name + "." + (source.extension ?? "json");
+					}
+
+					if (this.suffix) {
+						source.filename = addFilenameSuffix(source.filename, this.suffix);
+					}
+
+					source.extension ??= getExtension(source.filename)?.slice(1) ?? "json";
+					// ||= so an explicit empty-string name is rederived too, consistent with
+					// the truthy check above.
+					source.name ||= source.filename.slice(0, -source.extension.length - 1);
+				}
+			}
 		}
-		else if (typeof this.source === "object") {
-			source = {};
-
-			for (let key of ["name", "extension", "filename", "suffix"]) {
-				if (!(key in this.source)) {
-					continue;
-				}
-
-				source[key] = this.resolveValue(this.source[key]);
-			}
-
-			// Object sources need the same glob detection string sources get via resolveString()
-			// — e.g. `{ name: () => "coding-*" }` should resolve to a glob too. filename wins
-			// over name, matching the derivation order below.
-			let pattern = source.filename ?? source.name;
-			if (pattern && isGlob(pattern)) {
-				source.glob = File.resolveString(pattern).glob;
-			}
-
-			if (!source.glob) {
-				if (!source.filename && !source.name) {
-					source.name = this.context?.id;
-				}
-
-				if (source.name) {
-					source.filename ??= source.name + "." + (source.extension ?? "json");
-				}
-
-				if (this.suffix) {
-					source.filename = addFilenameSuffix(source.filename, this.suffix);
-				}
-
-				source.extension ??= getExtension(source.filename)?.slice(1) ?? "json";
-				source.name ??= source.filename.slice(0, -source.extension.length - 1);
-			}
+		finally {
+			this.#resolving = false;
 		}
 
 		this.resolvedSource = source;

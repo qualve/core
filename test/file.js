@@ -224,10 +224,25 @@ export default {
 					},
 				},
 				{
+					name: "Empty-string name rederived from filename",
+					arg: { filename: "answers-raw.json", name: "" },
+					expect: {
+						name: "answers-raw",
+						filename: "answers-raw.json",
+						extension: "json",
+					},
+				},
+				{
 					name: "Glob-like name resolves as a glob",
 					arg: { name: "coding-*" },
 					run: arg => File.get(arg, context("test")).glob,
 					expect: "coding-*.json",
+				},
+				{
+					name: "Glob-like name doesn't leak the pattern into name",
+					arg: { name: "coding-*" },
+					run: arg => File.get(arg, context("test")).name,
+					expect: undefined,
 				},
 				{
 					name: "Glob-like filename resolves as a glob",
@@ -238,14 +253,75 @@ export default {
 			],
 		},
 		{
-			name: "Suffix-only (name from task id)",
+			name: "Suffix-only (derived base name)",
 			run (source, id) {
 				let file = File.get(source, context(id));
 				return { name: file.name, filename: file.filename };
 			},
 			tests: [
 				{
-					name: "Suffix derives name from task id",
+					name: "Suffix derives name from the task's input",
+					run () {
+						let ctx = context("widgets-unique");
+						ctx.input = [File.get("widgets-raw", ctx)];
+						let file = File.get({ suffix: "-unique" }, ctx);
+						return { name: file.name, filename: file.filename };
+					},
+					expect: {
+						name: "widgets-raw",
+						filename: "widgets-raw-unique.json",
+					},
+				},
+				{
+					name: "File that IS the input falls back to task id",
+					run () {
+						let ctx = context("widgets-unique");
+						let file = File.get({ suffix: "-raw" }, ctx);
+						ctx.input = [file];
+						return { name: file.name, filename: file.filename };
+					},
+					expect: {
+						name: "widgets-unique",
+						filename: "widgets-unique-raw.json",
+					},
+				},
+				{
+					name: "Mutual input cycle terminates via task-id fallback",
+					description:
+						"Only termination is contractual here. Which task id wins the cycle is an access-order artifact (a resolves first below), not guaranteed behavior.",
+					run () {
+						let ctxA = context("task-a");
+						let ctxB = context("task-b");
+						let a = File.get({ suffix: "-a" }, ctxA);
+						let b = File.get({ suffix: "-b" }, ctxB);
+						ctxA.input = [b];
+						ctxB.input = [a];
+						return { a: a.filename, b: b.filename };
+					},
+					expect: { a: "task-b-a.json", b: "task-b-b.json" },
+				},
+				{
+					name: "Glob input (no name) falls back to task id",
+					run () {
+						let ctx = context("merge-unique");
+						ctx.input = [File.get({ name: "coding-*" }, ctx)];
+						let file = File.get({ suffix: "-merged" }, ctx);
+						return file.filename;
+					},
+					expect: "merge-unique-merged.json",
+				},
+				{
+					name: "Empty-string input name derives from its filename",
+					run () {
+						let ctx = context("fallback-task");
+						ctx.input = [File.get({ filename: "x.json", name: "" }, ctx)];
+						let file = File.get({ suffix: "-out" }, ctx);
+						return file.filename;
+					},
+					expect: "x-out.json",
+				},
+				{
+					name: "Suffix derives name from task id without input",
 					args: [{ suffix: "-normalized" }, "answers-normalize"],
 					expect: {
 						name: "answers-normalize",
