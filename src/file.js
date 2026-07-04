@@ -243,6 +243,21 @@ export default class File {
 	}
 
 	/**
+	 * Apply this file's `handleResult` to the task result, returning the data to write.
+	 * Owns the null-skips / undefined-falls-back contract so every write path (the base
+	 * task loop, LLM streaming) applies it identically. Returns `null` to signal "skip".
+	 * @param {*} result The task's main result.
+	 */
+	process (result) {
+		if (!this.handleResult) {
+			return result;
+		}
+		let data = this.handleResult(result);
+		// null is the skip signal; only undefined falls back to the main result.
+		return data === null ? null : (data ?? result);
+	}
+
+	/**
 	 * If truthy, this file's data can be paginated when the task sets `itemsPerPage`.
 	 * - `true` means the top-level value is the array.
 	 * - An array of strings (e.g. `["responses", "items"]`) is a property path to the nested array.
