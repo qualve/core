@@ -224,6 +224,15 @@ export default {
 					},
 				},
 				{
+					name: "Empty-string name rederived from filename",
+					arg: { filename: "answers-raw.json", name: "" },
+					expect: {
+						name: "answers-raw",
+						filename: "answers-raw.json",
+						extension: "json",
+					},
+				},
+				{
 					name: "Glob-like name resolves as a glob",
 					arg: { name: "coding-*" },
 					run: arg => File.get(arg, context("test")).glob,
@@ -300,14 +309,14 @@ export default {
 					expect: "merge-unique-merged.json",
 				},
 				{
-					name: "Empty-string input name falls back to task id",
+					name: "Empty-string input name derives from its filename",
 					run () {
 						let ctx = context("fallback-task");
 						ctx.input = [File.get({ filename: "x.json", name: "" }, ctx)];
 						let file = File.get({ suffix: "-out" }, ctx);
 						return file.filename;
 					},
-					expect: "fallback-task-out.json",
+					expect: "x-out.json",
 				},
 				{
 					name: "Suffix derives name from task id without input",

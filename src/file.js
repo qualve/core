@@ -77,7 +77,9 @@ export default class File {
 					}
 
 					source.extension ??= getExtension(source.filename)?.slice(1) ?? "json";
-					source.name ??= source.filename.slice(0, -source.extension.length - 1);
+					// ||= so an explicit empty-string name is rederived too, consistent with
+					// the truthy check above.
+					source.name ||= source.filename.slice(0, -source.extension.length - 1);
 				}
 			}
 		}
