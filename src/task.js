@@ -515,14 +515,10 @@ export default class Task {
 			if (result && !result.outputs && this.output?.length > 0) {
 				result.outputs = [];
 				for (let output of this.output) {
-					let data = result.result;
-					if (output.handleResult) {
-						data = output.handleResult(result.result);
-						if (data === null) {
-							// Per-file handleResult may signal "skip this file".
-							continue;
-						}
-						data ??= result.result;
+					let data = output.process(result.result);
+					if (data === null) {
+						// Per-file handleResult may signal "skip this file".
+						continue;
 					}
 					let size = output.write(data);
 					result.outputs.push({ outputPath: output.path, size });
