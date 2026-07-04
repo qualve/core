@@ -1,12 +1,15 @@
+import { globSync } from "node:fs";
+import { join, relative } from "node:path";
 import { importCwd } from "./util.js";
 import availableOptions, { mergeSchemas, resolveOptions } from "./options.js";
+import { resolveTask, taskId } from "./task-discovery.js";
 
 const DEFAULT_CONFIG_FILE = "qualve.config.js";
 
 export default class Config {
 	/**
 	 * @param {object} spec Config file contents
-	 * @param {object} [options] Resolved config-option values (see Config.from), stored as-is
+	 * @param {object} [options] Normalized option values (see Config.from), stored as-is
 	 */
 	constructor (spec, options = {}) {
 		this.spec = spec;
@@ -18,17 +21,74 @@ export default class Config {
 		}
 
 		// Configs may contribute additional options to the global schema.
-		this.availableOptions = mergeSchemas(availableOptions, spec.options ?? {});
+		this.availableOptions = mergeSchemas(availableOptions, spec?.options ?? {});
 
-		// Config-option values arrive already resolved through the pipeline (Config.from).
+		// Option values arrive already resolved through the pipeline (Config.from); just store them.
 		Object.assign(this, options);
+	}
+
+	/**
+	 * The options tasks resolve — everything except config options (`config: true`),
+	 * which Config owns and resolves once in `Config.from`. Tasks never re-resolve them.
+	 * @type {object}
+	 */
+	get taskOptions () {
+		return Object.fromEntries(
+			Object.entries(this.availableOptions).filter(([, option]) => !option.config),
+		);
+	}
+
+	/**
+	 * Paths of all task files this config can see (its `tasks` globs decide which
+	 * extensions qualify). Computed on first access, then overwrites itself —
+	 * task files added later in the process are not picked up.
+	 * @type {string[]} CWD-relative paths
+	 */
+	get taskPaths () {
+		let { include, exclude } = this.tasks;
+
+		// Directories are never tasks — broad patterns like `tasks/**` also match them.
+		// Paths are normalized to /-separated.
+		let paths = globSync(include, { exclude, withFileTypes: true })
+			.filter(entry => !entry.isDirectory())
+			.map(entry =>
+				relative(process.cwd(), join(entry.parentPath, entry.name))
+					.split(/[\\/]/)
+					.join("/"));
+
+		Object.defineProperty(this, "taskPaths", { value: paths });
+		return paths;
+	}
+
+	/** Ids of all tasks this config can see, sorted. @type {string[]} */
+	get taskIds () {
+		return this.taskPaths.map(path => this.taskId(path)).sort();
+	}
+
+	/**
+	 * Resolve a task query to the path of the single closest matching task.
+	 * @param {string} query
+	 * @returns {string}
+	 * @throws If no task matches, or several match equally well
+	 */
+	resolveTask (query) {
+		return resolveTask(query, this.taskPaths);
+	}
+
+	/**
+	 * The id of a task under this config: the shortest query that uniquely identifies it.
+	 * @param {string} path
+	 * @returns {string}
+	 */
+	taskId (path) {
+		return taskId(path, this.taskPaths);
 	}
 
 	/** Get config instance from source
 	 * @param {string | object | Config} source
 	 * @param {object} [overrides] Raw option values from CLI/programmatic args, highest precedence
 	 */
-	static async from (source, overrides = {}) {
+	static async from (source, overrides) {
 		if (source instanceof this) {
 			return source;
 		}

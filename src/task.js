@@ -1,14 +1,12 @@
 import {
 	formatDuration,
 	formatSize,
-	readDirectorySync,
 	addFilenameSuffix,
 	mapAsync,
 	toArray,
 	importCwd,
 } from "./util.js";
 import File from "./file.js";
-import { existsSync } from "node:fs";
 import { ProgressIndicator } from "./util.js";
 import Config from "./config.js";
 import {
@@ -62,8 +60,10 @@ export default class Task {
 		).flags;
 
 		// Public schemas: aggregated for --help / introspection, consumed for resolution.
+		// optionsSchema keeps config options (e.g. --tasks) so they parse and show in help;
+		// consumedSchema excludes them — Config already resolved them, tasks don't re-resolve.
 		this.optionsSchema = assembleOptions(this.config.availableOptions, aggregatedLayer);
-		this.consumedSchema = assembleOptions(this.config.availableOptions, consumedLayer);
+		this.consumedSchema = assembleOptions(this.config.taskOptions, consumedLayer);
 
 		// Resolve only against what this task consumes. Subtask-only options stay
 		// in rawOptions and propagate down via the unknown-options escape hatch
@@ -762,63 +762,47 @@ export default class Task {
 		return new Error("Not implemented in " + this.constructor.name);
 	}
 
-	static #ids = null;
-	static get ids () {
-		if (!this.#ids) {
-			this.#ids = readDirectorySync(`tasks`, { type: "file" })
-				.filter(file => file.endsWith(".js") && !file.startsWith("_"))
-				.map(file => file.replace(".js", ""));
-		}
-		return this.#ids;
-	}
-
-	static async resolve (taskId) {
-		if (!taskId || typeof taskId === "object") {
-			return taskId;
+	/**
+	 * Load a task definition from a source: a file path to import, or an already-loaded
+	 * definition object (an inline task) returned as-is. Resolving a query to a path, and
+	 * a path to an id, is Config's job — see Config#resolveTask / Config#taskId.
+	 * @param {string | object} source A task file path, or a task definition
+	 */
+	static async load (source) {
+		if (typeof source !== "string") {
+			return source;
 		}
 
-		let task;
-		let taskPath = `tasks/${taskId}.js`;
-
-		if (!existsSync(taskPath)) {
-			throw new Error(`Invalid task ID “${taskId}”. Available tasks: ${this.ids.join(", ")}`);
-		}
+		let module;
 
 		try {
-			task = await importCwd(taskPath).then(m => {
-				m.id = taskId;
-				return m;
-			});
+			module = await importCwd(source);
 		}
 		catch (e) {
-			throw new Error(`Task ${taskId} at ${taskPath} is invalid.`, { cause: e });
+			throw new Error(`Task at ${source} is invalid.`, { cause: e });
 		}
 
-		if (!task) {
-			throw new Error(`Task ${taskId} at ${taskPath} is empty.`);
+		if (!module) {
+			throw new Error(`Task at ${source} is empty.`);
 		}
 
-		if (task instanceof Task) {
-			task = task.task;
-		}
-
-		return task;
+		return module instanceof Task ? module.task : module;
 	}
 
 	/**
-	 * Construct a task instance by id without running it. Loads the task definition,
-	 * applies positional input/output overrides, and dispatches via Task.create.
-	 * The returned instance exposes `task.optionsSchema` for introspection (used by `--help`).
+	 * Construct a task instance from a resolved source — a task file path to load, or an
+	 * inline task definition — under the given config. Applies positional input/output
+	 * overrides and dispatches via Task.create; does not run. Resolving a query to a path is
+	 * Config's job (see Config#resolveTask) — Task only ever sees paths, never ids.
+	 * @param {string | object} source A task file path, or a task definition
+	 * @param {{ config: Config }} args
 	 */
-	static async fromId (taskId, { config, ...options } = {}) {
-		if (!taskId) {
-			throw new Error(`No task provided. Available tasks: ${this.ids.join(", ")}`);
+	static async fromPath (source, { config, ...options } = {}) {
+		// Copy the loaded def before stamping its id, so the module cache stays clean.
+		let task = { ...(await this.load(source)) };
+		if (typeof source === "string") {
+			task.id = config.taskId(source);
 		}
-
-		config = await Config.from(config, options);
-
-		let task = await this.resolve(taskId);
-		task = { ...task };
 		normalizeFiles(task);
 
 		// Drop undefined entries so they don't shadow per-task defaults in resolveOptions.

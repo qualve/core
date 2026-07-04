@@ -1,4 +1,4 @@
-import {
+import availableOptions, {
 	findValue,
 	resolveValue,
 	resolveOptions,
@@ -68,6 +68,49 @@ export default {
 					throws: true,
 				},
 				{
+					name: "parse runs on non-string values",
+					run: () => resolveValue({ key: "x", parse: v => v.length }, ["a", "b"]),
+					expect: 2,
+				},
+				{
+					name: "tasks: shorthands normalize, default exclude is a predicate, user excludes array-ify",
+					run: () => {
+						let option = availableOptions.tasks;
+						// The default exclude is a Dirent predicate (not a glob), so represent it
+						// by its verdict on a `_`-name vs a plain name; user excludes stay arrays.
+						let describe = t => ({
+							include: t.include,
+							exclude:
+								typeof t.exclude === "function"
+									? { _x: t.exclude({ name: "_x" }), x: t.exclude({ name: "x" }) }
+									: t.exclude,
+						});
+						return [
+							describe(resolveValue(option, "pipelines/**/*.js")),
+							describe(resolveValue(option, { include: "pipelines/**/*.js" })),
+							describe(resolveValue(option, { include: "a/*.js", exclude: [] })),
+						];
+					},
+					expect: [
+						{ include: "pipelines/**/*.js", exclude: { _x: true, x: false } },
+						{ include: "pipelines/**/*.js", exclude: { _x: true, x: false } },
+						{ include: "a/*.js", exclude: [] },
+					],
+				},
+				{
+					// A user may supply their own Dirent predicate; it must pass through, not
+					// get array-ified into a glob list.
+					name: "tasks: a user-supplied exclude predicate passes through unchanged",
+					run: () => {
+						let mine = entry => entry.name === "skip.js";
+						return (
+							resolveValue(availableOptions.tasks, { include: "a/*.js", exclude: mine })
+								.exclude === mine
+						);
+					},
+					expect: true,
+				},
+				{
 					name: "values: array accepts member",
 					run: () => resolveValue({ key: "x", values: ["a", "b"] }, "a"),
 					expect: "a",
@@ -119,11 +162,10 @@ export default {
 					throws: true,
 				},
 				{
-					name: "parse skipped on non-string",
-					// `Number(true) === 1`, so passing `true` and getting `true` back
-					// proves `parse` was skipped rather than coincidentally idempotent.
+					name: "parse runs on any defined value",
+					// `Number(true) === 1` — parse is normalization, not just string coercion
 					run: () => resolveValue({ key: "n", parse: Number }, true),
-					expect: true,
+					expect: 1,
 				},
 			],
 		},
