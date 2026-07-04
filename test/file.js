@@ -340,6 +340,20 @@ export default {
 					args: [{}, "my-task"],
 					expect: { name: "my-task", filename: "my-task.json" },
 				},
+				{
+					name: "Resolution is frozen on first access",
+					description:
+						"Later context.input changes must not re-derive an already-resolved name (filename would silently diverge from the memoized filePath).",
+					run () {
+						let ctx = context("stable");
+						let file = File.get({ suffix: "-x" }, ctx);
+						let before = file.filename;
+						ctx.input = [File.get("other", ctx)];
+						file.glob;
+						return { before, after: file.filename };
+					},
+					expect: { before: "stable-x.json", after: "stable-x.json" },
+				},
 			],
 		},
 		{
