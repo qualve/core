@@ -28,7 +28,8 @@ export default class LLMTask extends Task {
 			description: "Model name (provider-specific)",
 		},
 		thinking: {
-			description: "Thinking level: none, minimal, low, medium, high, xhigh (provider remaps unsupported levels)",
+			description:
+				"Thinking level: none, minimal, low, medium, high, xhigh (provider remaps unsupported levels)",
 		},
 		prompt: {
 			short: "p",
@@ -265,11 +266,32 @@ export default class LLMTask extends Task {
 		const streamParams = await this.createStream();
 		let chunksReceived = 0;
 
+		// Streaming targets a single file (NOTE: multi-output is unsupported here — only
+		// output[0] streams). Reshape the streamed result before it lands: the provider's
+		// system-level transform first (e.g. unwrapping a response envelope), then the
+		// consumer's handleResult. Left undefined when neither applies so handleStream
+		// keeps its cheap rename path.
+		let output = this.output?.[0];
+		let providerTransform = streamParams.transformResult;
+		let transformResult;
+		if (providerTransform || output?.handleResult) {
+			transformResult = result => {
+				if (providerTransform) {
+					result = providerTransform(result);
+				}
+				if (output?.handleResult) {
+					result = output.process(result);
+				}
+				return result;
+			};
+		}
+
 		let text;
 		try {
 			text = await handleStream({
 				...streamParams,
-				outputPath: this.output?.[0]?.filePath,
+				outputPath: output?.filePath,
+				transformResult,
 				onChunk: chunk => {
 					chunksReceived++;
 					let status = this.getStatus(chunk);

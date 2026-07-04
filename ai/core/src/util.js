@@ -20,7 +20,7 @@ export { default as dedent } from "dedent";
  * @param {AsyncIterable<Object>} options.stream - An async iterable of chunks to be written.
  * @param {string} [options.outputPath] - The path to the file where chunks will be written. If omitted, text is collected in memory.
  * @param {(chunk: Object) => string} [options.transformChunk] - An optional transform function to apply to each chunk before writing.
- * @param {(result: Object) => Object} [options.transformResult] - An optional transform function to apply to the final result after all chunks have been written and read back.
+ * @param {(result: Object) => Object} [options.transformResult] - An optional transform function to apply to the final result after all chunks have been written and read back. Returning `null` skips writing (the streamed tmp is discarded).
  * @param {(chunk: Object) => void} [options.onChunk] - An optional callback to handle each chunk as it is processed (e.g. for progress updates).
  * @param {() => (StreamResult | null | undefined)} [options.onFinish] - An optional callback invoked after the stream ends, before file promotion. Return a StreamResult with complete: false to prevent file promotion and throw.
  * @returns {Promise<string|undefined>} The collected text when no outputPath is given, otherwise undefined.
@@ -98,8 +98,11 @@ export async function handleStream ({
 	// Clean up: parse the streamed result, transform it, and re-write in the output path's format
 	if (transformResult) {
 		let tmp = File.get({ filename: tmpFile });
-		let out = File.get({ filename: outputPath });
-		out.write(transformResult(tmp.contents));
+		let data = transformResult(tmp.contents);
+		// null signals "skip this file" — drop the streamed tmp, write nothing.
+		if (data !== null) {
+			File.get({ filename: outputPath }).write(data);
+		}
 		tmp.delete();
 	}
 	else {
