@@ -815,7 +815,7 @@ export default class Task {
 			throw new Error(`No task provided. Available tasks: ${this.ids.join(", ")}`);
 		}
 
-		config = await Config.from(config);
+		config = await Config.from(config, options);
 
 		let task = await this.resolve(taskId);
 		task = { ...task };

@@ -1,10 +1,14 @@
 import { importCwd } from "./util.js";
-import availableOptions, { mergeSchemas } from "./options.js";
+import availableOptions, { mergeSchemas, resolveOptions } from "./options.js";
 
 const DEFAULT_CONFIG_FILE = "qualve.config.js";
 
 export default class Config {
-	constructor (spec) {
+	/**
+	 * @param {object} spec Config file contents
+	 * @param {object} [options] Resolved config-option values (see Config.from), stored as-is
+	 */
+	constructor (spec, options = {}) {
 		this.spec = spec;
 
 		for (let key in spec) {
@@ -15,18 +19,35 @@ export default class Config {
 
 		// Configs may contribute additional options to the global schema.
 		this.availableOptions = mergeSchemas(availableOptions, spec.options ?? {});
+
+		// Config-option values arrive already resolved through the pipeline (Config.from).
+		Object.assign(this, options);
 	}
 
 	/** Get config instance from source
 	 * @param {string | object | Config} source
+	 * @param {object} [overrides] Raw option values from CLI/programmatic args, highest precedence
 	 */
-	static async from (source) {
+	static async from (source, overrides = {}) {
 		if (source instanceof this) {
 			return source;
 		}
 
 		let spec = await this.resolveConfig(source);
-		return new this(spec);
+
+		// Resolve the config options (those marked `config: true`) through the options
+		// pipeline — override (CLI/programmatic) > config file > default — so they reach the
+		// constructor normalized. Task options are left to resolve per-run at task construction.
+		let schema = mergeSchemas(availableOptions, spec?.options ?? {});
+		let configSchema = {};
+		for (let key in schema) {
+			if (schema[key].config) {
+				configSchema[key] = schema[key];
+			}
+		}
+		let { resolved } = resolveOptions(configSchema, overrides, spec ?? {});
+
+		return new this(spec, resolved);
 	}
 
 	/**
