@@ -64,7 +64,10 @@ export default class OpenAI extends LLMTask {
 			}
 		}
 
-		const stream = this.client.responses.stream({
+		// Using create({ stream: true }) instead of the .stream() helper: the helper's
+		// ResponseAccumulator throws on the undocumented "keepalive" event emitted during
+		// long background streams. See https://github.com/openai/openai-node/issues/1964
+		const stream = await this.client.responses.create({
 			model: this.model,
 			background: true, // try to avoid hitting a client-side socket timeout after ~601s (10 minutes)
 			store: true,
@@ -92,6 +95,7 @@ export default class OpenAI extends LLMTask {
 				verbosity: "low",
 				format: responseSchema,
 			},
+			stream: true,
 		});
 
 		let incompleteReason;
