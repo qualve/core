@@ -31,12 +31,19 @@ class FileTestBinaryFormat extends BinaryFormat {
 new FileTestBinaryFormat();
 
 /**
- * Minimal context stub for File resolution tests.
+ * Minimal context stub for File resolution tests, mirroring Task's naming policy.
  * @param {string} id - Task id
  * @param {object} [extra] - Additional context properties (e.g. model, config)
  */
 function context (id, extra) {
-	return { id, cwd: "", ...extra };
+	return {
+		id,
+		cwd: "",
+		get baseName () {
+			return this.input?.[0]?.name || this.id;
+		},
+		...extra,
+	};
 }
 
 function tmpFile (suffix) {
