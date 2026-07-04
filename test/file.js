@@ -762,6 +762,65 @@ export default {
 			],
 		},
 		{
+			name: "Glob-vs-literal",
+			description:
+				"Glob metacharacters are legal in real filenames — a glob-looking pattern that names an existing file must resolve as a literal file, not a glob.",
+			tests: [
+				{
+					name: "Object source: existing glob-looking filename is a literal file",
+					run () {
+						let dir = tmpdir();
+						let filename = `qualve-file-test-${Date.now()}-report[1].json`;
+						try {
+							writeFileSync(join(dir, filename), '{"ok": true}');
+							let file = File.get({ filename }, context("test", { cwd: dir }));
+							return {
+								glob: file.glob,
+								filenameKept: file.filename === filename,
+								contents: file.contents,
+							};
+						}
+						finally {
+							rmSync(join(dir, filename), { force: true });
+						}
+					},
+					expect: { glob: null, filenameKept: true, contents: { ok: true } },
+				},
+				{
+					name: "String source: existing glob-looking filename is a literal file",
+					run () {
+						let dir = tmpdir();
+						let filename = `qualve-file-test-${Date.now()}-str[1].json`;
+						try {
+							writeFileSync(join(dir, filename), '{"ok": true}');
+							let file = File.get(filename, context("test", { cwd: dir }));
+							return {
+								glob: file.glob,
+								filenameKept: file.filename === filename,
+								nameKept: file.name === filename.slice(0, -5),
+								contents: file.contents,
+							};
+						}
+						finally {
+							rmSync(join(dir, filename), { force: true });
+						}
+					},
+					expect: { glob: null, filenameKept: true, nameKept: true, contents: { ok: true } },
+				},
+				{
+					name: "Glob-looking filename with no literal match stays a glob",
+					run () {
+						let file = File.get(
+							{ filename: "no-such-file-[1].json" },
+							context("test", { cwd: tmpdir() }),
+						);
+						return { glob: file.glob, name: file.name };
+					},
+					expect: { glob: "no-such-file-[1].json", name: undefined },
+				},
+			],
+		},
+		{
 			name: "Disk I/O",
 			tests: [
 				{

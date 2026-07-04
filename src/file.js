@@ -59,28 +59,38 @@ export default class File {
 					source.glob = File.resolveString(pattern).glob;
 					source.name = source.filename = source.extension = undefined;
 				}
+			}
 
-				if (!source.glob) {
-					if (!source.filename && !source.name) {
-						// Derive the base name from the task's input, falling back to the task id
-						// (|| also covers input chains that cycle back here — the guard above
-						// makes the reentrant read return undefined — and nameless glob inputs).
-						source.name = this.context?.input?.[0]?.name || this.context?.id;
-					}
+			// A glob-looking pattern may still name a real file (e.g. `report[1].json`).
+			// If it's marked literal or exists on disk, it's a filename, not a glob.
+			if (
+				source.glob &&
+				(this.literal || existsSync(path.join(this.context?.cwd ?? "", source.glob)))
+			) {
+				source.filename = source.glob;
+				source.glob = null;
+			}
 
-					if (source.name) {
-						source.filename ??= source.name + "." + (source.extension ?? "json");
-					}
-
-					if (this.suffix) {
-						source.filename = addFilenameSuffix(source.filename, this.suffix);
-					}
-
-					source.extension ??= getExtension(source.filename)?.slice(1) ?? "json";
-					// ||= so an explicit empty-string name is rederived too, consistent with
-					// the truthy check above.
-					source.name ||= source.filename.slice(0, -source.extension.length - 1);
+			if (!source.glob) {
+				if (!source.filename && !source.name) {
+					// Derive the base name from the task's input, falling back to the task id
+					// (|| also covers input chains that cycle back here — the guard above
+					// makes the reentrant read return undefined — and nameless glob inputs).
+					source.name = this.context?.input?.[0]?.name || this.context?.id;
 				}
+
+				if (source.name) {
+					source.filename ??= source.name + "." + (source.extension ?? "json");
+				}
+
+				if (this.suffix) {
+					source.filename = addFilenameSuffix(source.filename, this.suffix);
+				}
+
+				source.extension ??= getExtension(source.filename)?.slice(1) ?? "json";
+				// ||= so an explicit empty-string name is rederived too, consistent with
+				// the truthy check above.
+				source.name ||= source.filename.slice(0, -source.extension.length - 1);
 			}
 		}
 		finally {
@@ -143,41 +153,28 @@ export default class File {
 
 	/**
 	 * Child File objects from glob expansion.
-	 * - `null` for leaf files (not a glob)
+	 * - `null` for leaf files (not a glob — including glob-looking names that
+	 *   `#resolve` found to exist literally on disk)
 	 * - `File[]` for globs (may be empty if no matches)
-	 * Tries the literal filename first (in case special chars aren't actually glob syntax),
-	 * then falls back to glob expansion.
 	 * @returns {File[] | null}
 	 */
 	get children () {
-		let value;
+		let value = null;
 
-		if (!this.glob || !this.context) {
-			value = null;
-		}
-		else {
+		if (this.glob && this.context) {
 			let cwd = this.context.cwd || ".";
 
-			// Try literal path first — a filename with special chars (e.g., `report[1].json`)
-			// may not actually be a glob
-			if (existsSync(path.join(cwd, this.glob))) {
-				this.glob = null;
-				this.literal = true;
-				value = null;
-			}
-			else {
-				// Glob expansion — all matches become children
-				value = globSync(this.glob, { cwd, withFileTypes: true })
-					.filter(entry => entry.isFile())
-					.map(entry => {
-						let full = path.join(entry.parentPath, entry.name);
-						let fn = path.relative(cwd, full);
-						let child = File.get({ filename: fn }, this.context);
-						child.parent = this;
-						child.literal = true;
-						return child;
-					});
-			}
+			// Glob expansion — all matches become children
+			value = globSync(this.glob, { cwd, withFileTypes: true })
+				.filter(entry => entry.isFile())
+				.map(entry => {
+					let full = path.join(entry.parentPath, entry.name);
+					let fn = path.relative(cwd, full);
+					let child = File.get({ filename: fn }, this.context);
+					child.parent = this;
+					child.literal = true;
+					return child;
+				});
 		}
 
 		Object.defineProperty(this, "children", { value, writable: true, configurable: true });
