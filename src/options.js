@@ -1,6 +1,6 @@
 import { toArray } from "./util.js";
 
-const DEFAULT_TASKS = { include: "tasks/**/*.js", exclude: "**/_*" };
+const DEFAULT_TASKS = { include: "tasks/**/*.js", exclude: entry => entry.name.startsWith("_") };
 
 /**
  * @typedef {Object} Option
@@ -37,17 +37,18 @@ const availableOptions = Object.freeze({
 	tasks: {
 		config: true,
 		default: DEFAULT_TASKS,
-		// Normalize to { include, exclude }: glob(s) shorthand → include, missing keys
-		// from the default, and exclude to an array (globSync's exclude rejects a bare string).
 		parse: tasks => {
-			let { include, exclude } =
+			let { include = DEFAULT_TASKS.include, exclude = DEFAULT_TASKS.exclude } =
 				typeof tasks === "string" || Array.isArray(tasks) ? { include: tasks } : tasks;
-			return {
-				include: include ?? DEFAULT_TASKS.include,
-				exclude: toArray(exclude ?? DEFAULT_TASKS.exclude),
-			};
+
+			if (typeof exclude !== "function") {
+				// globSync() does not support string for exclude
+				exclude = toArray(exclude);
+			}
+
+			return { include, exclude };
 		},
-		description: "Glob(s) of task files, or { include, exclude } globs",
+		description: "Glob(s) of task files, or { include, exclude } (exclude may be a predicate)",
 	},
 	config: {
 		short: "c",

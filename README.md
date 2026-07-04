@@ -98,13 +98,14 @@ For full control, pass an object with `include` and `exclude` globs:
 export default {
 	tasks: {
 		include: ["tasks/**/*.js", "shared/tasks/**/*.js"],
-		exclude: "**/_*", // the default: `_`-prefixed files and directories are private
+		exclude: "**/_*", // `_`-prefixed files and directories are private
 	},
 };
 ```
 
-The default is `{ include: "tasks/**/*.js", exclude: "**/_*" }`.
-Glob shorthands keep the default `exclude`; set `exclude` explicitly (even to `[]`) to replace it.
+By default, `_`-prefixed files and directories are private and skipped — no matter where `include` points.
+Glob shorthands keep this default; set `exclude` explicitly (even to `[]`) to replace it.
+`exclude` may be glob(s) or a `(entry) => boolean` predicate over each `Dirent`. Glob excludes are matched against each candidate path relative to your CWD, so when `include` escapes it (e.g. `../tasks/**`) a pattern like `**/_*` matches nothing — use a predicate (as the default does), which is immune to the path prefix.
 The globs decide everything, including which extensions qualify (e.g. `tasks/**/*.{js,mjs}`);
 directories are never tasks, but any file your globs match becomes one.
 

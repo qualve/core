@@ -296,6 +296,30 @@ export default {
 					expect: ["linked.js", "real.js"],
 				},
 				{
+					// The default exclude is a Dirent predicate, so it still prunes `_`-files
+					// and `_`-dirs when `include` escapes cwd — where a `**/_*` glob, matched
+					// against the `../`-prefixed candidate path, would match nothing.
+					name: "Default exclude prunes `_*` even when include escapes cwd",
+					run: async () => {
+						let dir = mkdtempSync(join(tmpdir(), "qualve-escape-"));
+						writeFileSync(join(dir, "real.js"), "export default {};\n");
+						writeFileSync(join(dir, "_private.js"), "export default {};\n");
+						mkdirSync(join(dir, "_drafts"));
+						writeFileSync(join(dir, "_drafts", "hidden.js"), "export default {};\n");
+						mkdirSync(join(dir, "sub"));
+						let cwd = process.cwd();
+						process.chdir(join(dir, "sub"));
+						try {
+							return (await Config.from({ tasks: "../**/*.js" })).taskPaths.sort();
+						}
+						finally {
+							process.chdir(cwd);
+							rmSync(dir, { recursive: true, force: true });
+						}
+					},
+					expect: ["../real.js"],
+				},
+				{
 					name: "Self-overwrites: same array on every access",
 					run: async () => {
 						let config = await Config.from({ tasks: `${FIXTURES}/x/*.js` });
