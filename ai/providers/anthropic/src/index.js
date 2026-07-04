@@ -56,6 +56,10 @@ export default class Claude extends LLMTask {
 
 	async createStream () {
 		let { system, prompt, output, input = [] } = this;
+		let responseSchema = output?.[0]?.schema;
+		// Claude API doesn't allow extra properties in the schema root.
+		// It throws an "invalid_request_error" error (output_config.format.description: Extra inputs are not permitted)
+		let format = responseSchema ? { type: "json_schema", schema: responseSchema.schema } : undefined;
 		const stream = this.client.beta.messages.stream({
 			model: this.model,
 			max_tokens: 64000, // maximum for claude-sonnet-4-6 and claude-haiku-4-5; claude-opus-4-8 supports up to 128K
@@ -79,7 +83,7 @@ export default class Claude extends LLMTask {
 					],
 				},
 			],
-			output_config: output?.[0]?.schema ? { format: output[0].schema } : undefined,
+			output_config: format ? { format } : undefined,
 		});
 
 		let stopReason;
