@@ -1,8 +1,8 @@
 import Config from "../src/config.js";
 
-// A config-contributed option marked `config: true` is resolved and owned by Config.
-// (No built-in option is config-level yet; the tasks feature adds the first one.)
-const CONFIG_OPTION = { threshold: { config: true, parse: Number, default: 5 } };
+// A config-contributed option marked `for: "config"` is resolved and owned by Config.
+// (The `tasks` built-in is the only other config-scoped option.)
+const CONFIG_OPTION = { threshold: { for: "config", parse: Number, default: 5 } };
 // A plain (task) option is not resolved by Config.
 const TASK_OPTION = { limit: { parse: Number } };
 

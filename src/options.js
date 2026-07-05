@@ -18,8 +18,11 @@ const DEFAULT_TASKS = { include: "tasks/**/*.js", exclude: entry => entry.name.s
  * @property {(value: *) => (boolean | string[])} [validate] Return `true` to accept, `false` to reject, or an
  *   array of suggestions surfaced in the error ("Did you mean…?").
  * @property {*[] | RegExp} [values] Constrain accepted values to a list of members or a pattern.
- * @property {boolean} [config] Mark this as a *config option* — resolved and owned by `Config` (see Config.from),
- *   rather than a *task option* resolved per-run at task construction.
+ * @property {"cli" | "root" | "config" | "task"} [for] Who consumes this option. `"cli"`: the CLI bin
+ *   only — presentation flags with no programmatic meaning (`--help`, `--version`); rejected by `qualve()`.
+ *   `"root"`: the orchestrator (`qualve()` / the bin) — which config and which task to run; valid in both
+ *   APIs but never passed to task logic. `"config"`: resolved by `Config.from` (see Config).
+ *   `"task"` (default): resolved per-run at task construction.
  * @property {string} [description] Help text.
  * @property {string} [key] The canonical key; set internally during resolution, not by authors.
  */
@@ -30,12 +33,13 @@ const DEFAULT_TASKS = { include: "tasks/**/*.js", exclude: entry => entry.name.s
  */
 const availableOptions = Object.freeze({
 	taskId: {
+		for: "root",
 		long: "task",
 		positional: true,
 		description: "Task to run",
 	},
 	tasks: {
-		config: true,
+		for: "config",
 		default: DEFAULT_TASKS,
 		parse: tasks => {
 			let { include = DEFAULT_TASKS.include, exclude = DEFAULT_TASKS.exclude } =
@@ -51,6 +55,7 @@ const availableOptions = Object.freeze({
 		description: "Glob(s) of task files, or { include, exclude } (exclude may be a predicate)",
 	},
 	config: {
+		for: "root",
 		short: "c",
 		description: "Path to config file",
 	},
@@ -83,6 +88,7 @@ const availableOptions = Object.freeze({
 		description: "Output file or directory",
 	},
 	help: {
+		for: "cli",
 		description: "Show this help message",
 	},
 });

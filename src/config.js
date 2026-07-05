@@ -28,13 +28,16 @@ export default class Config {
 	}
 
 	/**
-	 * The options tasks resolve — everything except config options (`config: true`),
-	 * which Config owns and resolves once in `Config.from`. Tasks never re-resolve them.
+	 * The options tasks resolve: `for: "task"` (the default). Config options (`for: "config"`) are
+	 * resolved once in `Config.from`; `for: "root"`/`for: "cli"` options by the orchestrator/CLI.
+	 * Tasks resolve none of the others.
 	 * @type {object}
 	 */
 	get taskOptions () {
 		return Object.fromEntries(
-			Object.entries(this.availableOptions).filter(([, option]) => !option.config),
+			Object.entries(this.availableOptions).filter(
+				([, option]) => (option.for ?? "task") === "task",
+			),
 		);
 	}
 
@@ -95,13 +98,13 @@ export default class Config {
 
 		let spec = await this.resolveConfig(source);
 
-		// Resolve the config options (those marked `config: true`) through the options
+		// Resolve the config options (`for: "config"`) through the options
 		// pipeline — override (CLI/programmatic) > config file > default — so they reach the
 		// constructor normalized. Task options are left to resolve per-run at task construction.
 		let schema = mergeSchemas(availableOptions, spec?.options ?? {});
 		let configSchema = {};
 		for (let key in schema) {
-			if (schema[key].config) {
+			if (schema[key].for === "config") {
 				configSchema[key] = schema[key];
 			}
 		}
