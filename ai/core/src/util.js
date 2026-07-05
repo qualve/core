@@ -1,9 +1,20 @@
-import { renameSync, createWriteStream } from "node:fs";
+import { renameSync, createWriteStream, existsSync } from "node:fs";
 import { once } from "node:events";
+import { dirname, join } from "node:path";
 import { addFilenameSuffix } from "qualve/util";
 import File from "qualve/file";
 
 export { default as dedent } from "dedent";
+
+/** Walks up from `dir` looking for a `.env` file, so it's found regardless of which subdirectory qualve is run from. */
+export function findEnvFile (dir = process.cwd()) {
+	let path = join(dir, ".env");
+	if (existsSync(path)) {
+		return path;
+	}
+	let parent = dirname(dir);
+	return parent === dir ? undefined : findEnvFile(parent);
+}
 
 /**
  * @typedef {Object} StreamResult

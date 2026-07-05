@@ -1,13 +1,17 @@
-import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import Task from "qualve/task";
 import { ProgressIndicator, addFilenameSuffix } from "qualve/util";
 import { resolveOptions } from "qualve/options";
-import { handleStream, dedent } from "./util.js";
+import { handleStream, dedent, findEnvFile } from "./util.js";
 import * as prompts from "./prompts.js";
 import LLMFile from "./file.js";
 
 export { LLMFile };
+
+let envFile = findEnvFile();
+if (envFile) {
+	loadEnvFile(envFile);
+}
 
 export default class LLMTask extends Task {
 	static File = LLMFile;
@@ -117,10 +121,6 @@ export default class LLMTask extends Task {
 
 	constructor (task, args) {
 		super(task, args);
-
-		if (existsSync(".env")) {
-			loadEnvFile(".env");
-		}
 
 		// Default to the first model in the provider's list, also falling back
 		// if the task's hardcoded model isn't supported by this provider (e.g., when switching providers via --llm).
