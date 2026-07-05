@@ -5,6 +5,7 @@ import {
 	mapAsync,
 	toArray,
 	importCwd,
+	camelToKebab,
 } from "./util.js";
 import File from "./file.js";
 import { ProgressIndicator } from "./util.js";
@@ -14,7 +15,6 @@ import {
 	resolveOptions,
 	matchPositionals,
 	findValue,
-	camelToKebab,
 	mergeSchemas,
 } from "./options.js";
 

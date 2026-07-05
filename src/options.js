@@ -1,4 +1,4 @@
-import { toArray } from "./util.js";
+import { toArray, camelToKebab } from "./util.js";
 
 const DEFAULT_TASKS = { include: "tasks/**/*.js", exclude: entry => entry.name.startsWith("_") };
 
@@ -86,22 +86,6 @@ const availableOptions = Object.freeze({
 		description: "Show this help message",
 	},
 });
-
-/**
- * camelCase → kebab-case, splitting on real word boundaries so acronyms stay together:
- *   "myFlag"     → "my-flag"
- *   "itemsPerPage" → "items-per-page"
- *   "AIFoo"      → "ai-foo"     (acronym kept whole)
- *   "URLPath"    → "url-path"   (acronym kept whole)
- *   "Foo"        → "foo"        (no leading dash from a capitalized first letter)
- *
- * Two zero-width boundaries: non-uppercase → uppercase (entering a new word),
- * or uppercase → uppercase-followed-by-non-uppercase (the last char of an
- * acronym run starts a new capitalized word).
- */
-export function camelToKebab (s) {
-	return s.replace(/(?<=[^A-Z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][^A-Z])/g, "-").toLowerCase();
-}
 
 /**
  * Find a value in `bag` for the given option, trying every alias the user might type:

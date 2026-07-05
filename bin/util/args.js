@@ -1,5 +1,6 @@
 import minimist from "minimist";
-import { camelToKebab, matchPositionals } from "../../src/options.js";
+import { matchPositionals } from "../../src/options.js";
+import { camelToKebab } from "../../src/util.js";
 
 /**
  * Parse argv against a schema. Runs minimist, then canonicalize, then matchPositionals.
