@@ -48,15 +48,16 @@ export default class LLMFile extends File {
 	}
 
 	/**
-	 * Provider-namespaced remote filename for upload.
-	 * Prefixes with `context.uniquePrefix` (configured per consumer — e.g., the
-	 * shortest unique id of the current entity) to avoid filename collisions across
-	 * runs. Shared files without a prefix get the bare filename.
+	 * Remote filename for upload, derived from the file's own resolved path so
+	 * identity follows the file itself: two contexts pointing at the same path
+	 * (e.g. a survey-level `../codebooks-merged.json` that normalizes to
+	 * `codebooks-merged.json` for every entity) share one remote file, while
+	 * per-entity files (distinct dirs) stay distinct — no ad-hoc prefix needed.
+	 * Separators → "-" so the name is slash-free for every provider.
+	 * NOTE: sanitizing can alias `a/b` and `a-b`; acceptable for now.
 	 */
 	get remoteFilename () {
-		let prefix = this.context?.uniquePrefix;
-		let name = path.basename(this.path);
-		return (prefix ? prefix + "-" : "") + name;
+		return this.path.split(path.sep).join("-");
 	}
 
 	/**
