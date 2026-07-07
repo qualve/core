@@ -340,6 +340,12 @@ export default class Task {
 		this.input = this.resolveOption("input");
 		if (this.input) {
 			this.input = toArray(this.input)
+				// Function-valued entries resolve with task context, like whole-input
+				// functions: nullish drops the entry, an array splices in place.
+				.flatMap(input => {
+					let resolved = typeof input === "function" ? input.call(this) : input;
+					return resolved ? toArray(resolved) : [];
+				})
 				.map(input => File.get(input, this))
 				.filter(f => !f.optional || f.glob || f.exists());
 			this.debug.input = this.input.map(f => f.debugInfo());
@@ -937,8 +943,10 @@ function normalizeFiles (task) {
 	let { File } = context?.constructor ?? Task;
 
 	// Dynamic input (function) is resolved later, not at normalization time.
+	// Same for function-valued entries — they need task context (postInit).
 	if (task.input && typeof task.input !== "function") {
-		task.input = toArray(task.input).map(file => File.get(file, context));
+		task.input = toArray(task.input).map(file =>
+			typeof file === "function" ? file : File.get(file, context));
 	}
 
 	// Dynamic output (function) is resolved later, not at normalization time.
