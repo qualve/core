@@ -403,6 +403,45 @@ export default {
 			],
 		},
 		{
+			name: "Function-valued input entries",
+			description: "#81 — individual entries in an input array may be functions.",
+			tests: [
+				{
+					name: "Resolves with task context",
+					arg: {
+						input: [
+							function () {
+								return { contents: this.title, filename: "t.json" };
+							},
+						],
+					},
+					expect: "Test",
+				},
+				{
+					name: "Nullish return drops the entry",
+					arg: {
+						resultType: "array",
+						input: [{ contents: "a", filename: "a.json" }, () => null],
+					},
+					expect: ["a"],
+				},
+				{
+					name: "Array return splices in place",
+					arg: {
+						resultType: "array",
+						input: [
+							() => [
+								{ contents: 1, filename: "a.json" },
+								{ contents: 2, filename: "b.json" },
+							],
+							{ contents: 3, filename: "c.json" },
+						],
+					},
+					expect: [1, 2, 3],
+				},
+			],
+		},
+		{
 			name: "Optional input",
 			tests: [
 				{

@@ -266,6 +266,30 @@ export default {
 					},
 				},
 				{
+					name: "Fan-out driver takes precedence over batching",
+					run: () => {
+						let task = Task.create(
+							{
+								type: "data",
+								itemsPerPage: 1,
+								options: { target: { multiple: true, present: true } },
+								input: [
+									{ contents: [1, 2, 3], filename: "in.json", paginate: true },
+								],
+								output: { filename: "out.json" },
+							},
+							{ info: () => {}, options: { target: ["a", "b"] } },
+						);
+						// Bug regression: batching used to win, slicing the first value's
+						// input at the parent, then each slice re-fanned out across values.
+						return {
+							replicas: task.computedSubtasks.length,
+							batchesPerReplica: task.computedSubtasks[0].computedSubtasks.length,
+						};
+					},
+					expect: { replicas: 2, batchesPerReplica: 3 },
+				},
+				{
 					name: "Explicit subtasks win over option-driven fan-out",
 					run: () => {
 						let task = Task.create(
