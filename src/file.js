@@ -18,6 +18,13 @@ export default class File {
 	/** Parent File, set on children created by glob expansion. */
 	parent;
 
+	/**
+	 * The task run that produced this file, when it came from another task's output
+	 * (see qualve/core#61). A fact about the file's history, not its current context,
+	 * so it survives context re-wraps. Undefined for files with no producing run.
+	 */
+	producer;
+
 	constructor (source, context) {
 		this.source = source;
 		this.context = context;
@@ -521,7 +528,10 @@ export default class File {
 			}
 
 			// Clone when context differs to avoid shared mutable state
-			source = typeof source.source === "object" ? { ...source.source } : source.source;
+			let raw = typeof source.source === "object" ? { ...source.source } : source.source;
+			let file = new this(raw, context);
+			file.producer = source.producer;
+			return file;
 		}
 
 		return new this(source, context);
