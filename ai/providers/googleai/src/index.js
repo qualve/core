@@ -6,11 +6,7 @@ export default class Gemini extends LLMTask {
 	static id = "gemini";
 	static name = "Gemini";
 	static File = GeminiFile;
-	static models = [
-		"gemini-3.1-pro-preview",
-		"gemini-3.5-flash",
-		"gemini-3.1-flash-lite",
-	];
+	static models = ["gemini-3.1-pro-preview", "gemini-3.5-flash", "gemini-3.1-flash-lite"];
 	static levelMap = { none: "minimal", xhigh: "high" };
 	static capabilities = {
 		outputSchema: true,
@@ -34,15 +30,14 @@ export default class Gemini extends LLMTask {
 	}
 
 	async countTokens () {
-		let { system, prompt, input = [] } = this;
+		let { system } = this;
 		const result = await this.client.models.countTokens({
 			model: this.model,
 			contents: createUserContent([
 				// FIXME: Pass system instructions via `config.systemInstruction` once the Gemini Developer API supports it on countTokens (Vertex AI does; the Developer API rejects it at request build).
 				...system,
-				...prompt,
-				...input
-					.map(f => f.toString())
+				...this.promptContent
+					.map(seg => (seg.text !== undefined ? seg.text : seg.file.toString()))
 					.filter(Boolean),
 			]),
 		});
@@ -51,7 +46,7 @@ export default class Gemini extends LLMTask {
 	}
 
 	async createStream () {
-		let { system, prompt, output, input = [] } = this;
+		let { system, output } = this;
 		let responseSchema;
 		if (output?.[0]?.schema) {
 			responseSchema = {
@@ -62,10 +57,16 @@ export default class Gemini extends LLMTask {
 
 		const stream = await this.client.models.generateContentStream({
 			model: this.model,
-			contents: createUserContent([
-				...prompt,
-				...input.map(f => createPartFromUri(f.remoteFile.uri, f.remoteFile.mimeType)),
-			]),
+			// Stable reference input first, then prompt, then the per-call payload, so the shared
+			// prefix (e.g. the codebook) stays a cacheable prefix across calls. See LLMTask#promptContent.
+			// TODO: use explicit CachedContent for the stable prefix — guaranteed cache + longer TTL,
+			// and immune to remote-identity churn — instead of best-effort implicit prefix caching.
+			contents: createUserContent(
+				this.promptContent.map(seg =>
+					seg.text !== undefined
+						? seg.text
+						: createPartFromUri(seg.file.remoteFile.uri, seg.file.remoteFile.mimeType)),
+			),
 			config: {
 				systemInstruction: system?.join("\n"),
 				// Low temperature favors focused, on-task output; the small nonzero

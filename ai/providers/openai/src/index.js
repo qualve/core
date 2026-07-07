@@ -29,7 +29,7 @@ export default class OpenAI extends LLMTask {
 	}
 
 	async createStream () {
-		let { system, prompt, output, input = [] } = this;
+		let { system, output } = this;
 		let responseSchema = output?.[0]?.schema;
 		let hasRootObject = output?.[0]?.schemaType === "object";
 
@@ -79,16 +79,18 @@ export default class OpenAI extends LLMTask {
 				{
 					type: "message",
 					role: "user",
-					content: [
-						...prompt.map(t => ({ type: "input_text", text: t })),
-
-						// Include uploaded files as direct input_file blocks,
-						// giving the model complete access to file contents (unlike file_search which returns chunks)
-						...input.flatMap(f => [
-							{ type: "input_text", text: f.describe() },
-							{ type: "input_file", file_id: f.remoteFile.id },
-						]),
-					],
+					// Stable reference input first, then prompt, then the per-call payload, so the
+					// shared prefix (e.g. the codebook) stays cacheable across calls. See LLMTask#promptContent.
+					// Uploaded files are sent as direct input_file blocks, giving the model complete access
+					// to file contents (unlike file_search which returns chunks).
+					// NOTE: setting `prompt_cache_key` here would improve cross-question cache-hit routing (#12).
+					content: this.promptContent.flatMap(seg =>
+						seg.text !== undefined
+							? [{ type: "input_text", text: seg.text }]
+							: [
+									{ type: "input_text", text: seg.file.describe() },
+									{ type: "input_file", file_id: seg.file.remoteFile.id },
+								]),
 				},
 			],
 			text: {

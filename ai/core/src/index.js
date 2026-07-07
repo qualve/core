@@ -214,6 +214,50 @@ export default class LLMTask extends Task {
 		return [prompts];
 	}
 
+	/**
+	 * The user-turn content, ordered for prompt caching: stable reference input first,
+	 * then the per-call prompt, then the batchable data input ({@link Task#batchableInput})
+	 * last — so the stable part forms a reusable prefix that the per-call data can't
+	 * invalidate. When the batchable input is ambiguous or absent, all input is treated as stable.
+	 *
+	 * Each entry is `{ file }` or `{ text }`. `cache` marks the end of a reusable prefix:
+	 * `"shared"` after the stable input (reused across invocations, e.g. a codebook shared
+	 * across questions) and `"call"` after the prompt (reused across one invocation's batches).
+	 * Providers with explicit breakpoints (Anthropic) attach `cache_control` there; those
+	 * with automatic prefix caching (OpenAI/Gemini) just rely on the order.
+	 *
+	 * NOTE: the `"shared"` prefix only actually caches across invocations if everything
+	 * before it — `system`, which renders ahead of the user turn — is byte-identical across
+	 * them. Keep per-call variation in `prompt`, not `system`, or the codebook cache won't hit.
+	 * @returns {Array<{ file?: LLMFile, text?: string, cache?: "shared" | "call" }>}
+	 */
+	get promptContent () {
+		let batchable = this.batchableInput;
+		let input = this.input ?? [];
+		let stable = batchable ? input.filter(f => f !== batchable) : input;
+		let segments = [];
+
+		for (let file of stable) {
+			segments.push({ file });
+		}
+		if (stable.length > 0) {
+			segments.at(-1).cache = "shared";
+		}
+
+		for (let text of this.prompt) {
+			segments.push({ text });
+		}
+		if (this.prompt.length > 0) {
+			segments.at(-1).cache = "call";
+		}
+
+		if (batchable) {
+			segments.push({ file: batchable });
+		}
+
+		return segments;
+	}
+
 	async postInit () {
 		await super.postInit();
 
