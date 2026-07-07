@@ -85,6 +85,12 @@ export default class Task {
 			if (claimed.has(key) || this.rawOptions[key] === undefined) {
 				continue;
 			}
+			// Options declared as non-task (cli/root/config) are owned elsewhere — the CLI,
+			// the orchestrator, the config — and reachable via this.config. Don't let the
+			// escape hatch mistake them for undeclared task fields.
+			if (this.optionsSchema[key]?.for && this.optionsSchema[key].for !== "task") {
+				continue;
+			}
 			unknownOptions[key] = this.rawOptions[key];
 			this.task[key] = this.rawOptions[key];
 		}
