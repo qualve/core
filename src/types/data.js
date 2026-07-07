@@ -10,8 +10,8 @@ export default class DataTask extends Task {
 		if (this.dryRun) {
 			Object.assign(this.debug, {
 				resultType: this.resultType,
-				output: this.output?.map?.(f => f.debugInfo()),
-				files: files.map(f => f.debugInfo()),
+				output: this.output?.map?.(f => f.debug),
+				files: files.map(f => f.debug),
 			});
 			return;
 		}

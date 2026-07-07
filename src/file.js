@@ -25,6 +25,9 @@ export default class File {
 	 */
 	producer;
 
+	/** Debug info, populated in context as facts are resolved (see Task#debug). */
+	debug = {};
+
 	constructor (source, context) {
 		this.source = source;
 		this.context = context;
@@ -109,6 +112,17 @@ export default class File {
 		this.resolvedSource = source;
 		Object.defineProperties(this, Object.getOwnPropertyDescriptors(source));
 
+		if (source.glob) {
+			this.debug.glob = source.glob;
+		}
+		else {
+			this.debug.name = source.name;
+			this.debug.filename = source.filename;
+			if (this.parent) {
+				this.debug.glob = this.parent.glob;
+			}
+		}
+
 		return source[prop];
 	}
 
@@ -152,6 +166,7 @@ export default class File {
 
 		let value = path.join(this.context?.cwd ?? "", this.filename);
 		Object.defineProperty(this, "filePath", { value, writable: true, configurable: true });
+		this.debug.filePath = value;
 		return value;
 	}
 
@@ -187,6 +202,9 @@ export default class File {
 		}
 
 		Object.defineProperty(this, "children", { value, writable: true, configurable: true });
+		if (value) {
+			this.debug.children = value.length;
+		}
 		return value;
 	}
 
@@ -221,22 +239,27 @@ export default class File {
 		return { [this.name]: this.contents };
 	}
 
-	#getMemoizedOrInherit (prop) {
+	/** @param {boolean} [debug] Record the resolved value into `this.debug` (for dry-run output). */
+	#getMemoizedOrInherit (prop, debug = false) {
+		let value = this.source[prop] ? this.resolveValue(this.source[prop]) : this.parent?.[prop];
+
 		if (this.source[prop]) {
-			let value = this.resolveValue(this.source[prop]);
 			Object.defineProperty(this, prop, { value, writable: true, configurable: true });
-			return value;
 		}
 
-		return this.parent?.[prop];
+		if (debug && value) {
+			this.debug[prop] = value;
+		}
+
+		return value;
 	}
 
 	get description () {
-		return this.#getMemoizedOrInherit("description");
+		return this.#getMemoizedOrInherit("description", true);
 	}
 
 	get schema () {
-		return this.#getMemoizedOrInherit("schema");
+		return this.#getMemoizedOrInherit("schema", true);
 	}
 
 	/**
@@ -269,7 +292,7 @@ export default class File {
 	 * - An array of strings (e.g. `["responses", "items"]`) is a property path to the nested array.
 	 */
 	get paginate () {
-		return this.#getMemoizedOrInherit("paginate");
+		return this.#getMemoizedOrInherit("paginate", true);
 	}
 
 	/**
@@ -290,11 +313,6 @@ export default class File {
 	 */
 	get optional () {
 		return this.#getMemoizedOrInherit("optional");
-	}
-
-	/** Whether this file should be re-uploaded fresh, bypassing the provider cache. */
-	get fresh () {
-		return this.#getMemoizedOrInherit("fresh");
 	}
 
 	/**
@@ -428,38 +446,6 @@ export default class File {
 		let serialized =
 			typeof data === "string" || Buffer.isBuffer(data) ? data : format.serialize(data);
 		return new Blob([serialized], { type: format.mimeType });
-	}
-
-	debugInfo () {
-		let info = {};
-
-		if (this.glob) {
-			info.glob = this.glob;
-			info.children = this.children?.length ?? 0;
-		}
-		else {
-			info.name = this.name;
-			info.filename = this.filename;
-			info.filePath = this.filePath;
-
-			if (this.parent) {
-				info.glob = this.parent.glob;
-			}
-		}
-
-		if (this.description) {
-			info.description = this.description;
-		}
-
-		if (this.schema) {
-			info.schema = this.schema;
-		}
-
-		if (this.paginate) {
-			info.paginate = this.paginate;
-		}
-
-		return info;
 	}
 
 	/** @return {{glob: string | null, filename: string | undefined, name: string | undefined, extension: string | undefined}} */

@@ -348,13 +348,13 @@ export default class Task {
 				})
 				.map(input => File.get(input, this))
 				.filter(f => !f.optional || f.glob || f.exists());
-			this.debug.input = this.input.map(f => f.debugInfo());
+			this.debug.input = this.input.map(f => f.debug);
 		}
 
 		// Dynamic output (function) stays as-is until resolved in run() after runTask.
 		if (this.output && typeof this.output !== "function") {
 			this.output = toArray(this.output).map(output => File.get(output, this));
-			this.debug.output = this.output.map(f => f.debugInfo());
+			this.debug.output = this.output.map(f => f.debug);
 		}
 	}
 
@@ -540,7 +540,7 @@ export default class Task {
 				let { File } = this.constructor;
 				this.output = toArray(this.output.call(this, result.result)).map(output =>
 					File.get(output, this));
-				this.debug.output = this.output.map(f => f.debugInfo());
+				this.debug.output = this.output.map(f => f.debug);
 			}
 
 			// Write loop: runs unless runTask already populated `outputs` (e.g. LLM streaming).
