@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import * as path from "node:path";
 import File from "qualve/file";
 import { JsonFormat } from "qualve/format";
@@ -47,21 +48,44 @@ export default class LLMFile extends File {
 		return new Blob([f.serialize(this.contents)], { type: f.mimeType });
 	}
 
+	#remoteFilename;
+
 	/**
-	 * Remote filename for upload, derived from the file's own resolved path so
-	 * identity follows the file itself: two contexts pointing at the same path
-	 * (e.g. a survey-level `../codebooks-merged.json` that normalizes to
-	 * `codebooks-merged.json` for every entity) share one remote file, while
-	 * per-entity files (distinct dirs) stay distinct — no ad-hoc prefix needed.
+	 * Remote filename for upload: a readable stem from the file's path plus a short
+	 * content hash, so identity follows content. A byte-identical file keeps the same
+	 * remote name across every invocation — the property prompt caching needs to reuse
+	 * a shared document (e.g. a codebook referenced across every question of a survey) —
+	 * while changed content yields a new name, and thus a fresh upload, on its own.
 	 * Separators → "-" so the name is slash-free for every provider.
-	 * NOTE: sanitizing can alias `a/b` and `a-b`; acceptable for now.
+	 * Memoized; assumes contents are resolved, which holds wherever upload runs
+	 * (getRemoteFiles awaits contents before calling upload).
 	 */
 	get remoteFilename () {
-		return this.path.split(path.sep).join("-");
+		if (this.#remoteFilename === undefined) {
+			// Identity is content-derived, so contents must be resolved. Fail loud rather
+			// than hash a pending Promise into a poisoned (and memoized) name.
+			if (typeof this.contents?.then === "function") {
+				throw new Error(
+					`remoteFilename for ${this.path} requires resolved contents; await contents before upload.`,
+				);
+			}
+
+			let stem = this.path.split(path.sep).join("-");
+			let hash = createHash("sha256").update(this.toString()).digest("hex").slice(0, 12);
+			this.#remoteFilename = `${stem}-${hash}`;
+		}
+
+		return this.#remoteFilename;
 	}
 
 	/**
-	 * Idempotent upload. No-op if already uploaded. Re-uploads if fresh.
+	 * Idempotent, content-addressed upload. No-op if already uploaded this run;
+	 * otherwise reuses a matching remote file when one exists (its name encodes the
+	 * content, so a name match is a content match) and uploads only when absent.
+	 * Staleness needs no special handling: changed content yields a new name (see
+	 * {@link remoteFilename}) and thus a fresh upload on its own.
+	 * NOTE: superseded remote files (older content hashes) are left in place, so
+	 * distinct versions accumulate on the provider; cleanup is a separate concern.
 	 * @returns {object} Remote file object (provider-specific)
 	 */
 	async upload () {
@@ -69,14 +93,7 @@ export default class LLMFile extends File {
 			return this.remoteFile;
 		}
 
-		let fresh = this.fresh ?? this.context?.fresh;
-
-		if (fresh) {
-			this.context?.info(`Removing previously uploaded file ${this.path} ...`);
-			await this.deleteRemote();
-		}
-
-		this.remoteFile = !fresh ? await this.getRemote() : null;
+		this.remoteFile = await this.getRemote();
 
 		if (!this.remoteFile) {
 			this.context?.info(`Uploading ${this.path} ...`);
@@ -104,11 +121,6 @@ export default class LLMFile extends File {
 
 	/** Check if this file exists on the provider. Override in subclass. */
 	async getRemote () {
-		throw new Error("Not implemented");
-	}
-
-	/** Delete this file from the provider. Override in subclass. */
-	async deleteRemote () {
 		throw new Error("Not implemented");
 	}
 }

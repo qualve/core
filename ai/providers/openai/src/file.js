@@ -13,12 +13,4 @@ export default class OpenAIFile extends LLMFile {
 		let list = await this.context.listFiles();
 		return list.find(f => f.filename === this.remoteFilename);
 	}
-
-	async deleteRemote () {
-		let file = await this.getRemote();
-		if (!file) {
-			return null;
-		}
-		await this.context.client.files.delete(file.id);
-	}
 }

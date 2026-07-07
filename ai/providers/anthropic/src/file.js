@@ -16,13 +16,4 @@ export default class ClaudeFile extends LLMFile {
 		let list = await this.context.listFiles();
 		return list.find(f => f.filename === this.remoteFilename);
 	}
-
-	async deleteRemote () {
-		let file = await this.getRemote();
-		if (!file) {
-			// Not found
-			return;
-		}
-		return this.context.client.beta.files.delete(file.id);
-	}
 }

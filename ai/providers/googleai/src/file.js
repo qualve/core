@@ -28,23 +28,26 @@ export default class GeminiFile extends LLMFile {
 		let { client } = this.context;
 		return client.files.upload({
 			file: this.toBlob(),
-			config: { name: this.remoteFilename, displayName: this.displayName, mimeType: this.mimeType },
+			config: {
+				name: this.remoteFilename,
+				displayName: this.displayName,
+				mimeType: this.mimeType,
+			},
 		});
 	}
 
 	/**
-	 * Execute a file operation with shared error handling for not-found cases.
+	 * Look up this file on Gemini, with error handling for not-found cases.
 	 * Gemini returns 403 (not 404) when a file doesn't exist, so we disambiguate
 	 * by listing files to check whether it's a real permission error.
-	 * @param {"get" | "delete"} method
 	 * @returns {Promise<object|null>}
 	 */
-	async #safeFileOp (method) {
+	async getRemote () {
 		let name = "files/" + this.remoteFilename;
 
 		try {
 			// If we don't await here, the error is unhandled
-			return await this.context.client.files[method]({ name });
+			return await this.context.client.files.get({ name });
 		}
 		catch (e) {
 			if (e.status === 403 || e.status === 404) {
@@ -63,19 +66,11 @@ export default class GeminiFile extends LLMFile {
 				}
 			}
 			else {
-				throw new Error(`Failed to ${method} file ${this.path}`, { cause: e });
+				throw new Error(`Failed to get file ${this.path}`, { cause: e });
 			}
 		}
 
 		// Not found
 		return null;
-	}
-
-	async getRemote () {
-		return this.#safeFileOp("get");
-	}
-
-	async deleteRemote () {
-		return this.#safeFileOp("delete");
 	}
 }
