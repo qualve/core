@@ -215,6 +215,12 @@ export default class Task {
 		}
 	}
 
+	/** Like info(), but for advisories that must persist rather than update the progress line. */
+	warn (message) {
+		message = "\t".repeat(this.level) + message;
+		(this.customWarn ?? console.warn)(message);
+	}
+
 	get level () {
 		return this.parent ? this.parent.level + 1 : 0;
 	}
