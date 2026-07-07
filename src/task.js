@@ -243,20 +243,24 @@ export default class Task {
 	get computedSubtasks () {
 		let value;
 
-		if (this.batched) {
+		// Generic option-driven fan-out: any option declared `multiple: true`
+		// whose resolved value is an array > 1 replicates the task per element.
+		// It takes precedence over batching: each replica resolves and batches its
+		// own input; batching first would slice the input of only the first
+		// value's context, then re-fan out per slice. Explicit subtasks still win.
+		// Strip whichever alias carried the driver value out of rawOptions before
+		// adding the canonical override — otherwise the subtask sees both the
+		// alias (with the parent's full array) and the canonical (with its slice).
+		let driver = !this.subtasks && this.findFanoutDriver();
+
+		if (driver) {
+			value = driver.values.map(v => this.createFanoutSubtask(driver, v));
+		}
+		else if (this.batched) {
 			value = this.createBatchSubtasks();
 		}
-		else if (this.subtasks) {
-			value = this.subtasks;
-		}
 		else {
-			// Generic option-driven fan-out: any option declared `multiple: true`
-			// whose resolved value is an array > 1 replicates the task per element.
-			// Strip whichever alias carried the driver value out of rawOptions before
-			// adding the canonical override — otherwise the subtask sees both the
-			// alias (with the parent's full array) and the canonical (with its slice).
-			let driver = this.findFanoutDriver();
-			value = driver ? driver.values.map(v => this.createFanoutSubtask(driver, v)) : [];
+			value = this.subtasks ?? [];
 		}
 
 		if (value.length > 0) {
