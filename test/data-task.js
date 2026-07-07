@@ -25,7 +25,7 @@ export default {
 			expect: { greeting: "hello" },
 		},
 		{
-			name: "Array resultType",
+			name: "resultType: array",
 			arg: {
 				resultType: "array",
 				input: [
@@ -36,7 +36,7 @@ export default {
 			expect: [{ a: 1 }, { b: 2 }],
 		},
 		{
-			name: "Files resultType returns File objects",
+			name: "resultType: files gives one array of File objects",
 			arg: {
 				resultType: "files",
 				input: [
@@ -118,6 +118,206 @@ export default {
 				input: __dirname + "files/no-such-prefix-*",
 			},
 			expect: {},
+		},
+		{
+			name: "resultType: args (default)",
+			description:
+				"#84 — the default shape spreads one argument per element; single-element input passes through bare, preserving the old default.",
+			tests: [
+				{
+					name: "Multiple inputs spread as positional arguments",
+					arg: {
+						input: [
+							{ contents: { a: 1 }, filename: "a.json" },
+							{ contents: { b: 2 }, filename: "b.json" },
+						],
+						handleResult: (a, b) => ({ ...a, ...b }),
+					},
+					expect: { a: 1, b: 2 },
+				},
+				{
+					name: "Without handleResult, multiple elements pass through as an array",
+					arg: {
+						input: [
+							{ contents: "a", filename: "a.json" },
+							{ contents: "b", filename: "b.json" },
+						],
+					},
+					expect: ["a", "b"],
+				},
+			],
+		},
+		{
+			name: "resultType: -grouped",
+			description:
+				"#84 — opt-in: one element per input descriptor, a glob contributing its matches as an array, so siblings keep positional identity regardless of how many files matched.",
+			tests: [
+				{
+					name: "Glob groups; named sibling keeps its position",
+					arg: {
+						resultType: "array-grouped",
+						input: [
+							__dirname + "files/*.txt",
+							{ contents: { meta: true }, filename: "meta.json" },
+						],
+						handleResult: ([texts, meta]) => ({
+							matched: texts.length,
+							meta,
+						}),
+					},
+					expect: { matched: 2, meta: { meta: true } },
+				},
+				{
+					name: "Grouped args spread with files",
+					arg: {
+						resultType: "args-grouped-files",
+						input: [
+							{ contents: { meta: true }, filename: "meta.json" },
+							__dirname + "files/*.txt",
+						],
+						handleResult: (meta, texts) => [
+							meta.filename,
+							texts.map(f => f.contents.length > 0),
+						],
+					},
+					expect: ["meta.json", [true, true]],
+				},
+				{
+					name: "Grouped single glob without handleResult yields its contents array",
+					arg: {
+						resultType: "grouped",
+						input: [__dirname + "files/greeting*.txt"],
+					},
+					expect: ["Hello, world!"],
+				},
+				{
+					name: "Unmatched glob between siblings yields an empty array element",
+					arg: {
+						resultType: "array-grouped",
+						input: [
+							{ contents: "a", filename: "a.json" },
+							__dirname + "files/no-such-prefix-*",
+							{ contents: "b", filename: "b.json" },
+						],
+					},
+					expect: ["a", [], "b"],
+				},
+				{
+					name: "Ungrouped globs keep splicing matches inline",
+					arg: {
+						resultType: "array",
+						input: [
+							__dirname + "files/*.txt",
+							{ contents: "meta", filename: "meta.json" },
+						],
+					},
+					expect: [
+						"Hello, world!",
+						"These are some plain text notes.\nThey span multiple lines.\nThat's all.",
+						"meta",
+					],
+				},
+			],
+		},
+		{
+			name: "resultType: object",
+			description: "#84 — elements keyed by descriptor `id`, falling back to file name.",
+			tests: [
+				{
+					name: "Keys by name, id overrides",
+					arg: {
+						resultType: "object",
+						input: [
+							{ contents: { a: 1 }, filename: "data.json" },
+							{ contents: "notes", filename: "notes.txt", id: "meta" },
+						],
+					},
+					expect: { data: { a: 1 }, meta: "notes" },
+				},
+				{
+					name: "Grouped glob keys by its id",
+					arg: {
+						resultType: "object-grouped",
+						input: [
+							{ name: __dirname + "files/*.txt", id: "texts" },
+							{ contents: { a: 1 }, filename: "data.json" },
+						],
+						handleResult: ({ texts, data }) => ({
+							matched: texts.length,
+							data,
+						}),
+					},
+					expect: { matched: 2, data: { a: 1 } },
+				},
+				{
+					name: "files: true composes with object",
+					arg: {
+						resultType: "object-files",
+						input: [
+							{ contents: { a: 1 }, filename: "data.json" },
+							{ contents: "notes", filename: "notes.txt", id: "meta" },
+						],
+						handleResult: ({ data, meta }) => [data.filename, meta.contents],
+					},
+					expect: ["data.json", "notes"],
+				},
+				{
+					name: "Ungrouped glob children key by name, not their family id",
+					arg: {
+						resultType: "object",
+						input: [{ name: __dirname + "files/*.txt", id: "texts" }],
+						handleResult: keys => Object.keys(keys).map(k => k.split("/").pop()),
+					},
+					expect: ["greeting", "notes"],
+				},
+				{
+					name: "Glob children inherit their family id",
+					arg: {
+						resultType: "files",
+						input: [{ name: __dirname + "files/*.txt", id: "texts" }],
+						handleResult: files => files.map(f => f.id),
+					},
+					expect: ["texts", "texts"],
+				},
+			],
+		},
+		{
+			name: "resultType microsyntax",
+			tests: [
+				{
+					name: "Tokens are order-insensitive",
+					arg: {
+						resultType: "files-array",
+						input: [{ contents: { x: 1 }, filename: "x.json" }],
+						handleResult: ([file]) => file.filename,
+					},
+					expect: "x.json",
+				},
+				{
+					name: "Unknown token throws",
+					arg: {
+						resultType: "array-groupde",
+						input: [{ contents: "a", filename: "a.json" }],
+					},
+					throws: /Invalid resultType token "groupde"/,
+				},
+				{
+					name: "files combined without an explicit type throws",
+					arg: {
+						resultType: "grouped-files",
+						input: [{ contents: "a", filename: "a.json" }],
+					},
+					throws: /needs an explicit type/,
+				},
+				{
+					name: "Two type tokens throw",
+					arg: {
+						resultType: "array-object",
+						input: [{ contents: "a", filename: "a.json" }],
+					},
+					throws: /more than one type token/,
+				},
+			],
 		},
 		{
 			name: "Dry run",

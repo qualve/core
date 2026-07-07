@@ -254,6 +254,15 @@ export default class File {
 		return value;
 	}
 
+	/**
+	 * Optional stable key for this file, used by `resultType: "object"` where a
+	 * glob has no single name. Inherited by glob children like schema/description
+	 * — on a child it names the input family it came from.
+	 */
+	get id () {
+		return this.#getMemoizedOrInherit("id");
+	}
+
 	get description () {
 		return this.#getMemoizedOrInherit("description", true);
 	}

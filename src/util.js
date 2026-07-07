@@ -146,3 +146,90 @@ export function isGlob (str) {
 export function camelToKebab (s) {
 	return s.replace(/(?<=[^A-Z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][^A-Z])/g, "-").toLowerCase();
 }
+
+/**
+ * Parse a `resultType` string — the shape of `handleResult`'s input.
+ * Microsyntax: `(args|array|object)(-grouped)?(-files)?`, order-insensitive.
+ * - `args` (default): one positional argument per element; `array`: a single
+ *   array; `object`: keyed by descriptor `id`, falling back to file name.
+ * - `grouped`: one element per input descriptor (a glob's matches arrive as an
+ *   array); default splices glob matches inline.
+ * - `files`: `File` objects instead of their contents.
+ * Bare `"grouped"` ≡ `args-grouped`; bare `"files"` keeps its legacy meaning
+ * (≡ `array-files`), so combining `files` with other tokens requires an
+ * explicit type.
+ * @param {string} [resultType]
+ * @returns {{ type: "args" | "array" | "object", grouped: boolean, files: boolean }}
+ */
+export function parseResultType (resultType) {
+	if (resultType === "files") {
+		return { type: "array", files: true, grouped: false };
+	}
+
+	const TYPES = new Set(["args", "array", "object"]);
+	const FLAGS = new Set(["grouped", "files"]);
+
+	let ret = { type: "args", grouped: false, files: false };
+	let tokens = resultType?.split("-").filter(Boolean) ?? [];
+	let typed = false;
+
+	for (let token of tokens) {
+		if (TYPES.has(token)) {
+			if (typed) {
+				throw new Error(`Ambiguous resultType "${resultType}": more than one type token.`);
+			}
+			typed = true;
+			ret.type = token;
+		}
+		else if (FLAGS.has(token)) {
+			ret[token] = true;
+		}
+		else {
+			throw new Error(
+				`Invalid resultType token "${token}" in "${resultType}". Valid: (args|array|object)(-grouped)?(-files)?, "grouped", "files".`,
+			);
+		}
+	}
+
+	if (ret.files && !typed && tokens.length > 1) {
+		throw new Error(
+			`resultType "${resultType}" needs an explicit type when "files" is combined: e.g. "args-grouped-files" or "array-files". (Bare "files" is legacy shorthand for "array-files".)`,
+		);
+	}
+
+	return ret;
+}
+
+/**
+ * Shape Files into `handleResult`'s argument list, per a `resultType`
+ * (see {@link parseResultType}). Pure: reads `File#contents` as-is, so await
+ * any async contents before calling.
+ * Returns the argument list: one spread argument per element for `args`, a
+ * single array for `array`, a single object for `object` — so callers invoke
+ * `handleResult(...args)`, and `args.length === 1 ? args[0] : args` is the
+ * no-handler fallback value.
+ * @param {import("./file.js").default[]} files
+ * @param {string} [resultType]
+ * @returns {unknown[]}
+ */
+export function shapeResult (files, resultType) {
+	let { type, grouped, files: asFiles } = parseResultType(resultType);
+
+	// [keySource, File | File[]] pairs — the key side feeds object keying.
+	let entries = grouped
+		? files.map(f => [f, f.glob ? f.children : f])
+		: files.flatMap(f => (f.glob ? f.children.map(c => [c, c]) : [[f, f]]));
+
+	let project = value =>
+		Array.isArray(value) ? value.map(project) : asFiles ? value : value.contents;
+	let elements = entries.map(([, value]) => project(value));
+
+	if (type === "object") {
+		// A glob child keys by its own name — its (inherited) id names the
+		// family, and family-keyed children would collide.
+		let keys = entries.map(([f]) => (f.parent ? f.name : (f.id ?? f.name ?? f.glob)));
+		return [Object.fromEntries(keys.map((key, i) => [key, elements[i]]))];
+	}
+
+	return type === "array" ? [elements] : elements;
+}
