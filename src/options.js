@@ -10,8 +10,10 @@ const DEFAULT_TASKS = { include: "tasks/**/*.js", exclude: entry => entry.name.s
  * @property {string} [short] Single-character flag alias.
  * @property {boolean | number} [positional] Accept a positional arg — `true` for index 0, or an explicit index.
  * @property {boolean} [multiple] Accept several values (resolves to an array); as a positional, acts as rest args.
- * @property {boolean | (() => boolean)} [present] Tri-state presence: `true` = required, `false` = forbidden,
- *   omitted = optional. A function is evaluated with `this` bound to the other resolved options.
+ * @property {boolean | (() => boolean)} [present] Tri-state presence: `true` = required, `false` = not
+ *   applicable to this task (hidden from help, not resolved here — a supplied value still propagates to
+ *   subtasks that declare it), omitted = optional. A function is evaluated with `this` bound to the other
+ *   resolved options.
  * @property {* | (() => *)} [default] Value when unset. A function is called with `this` bound to the other
  *   resolved options, so defaults may depend on each other (resolution order doesn't matter; cycles throw).
  * @property {(value: *) => *} [parse] Normalize/coerce a provided value (e.g. `Number`).
@@ -198,7 +200,8 @@ export function resolveValue (option, value, context) {
  * @param {object} schema - Map of optionKey → option definition
  * @param {object} input - Raw bag of values (from CLI or programmatic API)
  * @param {object} taskFields - Task-definition fields acting as per-task defaults
- * @returns {{resolved: object, claimed: Set<string>}} resolved values and the set of input bag keys consumed
+ * @returns {{resolved: object, claimed: Set<string>}} resolved values and the set of input bag keys handled
+ *   (consumed as a value, or explicitly not-applicable via `present: false`) so callers can tell the rest apart
  */
 export function resolveOptions (schema, input = {}, taskFields = {}) {
 	let resolved = {};
@@ -249,10 +252,13 @@ export function resolveOptions (schema, input = {}, taskFields = {}) {
 			let [aliasUsed, externalValue] = findValue(input, key, option);
 
 			if (present === false) {
-				if (externalValue !== undefined) {
-					throw new Error(`Option not allowed for this task: ${flagName()}`);
+				// Not applicable to this task: skip default/validate; resolved[key] stays unset.
+				// A supplied value isn't rejected — mark it handled so the escape hatch doesn't
+				// absorb it as an undeclared field. It still rides down to subtasks that declare
+				// it via rawOptions.
+				if (aliasUsed !== null) {
+					claimed.add(aliasUsed);
 				}
-				// Forbidden and unset: skip default/validate; resolved[key] stays unset.
 			}
 			else if (externalValue !== undefined) {
 				resolved[key] = resolveValue(option, externalValue);
