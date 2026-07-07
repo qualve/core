@@ -388,9 +388,13 @@ export default {
 					expect: { resolved: { scope: "survey" }, claimed: new Set() },
 				},
 				{
-					name: "present: false with external value throws",
-					run: () => resolveOptions({ x: { long: "x", present: false } }, { x: "v" }),
-					throws: /Option not allowed for this task: --x/,
+					name: "present: false with external value is not rejected — skipped and claimed",
+					arg: {
+						schema: { x: { long: "x", present: false } },
+						input: { x: "v" },
+						taskFields: {},
+					},
+					expect: { resolved: {}, claimed: new Set(["x"]) },
 				},
 				{
 					name: "present: false with no value skips default",
@@ -402,21 +406,21 @@ export default {
 					expect: { resolved: {}, claimed: new Set() },
 				},
 				{
-					name: "present: function returning false (forbidden) throws on value",
-					run: () =>
-						resolveOptions(
-							{
-								scope: { default: "survey" },
-								question: {
-									long: "question",
-									present () {
-										return this.scope === "question" ? true : false;
-									},
+					name: "present: function returning false (not applicable) skips and claims the value",
+					arg: {
+						schema: {
+							scope: { default: "survey" },
+							question: {
+								long: "question",
+								present () {
+									return this.scope === "question" ? true : false;
 								},
 							},
-							{ question: "react" },
-						),
-					throws: /Option not allowed for this task: --question/,
+						},
+						input: { question: "react" },
+						taskFields: {},
+					},
+					expect: { resolved: { scope: "survey" }, claimed: new Set(["question"]) },
 				},
 				{
 					name: "present: undefined (absent field) is optional, no errors",
