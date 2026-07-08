@@ -70,11 +70,11 @@ export default {
 };
 ```
 
-The optional `resultType` controls the shape of `handleResult`'s input, with the microsyntax `(args|array|object)(-grouped)?(-files)?`:
+The optional `resultType` controls the shape of `handleResult`'s input, with the microsyntax `(args|array)(-grouped)?(-files)?`:
 
-- `args` (the default) spreads one argument per element; `array` passes them as a single array; `object` keys grouped descriptors by `key` (falling back to name, or the glob pattern) and ungrouped files by their name — colliding names qualify further (filename, then full path), and grouped inputs sharing a `key` group into an array.
+- `args` (the default) spreads one argument per element; `array` passes them as a single array.
 - `-grouped` gives one element per input descriptor — a glob contributes its matches as an array. By default, glob matches are spliced inline.
-- `-files` passes `File` objects instead of their contents.
+- `-files` passes `File` objects instead of their contents — each carries its own identity (`name`, `filename`, `parent`), so keyed access is one `find()` or `Map.groupBy()` away.
 
 Tokens are order-insensitive. Without an explicit type, `files` implies `array` — so `"files"` keeps its legacy meaning (one array of `File` objects) and `"grouped-files"` is its grouped version — while anything else defaults to `args` (`"grouped"` means `args-grouped`).
 

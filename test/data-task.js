@@ -220,131 +220,6 @@ export default {
 			],
 		},
 		{
-			name: "resultType: object",
-			description:
-				"#84 — grouped descriptors key by `key` ?? name ?? glob pattern; ungrouped results map file identity, keyed by name.",
-			tests: [
-				{
-					name: "Ungrouped object keys by file name; key fields not consulted",
-					arg: {
-						resultType: "object",
-						input: [
-							{ contents: { a: 1 }, filename: "data.json" },
-							{ contents: "notes", filename: "notes.txt", key: "meta" },
-						],
-					},
-					expect: { data: { a: 1 }, notes: "notes" },
-				},
-				{
-					name: "Grouped object keys by key, falling back to name",
-					arg: {
-						resultType: "object-grouped",
-						input: [
-							{ contents: { a: 1 }, filename: "data.json" },
-							{ contents: "notes", filename: "notes.txt", key: "meta" },
-						],
-					},
-					expect: { data: { a: 1 }, meta: "notes" },
-				},
-				{
-					name: "Grouped glob keys by its key",
-					arg: {
-						resultType: "object-grouped",
-						input: [
-							{ name: __dirname + "files/*.txt", key: "texts" },
-							{ contents: { a: 1 }, filename: "data.json" },
-						],
-						handleResult: ({ texts, data }) => ({
-							matched: texts.length,
-							data,
-						}),
-					},
-					expect: { matched: 2, data: { a: 1 } },
-				},
-				{
-					name: "files: true composes with object",
-					arg: {
-						resultType: "object-files",
-						input: [
-							{ contents: { a: 1 }, filename: "data.json" },
-							{ contents: "notes", filename: "notes.txt" },
-						],
-						handleResult: ({ data, notes }) => [data.filename, notes.contents],
-					},
-					expect: ["data.json", "notes"],
-				},
-				{
-					name: "Ungrouped glob children key by their own name, bare",
-					description:
-						"Ungrouped object results map file identity — values stay bare regardless of match count.",
-					arg: {
-						resultType: "object",
-						input: [{ name: __dirname + "files/*.txt", key: "texts" }],
-						handleResult: obj =>
-							Object.entries(obj).map(([k, v]) => [
-								k.split("/").pop(),
-								typeof v,
-							]),
-					},
-					expect: [["greeting", "string"], ["notes", "string"]],
-				},
-				{
-					name: "Glob children inherit their family key",
-					arg: {
-						resultType: "files",
-						input: [{ name: __dirname + "files/*.txt", key: "texts" }],
-						handleResult: files => files.map(f => f.key),
-					},
-					expect: ["texts", "texts"],
-				},
-				{
-					name: "Grouped glob without a key keys by its pattern",
-					arg: {
-						resultType: "object-grouped",
-						input: [__dirname + "files/*.txt"],
-						handleResult: obj =>
-							Object.keys(obj)[0] === __dirname + "files/*.txt",
-					},
-					expect: true,
-				},
-				{
-					name: "Colliding names qualify instead of dropping data",
-					description: "Same name, different extension — keys bump to the filename.",
-					arg: {
-						resultType: "object",
-						input: [
-							{ contents: { from: "first" }, filename: "data.json" },
-							{ contents: "second", filename: "data.txt" },
-						],
-					},
-					expect: { "data.json": { from: "first" }, "data.txt": "second" },
-				},
-				{
-					name: "Grouped inputs sharing a key group into an array",
-					arg: {
-						resultType: "object-grouped",
-						input: [
-							{ contents: 1, filename: "a.json", key: "nums" },
-							{ contents: 2, filename: "b.json", key: "nums" },
-						],
-					},
-					expect: { nums: [1, 2] },
-				},
-				{
-					name: "Glob and leaf sharing a key group together",
-					arg: {
-						resultType: "object-grouped",
-						input: [
-							{ name: __dirname + "files/*.txt", key: "texts" },
-							{ contents: "extra", filename: "extra.txt", key: "texts" },
-						],
-						handleResult: ({ texts }) => texts.length,
-					},
-					expect: 3,
-				},
-			],
-		},
-		{
 			name: "resultType microsyntax",
 			tests: [
 				{
@@ -381,7 +256,7 @@ export default {
 				{
 					name: "Two type tokens throw",
 					arg: {
-						resultType: "array-object",
+						resultType: "args-array",
 						input: [{ contents: "a", filename: "a.json" }],
 					},
 					throws: /more than one type token/,

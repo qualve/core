@@ -254,15 +254,6 @@ export default class File {
 		return value;
 	}
 
-	/**
-	 * Optional grouping key for this file, used by grouped `object` results
-	 * where a glob has no single name. Inherited by glob children like
-	 * schema/description — on a child it names the input family it came from.
-	 */
-	get key () {
-		return this.#getMemoizedOrInherit("key");
-	}
-
 	get description () {
 		return this.#getMemoizedOrInherit("description", true);
 	}
