@@ -211,9 +211,7 @@ export function shapeResult (files, resultType) {
 	let project = value =>
 		Array.isArray(value) ? value.map(project) : rt.files ? value : value.contents;
 
-	// One element per descriptor when grouping (a glob's element is its matches),
-	// per expanded file otherwise. Flatten before projecting — after, flat()
-	// would also flatten array-valued file contents (e.g. a codebook).
+	// Flatten before projecting otherwise flat() would also flatten array-valued file contents
 	let elements = files.map(f => (f.glob ? f.children : f));
 
 	if (!rt.grouped) {
