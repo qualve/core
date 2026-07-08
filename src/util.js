@@ -220,65 +220,53 @@ export function parseResultType (resultType) {
 export function shapeResult (files, resultType) {
 	let { type, grouped, files: asFiles } = parseResultType(resultType);
 
-	// [keySource, File | File[]] pairs — the key side feeds object keying.
-	let entries = grouped
-		? files.map(f => [f, f.glob ? f.children : f])
-		: files.flatMap(f => (f.glob ? f.children.map(c => [c, c]) : [[f, f]]));
-
 	let project = value =>
 		Array.isArray(value) ? value.map(project) : asFiles ? value : value.contents;
-	let elements = entries.map(([, value]) => project(value));
 
-	if (type === "object") {
-		// key only applies when grouping: grouped descriptors key by
-		// key ?? name ?? glob pattern; ungrouped results map file identity,
-		// keyed by each file's name.
-		let keys = entries.map(([f]) => (grouped ? (f.key ?? f.name ?? f.glob) : f.name));
+	// One item per handleResult element: the descriptor when grouping (a glob's
+	// value is its matches array), each expanded file otherwise.
+	let items = (
+		grouped
+			? files.map(f => [f, f.glob ? f.children : f])
+			: files.flatMap(f => (f.glob ? f.children : [f]).map(c => [c, c]))
+	).map(([file, value]) => ({ file, value, element: project(value) }));
 
-		// Colliding name-derived keys qualify further (filename, then full path)
-		// so every file keeps its own entry; keys never qualify — inputs sharing
-		// one group intentionally.
-		for (let prop of ["filename", "filePath"]) {
-			let counts = new Map();
-			for (let key of keys) {
-				counts.set(key, (counts.get(key) ?? 0) + 1);
-			}
-
-			keys = keys.map((key, i) => {
-				let [f] = entries[i];
-				let qualifiable = !grouped || f.key == null;
-				return counts.get(key) > 1 && qualifiable && f[prop] ? f[prop] : key;
-			});
-		}
-
-		// Arrays only where the task definition says so: a grouped glob's element
-		// (structural), or a key several inputs share. Everything else
-		// is a bare entry — shapes never depend on what a glob matched.
-		let groups = new Map();
-		keys.forEach((key, i) => {
-			let group = groups.get(key);
-			if (!group) {
-				groups.set(key, (group = { claims: 0, structural: false, members: [] }));
-			}
-
-			let structural = Array.isArray(entries[i][1]);
-			group.claims++;
-			group.structural ||= structural;
-			group.members.push(...(structural ? elements[i] : [elements[i]]));
-		});
-
-		// The wrapper is the calling convention, not data: the return value is
-		// handleResult's argument list, and the object is a single argument.
-		return [
-			Object.fromEntries(
-				[...groups].map(([key, g]) => [
-					key,
-					g.structural || g.claims > 1 ? g.members : g.members[0],
-				]),
-			),
-		];
+	if (type !== "object") {
+		let elements = items.map(item => item.element);
+		// The return value is handleResult's argument list, not data: array is a
+		// single argument; args is one argument per element.
+		return type === "array" ? [elements] : elements;
 	}
 
-	// Same: array is a single argument; args is one argument per element.
-	return type === "array" ? [elements] : elements;
+	// key only applies when grouping: grouped descriptors key by key ?? name ??
+	// glob pattern; ungrouped results map file identity by name, with colliding
+	// names qualifying further (filename, then full path) — keys never qualify,
+	// inputs sharing one group intentionally.
+	for (let item of items) {
+		let { file } = item;
+		item.key = grouped ? (file.key ?? file.name ?? file.glob) : file.name;
+	}
+
+	for (let prop of ["filename", "filePath"]) {
+		let claims = Map.groupBy(items, item => item.key);
+		for (let item of items) {
+			if (claims.get(item.key).length > 1 && (!grouped || item.file.key == null)) {
+				item.key = item.file[prop] ?? item.key;
+			}
+		}
+	}
+
+	// Arrays only where the task definition says so — a grouped glob's element,
+	// or a key several inputs share — never because of what a glob matched.
+	// The [wrapper]: the object is handleResult's single argument.
+	return [
+		Object.fromEntries(
+			[...Map.groupBy(items, item => item.key)].map(([key, claims]) => [
+				key,
+				claims.length === 1 && !Array.isArray(claims[0].value)
+					? claims[0].element
+					: claims.flatMap(c => (Array.isArray(c.value) ? c.element : [c.element])),
+			]),
+		),
+	];
 }
