@@ -162,7 +162,7 @@ export default {
 		{
 			name: "resultType: -grouped",
 			description:
-				"#84 — opt-in: one element per input descriptor, a glob contributing its matches as an array, so siblings keep positional identity regardless of how many files matched.",
+				"#84 — opt-in: one element per input, a glob contributing its matches as an array, so siblings keep positional identity regardless of how many files matched.",
 			tests: [
 				{
 					name: "Glob groups; named sibling keeps its position",

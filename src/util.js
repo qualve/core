@@ -152,7 +152,7 @@ export function camelToKebab (s) {
  * Microsyntax: `(args|array)(-grouped)?(-files)?`, order-insensitive.
  * - `args` (default): one positional argument per element; `array`: a single
  *   array.
- * - `grouped`: one element per input descriptor (a glob's matches arrive as an
+ * - `grouped`: one element per input (a glob's matches arrive as one
  *   array); default splices glob matches inline.
  * - `files`: `File` objects instead of their contents.
  * The type defaults to `args`: `"grouped"` ≡ `args-grouped`, `"files"` ≡
