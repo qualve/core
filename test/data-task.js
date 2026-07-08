@@ -262,13 +262,26 @@ export default {
 					expect: ["data.json", "notes"],
 				},
 				{
-					name: "Ungrouped glob children key by name, not their family id",
+					name: "Ungrouped glob family groups under its id",
 					arg: {
 						resultType: "object",
 						input: [{ name: __dirname + "files/*.txt", id: "texts" }],
-						handleResult: keys => Object.keys(keys).map(k => k.split("/").pop()),
+						handleResult: ({ texts }) => texts.length,
 					},
-					expect: ["greeting", "notes"],
+					expect: 2,
+				},
+				{
+					name: "Ungrouped glob without an id keys children by name, bare",
+					arg: {
+						resultType: "object",
+						input: [__dirname + "files/*.txt"],
+						handleResult: obj =>
+							Object.entries(obj).map(([k, v]) => [
+								k.split("/").pop(),
+								typeof v,
+							]),
+					},
+					expect: [["greeting", "string"], ["notes", "string"]],
 				},
 				{
 					name: "Glob children inherit their family id",
@@ -290,7 +303,7 @@ export default {
 					expect: true,
 				},
 				{
-					name: "Duplicate keys throw instead of silently dropping data",
+					name: "Shared keys collect an array instead of dropping data",
 					arg: {
 						resultType: "object",
 						input: [
@@ -298,7 +311,7 @@ export default {
 							{ contents: { from: "second" }, filename: "notes.txt", id: "data" },
 						],
 					},
-					throws: /Duplicate key "data"/,
+					expect: { data: [{ from: "first" }, { from: "second" }] },
 				},
 			],
 		},

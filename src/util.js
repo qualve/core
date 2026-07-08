@@ -205,11 +205,13 @@ export function parseResultType (resultType) {
  * single array for `array`, a single object for `object` — so callers invoke
  * `handleResult(...args)`, and `args.length === 1 ? args[0] : args` is the
  * no-handler fallback value.
+ * In `object` results, keys come from descriptor `id` ?? file name (?? glob
+ * pattern): a key claimed by exactly one leaf holds its element bare, while
+ * glob families and shared keys collect an array of all their members.
  * @param {import("./file.js").default[]} files
  * @param {string | { type?: string, grouped?: boolean, files?: boolean }} [resultType]
  * @returns {unknown[]}
- * @throws On an invalid `resultType` (see {@link parseResultType}), or when an
- *   `object` result has duplicate keys (silent last-write-wins would drop data).
+ * @throws On an invalid `resultType` string (see {@link parseResultType}).
  */
 export function shapeResult (files, resultType) {
 	let { type, grouped, files: asFiles } = parseResultType(resultType);
@@ -224,19 +226,32 @@ export function shapeResult (files, resultType) {
 	let elements = entries.map(([, value]) => project(value));
 
 	if (type === "object") {
-		// A glob child keys by its own name — its (inherited) id names the
-		// family, and family-keyed children would collide. A grouped glob keys
-		// by its pattern; `id` improves keys but is never required.
-		let keys = entries.map(([f]) => (f.parent ? f.name : (f.id ?? f.name ?? f.glob)));
+		// name identifies a file, id names a group: a key claimed by exactly one
+		// leaf holds its element bare; glob families (grouped, or ungrouped via
+		// the inherited id) and shared keys collect an array of all members.
+		let groups = new Map();
 
-		let dupe = keys.find((key, i) => keys.indexOf(key) !== i);
-		if (dupe !== undefined) {
-			throw new Error(
-				`Duplicate key "${dupe}" in object result — give one of the colliding inputs an explicit "id".`,
-			);
+		for (let [i, [f]] of entries.entries()) {
+			let key = f.id ?? f.name ?? f.glob;
+			let members = Array.isArray(elements[i]) ? elements[i] : [elements[i]];
+			let family = Array.isArray(elements[i]) || (f.parent && f.id != null);
+
+			let group = groups.get(key);
+			if (!group) {
+				groups.set(key, (group = { members: [], bare: true }));
+			}
+			group.members.push(...members);
+			group.bare &&= !family;
 		}
 
-		return [Object.fromEntries(keys.map((key, i) => [key, elements[i]]))];
+		return [
+			Object.fromEntries(
+				[...groups].map(([key, g]) => [
+					key,
+					g.bare && g.members.length === 1 ? g.members[0] : g.members,
+				]),
+			),
+		];
 	}
 
 	return type === "array" ? [elements] : elements;
