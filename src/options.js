@@ -77,10 +77,6 @@ const availableOptions = Object.freeze({
 		validate: v => Number.isInteger(v) && v >= 0,
 		description: "Number of items per batch (0 to disable)",
 	},
-	fresh: {
-		default: false,
-		description: "Ignore cached data and reprocess",
-	},
 	input: {
 		short: "i",
 		description: "Input file or directory",
