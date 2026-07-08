@@ -264,6 +264,8 @@ export function shapeResult (files, resultType) {
 			group.members.push(...(structural ? elements[i] : [elements[i]]));
 		});
 
+		// The wrapper is the calling convention, not data: the return value is
+		// handleResult's argument list, and the object is a single argument.
 		return [
 			Object.fromEntries(
 				[...groups].map(([key, g]) => [
@@ -274,5 +276,6 @@ export function shapeResult (files, resultType) {
 		];
 	}
 
+	// Same: array is a single argument; args is one argument per element.
 	return type === "array" ? [elements] : elements;
 }
