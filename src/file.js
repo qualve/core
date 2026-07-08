@@ -456,7 +456,7 @@ export default class File {
 
 		let source = { glob: null, filename: undefined, name: undefined, extension: undefined };
 
-		let ext = value.match(/\.([^\/]+)$/)?.[1];
+		let ext = getExtension(value);
 
 		if (isGlob(value)) {
 			source.glob = value;
@@ -469,8 +469,8 @@ export default class File {
 		else {
 			if (ext) {
 				source.filename = value;
-				source.name = path.basename(value, "." + ext);
-				source.extension = ext ?? "json";
+				source.name = path.basename(value, ext);
+				source.extension = ext.slice(1);
 			}
 			else {
 				source.name = value;
