@@ -180,9 +180,9 @@ export default {
 					expect: { matched: 2, meta: { meta: true } },
 				},
 				{
-					name: "Grouped args spread with files",
+					name: "grouped-files spreads File elements",
 					arg: {
-						resultType: "args-grouped-files",
+						resultType: "grouped-files",
 						input: [
 							{ contents: { meta: true }, filename: "meta.json" },
 							__dirname + "files/*.txt",

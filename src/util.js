@@ -215,7 +215,7 @@ export function shapeResult (files, resultType) {
 	// per expanded file otherwise.
 	let elements = grouped
 		? files.map(f => project(f.glob ? f.children : f))
-		: files.flatMap(f => (f.glob ? f.children : [f])).map(project);
+		: files.flatMap(f => (f.glob ? f.children : f)).map(project);
 
 	// handleResult's argument list: array is a single argument, args one per element.
 	return type === "array" ? [elements] : elements;
