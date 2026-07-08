@@ -206,8 +206,10 @@ export function parseResultType (resultType) {
  * `handleResult(...args)`, and `args.length === 1 ? args[0] : args` is the
  * no-handler fallback value.
  * In `object` results, keys come from descriptor `id` ?? file name (?? glob
- * pattern): a key claimed by exactly one leaf holds its element bare, while
- * glob families and shared keys collect an array of all their members.
+ * pattern). Shapes never depend on what a glob matched: arrays appear only
+ * where the task definition says so — a grouped glob's element, or inputs
+ * sharing an explicit `id` — while colliding names qualify further (filename,
+ * then full path) so every file keeps its own bare entry.
  * @param {import("./file.js").default[]} files
  * @param {string | { type?: string, grouped?: boolean, files?: boolean }} [resultType]
  * @returns {unknown[]}
@@ -226,29 +228,47 @@ export function shapeResult (files, resultType) {
 	let elements = entries.map(([, value]) => project(value));
 
 	if (type === "object") {
-		// name identifies a file, id names a group: a key claimed by exactly one
-		// leaf holds its element bare; glob families (grouped, or ungrouped via
-		// the inherited id) and shared keys collect an array of all members.
+		// name identifies, id groups: a glob child keys by its own name, a
+		// descriptor by id ?? name ?? glob pattern.
+		let keys = entries.map(([f]) => (f.parent ? f.name : (f.id ?? f.name ?? f.glob)));
+
+		// Colliding name-derived keys qualify further (filename, then full path)
+		// so every file keeps its own entry; ids never qualify — inputs sharing
+		// one group intentionally.
+		for (let prop of ["filename", "filePath"]) {
+			let counts = new Map();
+			for (let key of keys) {
+				counts.set(key, (counts.get(key) ?? 0) + 1);
+			}
+
+			keys = keys.map((key, i) => {
+				let [f] = entries[i];
+				let qualifiable = f.parent || f.id == null;
+				return counts.get(key) > 1 && qualifiable && f[prop] ? f[prop] : key;
+			});
+		}
+
+		// Arrays only where the task definition says so: a grouped glob's element
+		// (structural), or a key several inputs share (same id). Everything else
+		// is a bare entry — shapes never depend on what a glob matched.
 		let groups = new Map();
-
-		for (let [i, [f]] of entries.entries()) {
-			let key = f.id ?? f.name ?? f.glob;
-			let members = Array.isArray(elements[i]) ? elements[i] : [elements[i]];
-			let family = Array.isArray(elements[i]) || (f.parent && f.id != null);
-
+		keys.forEach((key, i) => {
 			let group = groups.get(key);
 			if (!group) {
-				groups.set(key, (group = { members: [], bare: true }));
+				groups.set(key, (group = { claims: 0, structural: false, members: [] }));
 			}
-			group.members.push(...members);
-			group.bare &&= !family;
-		}
+
+			let structural = Array.isArray(entries[i][1]);
+			group.claims++;
+			group.structural ||= structural;
+			group.members.push(...(structural ? elements[i] : [elements[i]]));
+		});
 
 		return [
 			Object.fromEntries(
 				[...groups].map(([key, g]) => [
 					key,
-					g.bare && g.members.length === 1 ? g.members[0] : g.members,
+					g.structural || g.claims > 1 ? g.members : g.members[0],
 				]),
 			),
 		];

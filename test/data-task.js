@@ -262,19 +262,12 @@ export default {
 					expect: ["data.json", "notes"],
 				},
 				{
-					name: "Ungrouped glob family groups under its id",
+					name: "Ungrouped glob children key by their own name, bare",
+					description:
+						"id names the family, not the files — values stay bare regardless of match count.",
 					arg: {
 						resultType: "object",
 						input: [{ name: __dirname + "files/*.txt", id: "texts" }],
-						handleResult: ({ texts }) => texts.length,
-					},
-					expect: 2,
-				},
-				{
-					name: "Ungrouped glob without an id keys children by name, bare",
-					arg: {
-						resultType: "object",
-						input: [__dirname + "files/*.txt"],
 						handleResult: obj =>
 							Object.entries(obj).map(([k, v]) => [
 								k.split("/").pop(),
@@ -303,7 +296,9 @@ export default {
 					expect: true,
 				},
 				{
-					name: "Shared keys collect an array instead of dropping data",
+					name: "Colliding names qualify instead of dropping data",
+					description:
+						"The name-derived key bumps to the filename; the explicit id keeps its key.",
 					arg: {
 						resultType: "object",
 						input: [
@@ -311,7 +306,18 @@ export default {
 							{ contents: { from: "second" }, filename: "notes.txt", id: "data" },
 						],
 					},
-					expect: { data: [{ from: "first" }, { from: "second" }] },
+					expect: { "data.json": { from: "first" }, data: { from: "second" } },
+				},
+				{
+					name: "Inputs sharing an id group into an array",
+					arg: {
+						resultType: "object",
+						input: [
+							{ contents: 1, filename: "a.json", id: "nums" },
+							{ contents: 2, filename: "b.json", id: "nums" },
+						],
+					},
+					expect: { nums: [1, 2] },
 				},
 			],
 		},
