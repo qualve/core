@@ -206,17 +206,22 @@ export function parseResultType (resultType) {
  * @throws On an invalid `resultType` string (see {@link parseResultType}).
  */
 export function shapeResult (files, resultType) {
-	let { type, grouped, files: asFiles } = parseResultType(resultType);
+	let rt = parseResultType(resultType);
 
 	let project = value =>
-		Array.isArray(value) ? value.map(project) : asFiles ? value : value.contents;
+		Array.isArray(value) ? value.map(project) : rt.files ? value : value.contents;
 
 	// One element per descriptor when grouping (a glob's element is its matches),
-	// per expanded file otherwise.
-	let elements = grouped
-		? files.map(f => project(f.glob ? f.children : f))
-		: files.flatMap(f => (f.glob ? f.children : f)).map(project);
+	// per expanded file otherwise. Flatten before projecting — after, flat()
+	// would also flatten array-valued file contents (e.g. a codebook).
+	let elements = files.map(f => (f.glob ? f.children : f));
+
+	if (!rt.grouped) {
+		elements = elements.flat();
+	}
+
+	elements = elements.map(project);
 
 	// handleResult's argument list: array is a single argument, args one per element.
-	return type === "array" ? [elements] : elements;
+	return rt.type === "array" ? [elements] : elements;
 }
