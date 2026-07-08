@@ -70,6 +70,14 @@ export default {
 };
 ```
 
+The optional `resultType` controls the shape of `handleResult`'s input, with the microsyntax `(args|array)(-grouped)?(-files)?`:
+
+- `args` (the default) spreads one argument per element; `array` passes them as a single array.
+- `-grouped` gives one element per input — a glob contributes its matches as an array. By default, glob matches are spliced inline.
+- `-files` passes `File` objects instead of their contents — each carries its own identity (`name`, `filename`, `parent`), so keyed access is one `find()` or `Map.groupBy()` away.
+
+Tokens are order-insensitive, and the type defaults to `args`: `"grouped"` means `args-grouped`, `"files"` means `args-files`.
+
 You can chain tasks together to create custom data processing pipelines.
 
 ## Configuration

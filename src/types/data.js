@@ -1,15 +1,20 @@
 import Task from "../task.js";
+import { shapeResult, parseResultType } from "../util.js";
 
 export default class DataTask extends Task {
 	static type = "data";
 
 	async runTask () {
-		// Flatten: globs expand to children (empty array if no matches); leaves stay as-is.
-		let files = this.input.flatMap(f => f.glob ? f.children : [f]);
+		// Flat expansion only feeds the dry-run/empty checks; the resultType
+		// shaping (grouping, projection, keying) lives in shapeResult.
+		let files = this.input.flatMap(f => (f.glob ? f.children : [f]));
+		let resultType = parseResultType(this.resultType);
 
 		if (this.dryRun) {
 			Object.assign(this.debug, {
-				resultType: this.resultType,
+				// Parsed, not raw: shows the effective shape (defaults included) and
+				// makes dry-run surface a malformed resultType instead of echoing it.
+				resultType,
 				output: this.output?.map?.(f => f.debug),
 				files: files.map(f => f.debug),
 			});
@@ -27,13 +32,9 @@ export default class DataTask extends Task {
 			await Promise.all(thenables);
 		}
 
-		let input =
-			this.resultType === "array"
-				? files.map(f => f.contents)
-				: this.resultType === "files"
-					? files
-					: files[0].contents;
-		let result = this.handleResult?.(input) ?? input;
+		let args = shapeResult(this.input, resultType);
+		let input = args.length === 1 ? args[0] : args;
+		let result = this.handleResult?.(...args) ?? input;
 
 		// Pure computation: output writing is handled by Task.run().
 		return { inputs: files, result };
