@@ -155,9 +155,8 @@ export function camelToKebab (s) {
  * - `grouped`: one element per input descriptor (a glob's matches arrive as an
  *   array); default splices glob matches inline.
  * - `files`: `File` objects instead of their contents.
- * Without an explicit type, `files` implies `array` (so `"files"` keeps its
- * legacy meaning ≡ `array-files`, and `"grouped-files"` ≡ `array-grouped-files`);
- * anything else defaults to `args` (`"grouped"` ≡ `args-grouped`).
+ * The type defaults to `args`: `"grouped"` ≡ `args-grouped`, `"files"` ≡
+ * `args-files`.
  * Already-parsed objects pass through, so callers can parse once and forward.
  * @param {string | { type?: string, grouped?: boolean, files?: boolean }} [resultType]
  * @returns {{ type: "args" | "array", grouped: boolean, files: boolean }}
@@ -186,15 +185,10 @@ export function parseResultType (resultType) {
 		throw new Error(`Ambiguous resultType "${resultType}": more than one type token.`);
 	}
 
-	let ret = {
-		type: types[0],
+	return {
+		type: types[0] ?? "args",
 		...Object.fromEntries(FLAGS.map(f => [f, tokens.includes(f)])),
 	};
-
-	// files implies array (its legacy meaning); everything else defaults to args.
-	ret.type ??= ret.files ? "array" : "args";
-
-	return ret;
 }
 
 /**

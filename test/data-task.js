@@ -36,15 +36,27 @@ export default {
 			expect: [{ a: 1 }, { b: 2 }],
 		},
 		{
-			name: "resultType: files gives one array of File objects",
+			name: "resultType: array-files gives one array of File objects",
 			arg: {
-				resultType: "files",
+				resultType: "array-files",
 				input: [
 					{ contents: { x: 1 }, filename: "x.json" },
 					{ contents: { y: 2 }, filename: "y.json" },
 				],
 			},
 			map: value => value?.filename ?? value,
+			expect: ["x.json", "y.json"],
+		},
+		{
+			name: "resultType: files spreads one File argument per element",
+			arg: {
+				resultType: "files",
+				input: [
+					{ contents: { x: 1 }, filename: "x.json" },
+					{ contents: { y: 2 }, filename: "y.json" },
+				],
+				handleResult: (x, y) => [x.filename, y.filename],
+			},
 			expect: ["x.json", "y.json"],
 		},
 		{
@@ -240,16 +252,15 @@ export default {
 					throws: /Invalid resultType token "groupde"/,
 				},
 				{
-					name: "files without an explicit type implies array",
-					description:
-						"grouped-files ≡ array-grouped-files — the grouped version of legacy \"files\".",
+					name: "Type defaults to args in combinations",
+					description: "grouped-files ≡ args-grouped-files.",
 					arg: {
 						resultType: "grouped-files",
 						input: [
 							{ contents: "a", filename: "a.json" },
 							{ contents: "b", filename: "b.json" },
 						],
-						handleResult: elements => elements.map(f => f.filename),
+						handleResult: (a, b) => [a.filename, b.filename],
 					},
 					expect: ["a.json", "b.json"],
 				},
