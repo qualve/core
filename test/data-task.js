@@ -330,6 +330,18 @@ export default {
 					},
 					expect: { nums: [1, 2] },
 				},
+				{
+					name: "Glob and leaf sharing a key group together",
+					arg: {
+						resultType: "object-grouped",
+						input: [
+							{ name: __dirname + "files/*.txt", key: "texts" },
+							{ contents: "extra", filename: "extra.txt", key: "texts" },
+						],
+						handleResult: ({ texts }) => texts.length,
+					},
+					expect: 3,
+				},
 			],
 		},
 		{
