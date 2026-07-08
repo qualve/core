@@ -221,12 +221,24 @@ export default {
 		},
 		{
 			name: "resultType: object",
-			description: "#84 — elements keyed by descriptor `id`, falling back to file name.",
+			description:
+				"#84 — grouped descriptors key by `id` ?? name ?? glob pattern; ungrouped results map file identity, keyed by name.",
 			tests: [
 				{
-					name: "Keys by name, id overrides",
+					name: "Ungrouped object keys by file name; ids not consulted",
 					arg: {
 						resultType: "object",
+						input: [
+							{ contents: { a: 1 }, filename: "data.json" },
+							{ contents: "notes", filename: "notes.txt", id: "meta" },
+						],
+					},
+					expect: { data: { a: 1 }, notes: "notes" },
+				},
+				{
+					name: "Grouped object keys by id, falling back to name",
+					arg: {
+						resultType: "object-grouped",
 						input: [
 							{ contents: { a: 1 }, filename: "data.json" },
 							{ contents: "notes", filename: "notes.txt", id: "meta" },
@@ -255,16 +267,16 @@ export default {
 						resultType: "object-files",
 						input: [
 							{ contents: { a: 1 }, filename: "data.json" },
-							{ contents: "notes", filename: "notes.txt", id: "meta" },
+							{ contents: "notes", filename: "notes.txt" },
 						],
-						handleResult: ({ data, meta }) => [data.filename, meta.contents],
+						handleResult: ({ data, notes }) => [data.filename, notes.contents],
 					},
 					expect: ["data.json", "notes"],
 				},
 				{
 					name: "Ungrouped glob children key by their own name, bare",
 					description:
-						"id names the family, not the files — values stay bare regardless of match count.",
+						"Ungrouped object results map file identity — values stay bare regardless of match count.",
 					arg: {
 						resultType: "object",
 						input: [{ name: __dirname + "files/*.txt", id: "texts" }],
@@ -297,21 +309,20 @@ export default {
 				},
 				{
 					name: "Colliding names qualify instead of dropping data",
-					description:
-						"The name-derived key bumps to the filename; the explicit id keeps its key.",
+					description: "Same name, different extension — keys bump to the filename.",
 					arg: {
 						resultType: "object",
 						input: [
 							{ contents: { from: "first" }, filename: "data.json" },
-							{ contents: { from: "second" }, filename: "notes.txt", id: "data" },
+							{ contents: "second", filename: "data.txt" },
 						],
 					},
-					expect: { "data.json": { from: "first" }, data: { from: "second" } },
+					expect: { "data.json": { from: "first" }, "data.txt": "second" },
 				},
 				{
-					name: "Inputs sharing an id group into an array",
+					name: "Grouped inputs sharing an id group into an array",
 					arg: {
-						resultType: "object",
+						resultType: "object-grouped",
 						input: [
 							{ contents: 1, filename: "a.json", id: "nums" },
 							{ contents: 2, filename: "b.json", id: "nums" },

@@ -205,11 +205,12 @@ export function parseResultType (resultType) {
  * single array for `array`, a single object for `object` — so callers invoke
  * `handleResult(...args)`, and `args.length === 1 ? args[0] : args` is the
  * no-handler fallback value.
- * In `object` results, keys come from descriptor `id` ?? file name (?? glob
- * pattern). Shapes never depend on what a glob matched: arrays appear only
- * where the task definition says so — a grouped glob's element, or inputs
- * sharing an explicit `id` — while colliding names qualify further (filename,
- * then full path) so every file keeps its own bare entry.
+ * In `object` results, `id` is a grouping key: grouped descriptors key by
+ * `id` ?? name ?? glob pattern, while ungrouped results map file identity —
+ * each file keyed by its name, ids not consulted. Shapes never depend on what
+ * a glob matched: arrays appear only where the task definition says so (a
+ * grouped glob's element, or grouped inputs sharing an `id`), and colliding
+ * names qualify further (filename, then full path) rather than changing shape.
  * @param {import("./file.js").default[]} files
  * @param {string | { type?: string, grouped?: boolean, files?: boolean }} [resultType]
  * @returns {unknown[]}
@@ -228,9 +229,10 @@ export function shapeResult (files, resultType) {
 	let elements = entries.map(([, value]) => project(value));
 
 	if (type === "object") {
-		// name identifies, id groups: a glob child keys by its own name, a
-		// descriptor by id ?? name ?? glob pattern.
-		let keys = entries.map(([f]) => (f.parent ? f.name : (f.id ?? f.name ?? f.glob)));
+		// id is a grouping key, so it only applies when grouping: grouped
+		// descriptors key by id ?? name ?? glob pattern; ungrouped results map
+		// file identity, keyed by each file's name.
+		let keys = entries.map(([f]) => (grouped ? (f.id ?? f.name ?? f.glob) : f.name));
 
 		// Colliding name-derived keys qualify further (filename, then full path)
 		// so every file keeps its own entry; ids never qualify — inputs sharing
@@ -243,7 +245,7 @@ export function shapeResult (files, resultType) {
 
 			keys = keys.map((key, i) => {
 				let [f] = entries[i];
-				let qualifiable = f.parent || f.id == null;
+				let qualifiable = !grouped || f.id == null;
 				return counts.get(key) > 1 && qualifiable && f[prop] ? f[prop] : key;
 			});
 		}
