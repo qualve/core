@@ -223,8 +223,7 @@ export function shapeResult (files, resultType) {
 	let project = value =>
 		Array.isArray(value) ? value.map(project) : asFiles ? value : value.contents;
 
-	// One item per handleResult element: the descriptor when grouping (a glob's
-	// value is its matches array), each expanded file otherwise.
+	// One item per handleResult element: descriptors when grouping, files otherwise.
 	let items = (
 		grouped
 			? files.map(f => [f, f.glob ? f.children : f])
@@ -233,20 +232,16 @@ export function shapeResult (files, resultType) {
 
 	if (type !== "object") {
 		let elements = items.map(item => item.element);
-		// The return value is handleResult's argument list, not data: array is a
-		// single argument; args is one argument per element.
+		// handleResult's argument list: array is a single argument, args one per element.
 		return type === "array" ? [elements] : elements;
 	}
 
-	// key only applies when grouping: grouped descriptors key by key ?? name ??
-	// glob pattern; ungrouped results map file identity by name, with colliding
-	// names qualifying further (filename, then full path) — keys never qualify,
-	// inputs sharing one group intentionally.
 	for (let item of items) {
 		let { file } = item;
 		item.key = grouped ? (file.key ?? file.name ?? file.glob) : file.name;
 	}
 
+	// Colliding names qualify further; explicit keys never do — they group.
 	for (let prop of ["filename", "filePath"]) {
 		let claims = Map.groupBy(items, item => item.key);
 		for (let item of items) {
@@ -256,9 +251,6 @@ export function shapeResult (files, resultType) {
 		}
 	}
 
-	// Arrays only where the task definition says so — a grouped glob's element,
-	// or a key several inputs share — never because of what a glob matched.
-	// The [wrapper]: the object is handleResult's single argument.
 	return [
 		Object.fromEntries(
 			[...Map.groupBy(items, item => item.key)].map(([key, claims]) => [
