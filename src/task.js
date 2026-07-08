@@ -451,9 +451,9 @@ export default class Task {
 
 		try {
 			// Batch tasks always run the first subtask alone: it uploads all inputs
-			// (shared + its slice) fresh, so subsequent subtasks find shared inputs
-			// already on the provider. Without this, concurrent subtasks would race
-			// to upload the same shared files.
+			// (shared + its slice), so subsequent subtasks find shared inputs already
+			// on the provider. Without this, concurrent subtasks would race to upload
+			// the same shared files.
 			// failFast independently controls whether a first-subtask failure aborts the rest.
 			if (this.failFast || this.batched) {
 				let [first, ...rest] = computedSubtasks;
@@ -655,12 +655,8 @@ export default class Task {
 		for (let start = 0; start < batchableData.length; start += batchSize) {
 			let end = Math.min(start + batchSize, batchableData.length) - 1;
 			let suffix = `-${start}-${end}`;
-			let isFirst = start === 0;
-
 			let sliceFilename = addFilenameSuffix(batchableInput.filename, suffix);
 
-			// Batch slice always gets file-level fresh to avoid stale remote data.
-			// Shared inputs have no file-level fresh, so they fall back to the task-level fresh below.
 			let batchInput = this.input.map(file =>
 				file === batchableInput
 					? {
@@ -668,20 +664,15 @@ export default class Task {
 							schema: batchableInput.schema,
 							description: batchableInput.description,
 							contents: batchableData.slice(start, end + 1),
-							fresh: true,
 						}
 					: file);
 
 			let batchOutputFilename = addFilenameSuffix(this.output[0].filename, suffix);
 
-			// First subtask: task-level fresh uploads everything (shared inputs + slice).
-			// With fail-fast (default for batch), it runs alone and completes first,
-			// so subsequent subtasks find shared inputs already on the provider.
 			subtasks.push(
 				this.createSubtask({
 					...this.task,
 					itemsPerPage: undefined, // Prevent re-batching
-					fresh: isFirst ? true : undefined,
 					batchableIndex,
 					input: batchInput,
 					output: {
