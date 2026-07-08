@@ -161,6 +161,7 @@ export function camelToKebab (s) {
  * Already-parsed objects pass through, so callers can parse once and forward.
  * @param {string | { type?: string, grouped?: boolean, files?: boolean }} [resultType]
  * @returns {{ type: "args" | "array" | "object", grouped: boolean, files: boolean }}
+ * @throws On unknown tokens, or more than one type token.
  */
 export function parseResultType (resultType) {
 	if (resultType && typeof resultType === "object") {
@@ -205,8 +206,10 @@ export function parseResultType (resultType) {
  * `handleResult(...args)`, and `args.length === 1 ? args[0] : args` is the
  * no-handler fallback value.
  * @param {import("./file.js").default[]} files
- * @param {string} [resultType]
+ * @param {string | { type?: string, grouped?: boolean, files?: boolean }} [resultType]
  * @returns {unknown[]}
+ * @throws On an invalid `resultType` (see {@link parseResultType}), or when an
+ *   `object` result has duplicate keys (silent last-write-wins would drop data).
  */
 export function shapeResult (files, resultType) {
 	let { type, grouped, files: asFiles } = parseResultType(resultType);
