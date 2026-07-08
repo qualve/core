@@ -235,6 +235,33 @@ export default class Task {
 	}
 
 	/**
+	 * The input that gets split into batches when `itemsPerPage` is set: explicitly via
+	 * `paginate`, or the sole array-schema input. It's also the per-call, non-cacheable
+	 * input for prompt caching — the data being processed, as opposed to stable reference
+	 * inputs. Undefined when there is no array input or the choice is ambiguous (multiple
+	 * arrays, no `paginate`) — callers that require one throw with a specific message.
+	 * One owner for both batching ({@link createBatchSubtasks}) and caching (LLMTask#promptContent).
+	 */
+	get batchableInput () {
+		let input = this.input ?? [];
+
+		// A batch subtask isn't batched itself, but caching (promptContent) still needs its
+		// per-call input, which detection can't recover (the slice lost its paginate/array
+		// signal), so createBatchSubtasks hands the position down.
+		if (this.batchableIndex != null) {
+			return input[this.batchableIndex];
+		}
+
+		let explicit = input.find(f => f.paginate);
+		if (explicit) {
+			return explicit;
+		}
+
+		let arrays = input.filter(f => f.schemaType === "array");
+		return arrays.length === 1 ? arrays[0] : undefined;
+	}
+
+	/**
 	 * The effective list of child tasks for this run, regardless of source
 	 * (explicit subtasks, option-driven fan-out, or batch pagination).
 	 * Memoized on first access — subsequent reads return the cached array.
@@ -592,28 +619,17 @@ export default class Task {
 			throw new Error("Batching is not supported with multiple or dynamic outputs.");
 		}
 
-		// Find the input to paginate: explicit `paginate` on the file, or auto-detect the single array-schema input.
+		// The input to paginate — explicit `paginate`, or the single array-schema input.
 		// TODO: support multiple paginated inputs.
-		let batchableInput = this.input.find(f => f.paginate);
+		let batchableInput = this.batchableInput;
 
 		if (!batchableInput) {
-			let inputs = this.input.filter(f => f.schemaType === "array");
-
-			if (inputs.length === 1) {
-				batchableInput = inputs[0];
-			}
-			else if (inputs.length === 0) {
-				let names = this.input.map(f => f.name).join(", ");
-				throw new Error(
-					`itemsPerPage is set but no input has an array schema (inputs: ${names}).`,
-				);
-			}
-			else {
-				let names = inputs.map(f => f.name).join(", ");
-				throw new Error(
-					`Multiple inputs have array schemas (${names}). Set paginate on the file definition to disambiguate.`,
-				);
-			}
+			let arrays = this.input.filter(f => f.schemaType === "array");
+			throw new Error(
+				arrays.length > 1
+					? `Multiple inputs have array schemas (${arrays.map(f => f.name).join(", ")}). Set paginate on the file definition to disambiguate.`
+					: `itemsPerPage is set but no input has an array schema (inputs: ${this.input.map(f => f.name).join(", ")}).`,
+			);
 		}
 
 		let rawData = batchableInput.contents;
@@ -629,6 +645,11 @@ export default class Task {
 			return [];
 		}
 
+		// The slice is a renamed, plain-object copy, so neither the batchable File's
+		// reference nor its name survives into the subtask — only its position does
+		// (batchInput below is a positional clone). Record it so batchableInput resolves
+		// without re-detecting.
+		let batchableIndex = this.input.indexOf(batchableInput);
 		let subtasks = [];
 
 		for (let start = 0; start < batchableData.length; start += batchSize) {
@@ -661,6 +682,7 @@ export default class Task {
 					...this.task,
 					itemsPerPage: undefined, // Prevent re-batching
 					fresh: isFirst ? true : undefined,
+					batchableIndex,
 					input: batchInput,
 					output: {
 						filename: batchOutputFilename,
