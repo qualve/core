@@ -222,36 +222,36 @@ export default {
 		{
 			name: "resultType: object",
 			description:
-				"#84 — grouped descriptors key by `id` ?? name ?? glob pattern; ungrouped results map file identity, keyed by name.",
+				"#84 — grouped descriptors key by `key` ?? name ?? glob pattern; ungrouped results map file identity, keyed by name.",
 			tests: [
 				{
-					name: "Ungrouped object keys by file name; ids not consulted",
+					name: "Ungrouped object keys by file name; key fields not consulted",
 					arg: {
 						resultType: "object",
 						input: [
 							{ contents: { a: 1 }, filename: "data.json" },
-							{ contents: "notes", filename: "notes.txt", id: "meta" },
+							{ contents: "notes", filename: "notes.txt", key: "meta" },
 						],
 					},
 					expect: { data: { a: 1 }, notes: "notes" },
 				},
 				{
-					name: "Grouped object keys by id, falling back to name",
+					name: "Grouped object keys by key, falling back to name",
 					arg: {
 						resultType: "object-grouped",
 						input: [
 							{ contents: { a: 1 }, filename: "data.json" },
-							{ contents: "notes", filename: "notes.txt", id: "meta" },
+							{ contents: "notes", filename: "notes.txt", key: "meta" },
 						],
 					},
 					expect: { data: { a: 1 }, meta: "notes" },
 				},
 				{
-					name: "Grouped glob keys by its id",
+					name: "Grouped glob keys by its key",
 					arg: {
 						resultType: "object-grouped",
 						input: [
-							{ name: __dirname + "files/*.txt", id: "texts" },
+							{ name: __dirname + "files/*.txt", key: "texts" },
 							{ contents: { a: 1 }, filename: "data.json" },
 						],
 						handleResult: ({ texts, data }) => ({
@@ -279,7 +279,7 @@ export default {
 						"Ungrouped object results map file identity — values stay bare regardless of match count.",
 					arg: {
 						resultType: "object",
-						input: [{ name: __dirname + "files/*.txt", id: "texts" }],
+						input: [{ name: __dirname + "files/*.txt", key: "texts" }],
 						handleResult: obj =>
 							Object.entries(obj).map(([k, v]) => [
 								k.split("/").pop(),
@@ -289,16 +289,16 @@ export default {
 					expect: [["greeting", "string"], ["notes", "string"]],
 				},
 				{
-					name: "Glob children inherit their family id",
+					name: "Glob children inherit their family key",
 					arg: {
 						resultType: "files",
-						input: [{ name: __dirname + "files/*.txt", id: "texts" }],
-						handleResult: files => files.map(f => f.id),
+						input: [{ name: __dirname + "files/*.txt", key: "texts" }],
+						handleResult: files => files.map(f => f.key),
 					},
 					expect: ["texts", "texts"],
 				},
 				{
-					name: "Grouped glob without an id keys by its pattern",
+					name: "Grouped glob without a key keys by its pattern",
 					arg: {
 						resultType: "object-grouped",
 						input: [__dirname + "files/*.txt"],
@@ -320,12 +320,12 @@ export default {
 					expect: { "data.json": { from: "first" }, "data.txt": "second" },
 				},
 				{
-					name: "Grouped inputs sharing an id group into an array",
+					name: "Grouped inputs sharing a key group into an array",
 					arg: {
 						resultType: "object-grouped",
 						input: [
-							{ contents: 1, filename: "a.json", id: "nums" },
-							{ contents: 2, filename: "b.json", id: "nums" },
+							{ contents: 1, filename: "a.json", key: "nums" },
+							{ contents: 2, filename: "b.json", key: "nums" },
 						],
 					},
 					expect: { nums: [1, 2] },

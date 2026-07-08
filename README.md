@@ -72,7 +72,7 @@ export default {
 
 The optional `resultType` controls the shape of `handleResult`'s input, with the microsyntax `(args|array|object)(-grouped)?(-files)?`:
 
-- `args` (the default) spreads one argument per element; `array` passes them as a single array; `object` keys grouped descriptors by `id` (falling back to name, or the glob pattern) and ungrouped files by their name — colliding names qualify further (filename, then full path), and grouped inputs sharing an `id` group into an array.
+- `args` (the default) spreads one argument per element; `array` passes them as a single array; `object` keys grouped descriptors by `key` (falling back to name, or the glob pattern) and ungrouped files by their name — colliding names qualify further (filename, then full path), and grouped inputs sharing a `key` group into an array.
 - `-grouped` gives one element per input descriptor — a glob contributes its matches as an array. By default, glob matches are spliced inline.
 - `-files` passes `File` objects instead of their contents.
 

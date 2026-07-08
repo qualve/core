@@ -151,7 +151,7 @@ export function camelToKebab (s) {
  * Parse a `resultType` string — the shape of `handleResult`'s input.
  * Microsyntax: `(args|array|object)(-grouped)?(-files)?`, order-insensitive.
  * - `args` (default): one positional argument per element; `array`: a single
- *   array; `object`: keyed by descriptor `id`, falling back to file name.
+ *   array; `object`: keyed by descriptor `key`, falling back to file name.
  * - `grouped`: one element per input descriptor (a glob's matches arrive as an
  *   array); default splices glob matches inline.
  * - `files`: `File` objects instead of their contents.
@@ -205,12 +205,13 @@ export function parseResultType (resultType) {
  * single array for `array`, a single object for `object` — so callers invoke
  * `handleResult(...args)`, and `args.length === 1 ? args[0] : args` is the
  * no-handler fallback value.
- * In `object` results, `id` is a grouping key: grouped descriptors key by
- * `id` ?? name ?? glob pattern, while ungrouped results map file identity —
- * each file keyed by its name, ids not consulted. Shapes never depend on what
- * a glob matched: arrays appear only where the task definition says so (a
- * grouped glob's element, or grouped inputs sharing an `id`), and colliding
- * names qualify further (filename, then full path) rather than changing shape.
+ * In `object` results, `key` only applies when grouping: grouped descriptors
+ * key by `key` ?? name ?? glob pattern, while ungrouped results map file
+ * identity — each file keyed by its name, `key`s not consulted. Shapes never
+ * depend on what a glob matched: arrays appear only where the task definition
+ * says so (a grouped glob's element, or grouped inputs sharing a `key`), and
+ * colliding names qualify further (filename, then full path) rather than
+ * changing shape.
  * @param {import("./file.js").default[]} files
  * @param {string | { type?: string, grouped?: boolean, files?: boolean }} [resultType]
  * @returns {unknown[]}
@@ -229,13 +230,13 @@ export function shapeResult (files, resultType) {
 	let elements = entries.map(([, value]) => project(value));
 
 	if (type === "object") {
-		// id is a grouping key, so it only applies when grouping: grouped
-		// descriptors key by id ?? name ?? glob pattern; ungrouped results map
-		// file identity, keyed by each file's name.
-		let keys = entries.map(([f]) => (grouped ? (f.id ?? f.name ?? f.glob) : f.name));
+		// key only applies when grouping: grouped descriptors key by
+		// key ?? name ?? glob pattern; ungrouped results map file identity,
+		// keyed by each file's name.
+		let keys = entries.map(([f]) => (grouped ? (f.key ?? f.name ?? f.glob) : f.name));
 
 		// Colliding name-derived keys qualify further (filename, then full path)
-		// so every file keeps its own entry; ids never qualify — inputs sharing
+		// so every file keeps its own entry; keys never qualify — inputs sharing
 		// one group intentionally.
 		for (let prop of ["filename", "filePath"]) {
 			let counts = new Map();
@@ -245,13 +246,13 @@ export function shapeResult (files, resultType) {
 
 			keys = keys.map((key, i) => {
 				let [f] = entries[i];
-				let qualifiable = !grouped || f.id == null;
+				let qualifiable = !grouped || f.key == null;
 				return counts.get(key) > 1 && qualifiable && f[prop] ? f[prop] : key;
 			});
 		}
 
 		// Arrays only where the task definition says so: a grouped glob's element
-		// (structural), or a key several inputs share (same id). Everything else
+		// (structural), or a key several inputs share. Everything else
 		// is a bare entry — shapes never depend on what a glob matched.
 		let groups = new Map();
 		keys.forEach((key, i) => {
