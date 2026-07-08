@@ -19,9 +19,11 @@
     "Dmitry Sharabin"
   ],
   "scripts": {
-    "release": "npm login && release-it"
+    "test": "npx htest test",
+    "release": "npm whoami >/dev/null 2>&1 || npm login && release-it"
   },
   "devDependencies": {
+    "htest.dev": "^0.0.24",
     "prettier": "^3.8.3",
     "prettier-plugin-brace-style": "^0.10.1",
     "prettier-plugin-merge": "^0.10.1",
