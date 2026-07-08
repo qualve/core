@@ -280,14 +280,14 @@ export default {
 					expect: ["texts", "texts"],
 				},
 				{
-					name: "Grouped glob without an id throws",
-					description:
-						"The only key left would be the raw pattern — an absolute path leaking into output data.",
+					name: "Grouped glob without an id keys by its pattern",
 					arg: {
 						resultType: "object-grouped",
 						input: [__dirname + "files/*.txt"],
+						handleResult: obj =>
+							Object.keys(obj)[0] === __dirname + "files/*.txt",
 					},
-					throws: /needs an explicit "id" on glob input/,
+					expect: true,
 				},
 				{
 					name: "Duplicate keys throw instead of silently dropping data",
@@ -298,7 +298,7 @@ export default {
 							{ contents: { from: "second" }, filename: "notes.txt", id: "data" },
 						],
 					},
-					throws: /duplicate key "data"/,
+					throws: /Duplicate key "data"/,
 				},
 			],
 		},
@@ -323,12 +323,18 @@ export default {
 					throws: /Invalid resultType token "groupde"/,
 				},
 				{
-					name: "files combined without an explicit type throws",
+					name: "files without an explicit type implies array",
+					description:
+						"grouped-files ≡ array-grouped-files — the grouped version of legacy \"files\".",
 					arg: {
 						resultType: "grouped-files",
-						input: [{ contents: "a", filename: "a.json" }],
+						input: [
+							{ contents: "a", filename: "a.json" },
+							{ contents: "b", filename: "b.json" },
+						],
+						handleResult: elements => elements.map(f => f.filename),
 					},
-					throws: /needs an explicit type/,
+					expect: ["a.json", "b.json"],
 				},
 				{
 					name: "Two type tokens throw",

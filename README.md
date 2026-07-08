@@ -76,7 +76,7 @@ The optional `resultType` controls the shape of `handleResult`'s input, with the
 - `-grouped` gives one element per input descriptor — a glob contributes its matches as an array. By default, glob matches are spliced inline.
 - `-files` passes `File` objects instead of their contents.
 
-Tokens are order-insensitive. Bare `"grouped"` means `args-grouped`; bare `"files"` is legacy shorthand for `array-files` (one array of `File` objects), so combining `files` with other tokens requires an explicit type.
+Tokens are order-insensitive. Without an explicit type, `files` implies `array` — so `"files"` keeps its legacy meaning (one array of `File` objects) and `"grouped-files"` is its grouped version — while anything else defaults to `args` (`"grouped"` means `args-grouped`).
 
 You can chain tasks together to create custom data processing pipelines.
 

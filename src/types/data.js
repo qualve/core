@@ -8,12 +8,13 @@ export default class DataTask extends Task {
 		// Flat expansion only feeds the dry-run/empty checks; the resultType
 		// shaping (grouping, projection, keying) lives in shapeResult.
 		let files = this.input.flatMap(f => (f.glob ? f.children : [f]));
+		let resultType = parseResultType(this.resultType);
 
 		if (this.dryRun) {
 			Object.assign(this.debug, {
 				// Parsed, not raw: shows the effective shape (defaults included) and
 				// makes dry-run surface a malformed resultType instead of echoing it.
-				resultType: parseResultType(this.resultType),
+				resultType,
 				output: this.output?.map?.(f => f.debug),
 				files: files.map(f => f.debug),
 			});
@@ -31,7 +32,7 @@ export default class DataTask extends Task {
 			await Promise.all(thenables);
 		}
 
-		let args = shapeResult(this.input, this.resultType);
+		let args = shapeResult(this.input, resultType);
 		let input = args.length === 1 ? args[0] : args;
 		let result = this.handleResult?.(...args) ?? input;
 

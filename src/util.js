@@ -155,47 +155,43 @@ export function camelToKebab (s) {
  * - `grouped`: one element per input descriptor (a glob's matches arrive as an
  *   array); default splices glob matches inline.
  * - `files`: `File` objects instead of their contents.
- * Bare `"grouped"` ≡ `args-grouped`; bare `"files"` keeps its legacy meaning
- * (≡ `array-files`), so combining `files` with other tokens requires an
- * explicit type.
- * @param {string} [resultType]
+ * Without an explicit type, `files` implies `array` (so `"files"` keeps its
+ * legacy meaning ≡ `array-files`, and `"grouped-files"` ≡ `array-grouped-files`);
+ * anything else defaults to `args` (`"grouped"` ≡ `args-grouped`).
+ * Already-parsed objects pass through, so callers can parse once and forward.
+ * @param {string | { type?: string, grouped?: boolean, files?: boolean }} [resultType]
  * @returns {{ type: "args" | "array" | "object", grouped: boolean, files: boolean }}
  */
 export function parseResultType (resultType) {
-	if (resultType === "files") {
-		return { type: "array", files: true, grouped: false };
+	if (resultType && typeof resultType === "object") {
+		// Already parsed, just return it.
+		return resultType;
 	}
 
 	const TYPES = new Set(["args", "array", "object"]);
-	const FLAGS = new Set(["grouped", "files"]);
+	const FLAGS = ["grouped", "files"];
 
-	let ret = { type: "args", grouped: false, files: false };
-	let tokens = resultType?.split("-").filter(Boolean) ?? [];
-	let typed = false;
+	let tokens = [...new Set(resultType?.split("-").filter(Boolean) ?? [])];
+	let types = tokens.filter(t => TYPES.has(t));
+	let unknown = tokens.filter(t => !TYPES.has(t) && !FLAGS.includes(t));
 
-	for (let token of tokens) {
-		if (TYPES.has(token)) {
-			if (typed) {
-				throw new Error(`Ambiguous resultType "${resultType}": more than one type token.`);
-			}
-			typed = true;
-			ret.type = token;
-		}
-		else if (FLAGS.has(token)) {
-			ret[token] = true;
-		}
-		else {
-			throw new Error(
-				`Invalid resultType token "${token}" in "${resultType}". Valid: (args|array|object)(-grouped)?(-files)?, "grouped", "files".`,
-			);
-		}
-	}
-
-	if (ret.files && !typed && tokens.length > 1) {
+	if (unknown.length > 0) {
 		throw new Error(
-			`resultType "${resultType}" needs an explicit type when "files" is combined: e.g. "args-grouped-files" or "array-files". (Bare "files" is legacy shorthand for "array-files".)`,
+			`Invalid resultType token "${unknown.join('", "')}" in "${resultType}". Valid: (args|array|object)(-grouped)?(-files)?.`,
 		);
 	}
+
+	if (types.length > 1) {
+		throw new Error(`Ambiguous resultType "${resultType}": more than one type token.`);
+	}
+
+	let ret = {
+		type: types[0],
+		...Object.fromEntries(FLAGS.map(f => [f, tokens.includes(f)])),
+	};
+
+	// files implies array (its legacy meaning); everything else defaults to args.
+	ret.type ??= ret.files ? "array" : "args";
 
 	return ret;
 }
@@ -226,25 +222,14 @@ export function shapeResult (files, resultType) {
 
 	if (type === "object") {
 		// A glob child keys by its own name — its (inherited) id names the
-		// family, and family-keyed children would collide.
-		let keys = entries.map(([f]) => {
-			let key = f.parent ? f.name : (f.id ?? f.name);
-
-			if (key == null) {
-				// Grouped globs have no name; without an id the only key left would
-				// be the raw pattern — an absolute path leaking into output data.
-				throw new Error(
-					`resultType "${resultType}" needs an explicit "id" on glob input "${f.glob}" to key its result.`,
-				);
-			}
-
-			return key;
-		});
+		// family, and family-keyed children would collide. A grouped glob keys
+		// by its pattern; `id` improves keys but is never required.
+		let keys = entries.map(([f]) => (f.parent ? f.name : (f.id ?? f.name ?? f.glob)));
 
 		let dupe = keys.find((key, i) => keys.indexOf(key) !== i);
 		if (dupe !== undefined) {
 			throw new Error(
-				`resultType "${resultType}" has a duplicate key "${dupe}" — give one of the colliding inputs an explicit "id".`,
+				`Duplicate key "${dupe}" in object result — give one of the colliding inputs an explicit "id".`,
 			);
 		}
 
