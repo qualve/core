@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import * as path from "node:path";
 import File from "qualve/file";
+import { addFilenameSuffix } from "qualve/util";
 import { JsonFormat } from "qualve/format";
 import * as prompts from "./prompts.js";
 
@@ -57,6 +58,8 @@ export default class LLMFile extends File {
 	 * a shared document (e.g. a codebook referenced across every question of a survey) —
 	 * while changed content yields a new name, and thus a fresh upload, on its own.
 	 * Separators → "-" so the name is slash-free for every provider.
+	 * Hash goes before the extension so the name still ends in a real extension
+	 * (some providers, e.g. OpenAI, validate uploads by trailing extension).
 	 * Memoized; assumes contents are resolved, which holds wherever upload runs
 	 * (getRemoteFiles awaits contents before calling upload).
 	 */
@@ -72,7 +75,7 @@ export default class LLMFile extends File {
 
 			let stem = this.path.split(path.sep).join("-");
 			let hash = createHash("sha256").update(this.toString()).digest("hex").slice(0, 12);
-			this.#remoteFilename = `${stem}-${hash}`;
+			this.#remoteFilename = addFilenameSuffix(stem, `-${hash}`);
 		}
 
 		return this.#remoteFilename;
