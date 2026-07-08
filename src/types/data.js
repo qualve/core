@@ -1,5 +1,5 @@
 import Task from "../task.js";
-import { shapeResult } from "../util.js";
+import { shapeResult, parseResultType } from "../util.js";
 
 export default class DataTask extends Task {
 	static type = "data";
@@ -11,7 +11,9 @@ export default class DataTask extends Task {
 
 		if (this.dryRun) {
 			Object.assign(this.debug, {
-				resultType: this.resultType,
+				// Parsed, not raw: shows the effective shape (defaults included) and
+				// makes dry-run surface a malformed resultType instead of echoing it.
+				resultType: parseResultType(this.resultType),
 				output: this.output?.map?.(f => f.debug),
 				files: files.map(f => f.debug),
 			});

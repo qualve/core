@@ -279,6 +279,27 @@ export default {
 					},
 					expect: ["texts", "texts"],
 				},
+				{
+					name: "Grouped glob without an id throws",
+					description:
+						"The only key left would be the raw pattern — an absolute path leaking into output data.",
+					arg: {
+						resultType: "object-grouped",
+						input: [__dirname + "files/*.txt"],
+					},
+					throws: /needs an explicit "id" on glob input/,
+				},
+				{
+					name: "Duplicate keys throw instead of silently dropping data",
+					arg: {
+						resultType: "object",
+						input: [
+							{ contents: { from: "first" }, filename: "data.json" },
+							{ contents: { from: "second" }, filename: "notes.txt", id: "data" },
+						],
+					},
+					throws: /duplicate key "data"/,
+				},
 			],
 		},
 		{
@@ -334,6 +355,22 @@ export default {
 						},
 					},
 					expect: { type: "data" },
+				},
+				{
+					name: "Reports the parsed, effective resultType",
+					arg: {
+						resultType: "array-grouped",
+						input: [{ contents: { a: 1 }, filename: "in.json" }],
+					},
+					expect: { resultType: { type: "array", grouped: true, files: false } },
+				},
+				{
+					name: "Surfaces a malformed resultType instead of echoing it",
+					arg: {
+						resultType: "arrray",
+						input: [{ contents: { a: 1 }, filename: "in.json" }],
+					},
+					throws: /Invalid resultType token "arrray"/,
 				},
 			],
 		},

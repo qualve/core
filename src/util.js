@@ -227,7 +227,27 @@ export function shapeResult (files, resultType) {
 	if (type === "object") {
 		// A glob child keys by its own name — its (inherited) id names the
 		// family, and family-keyed children would collide.
-		let keys = entries.map(([f]) => (f.parent ? f.name : (f.id ?? f.name ?? f.glob)));
+		let keys = entries.map(([f]) => {
+			let key = f.parent ? f.name : (f.id ?? f.name);
+
+			if (key == null) {
+				// Grouped globs have no name; without an id the only key left would
+				// be the raw pattern — an absolute path leaking into output data.
+				throw new Error(
+					`resultType "${resultType}" needs an explicit "id" on glob input "${f.glob}" to key its result.`,
+				);
+			}
+
+			return key;
+		});
+
+		let dupe = keys.find((key, i) => keys.indexOf(key) !== i);
+		if (dupe !== undefined) {
+			throw new Error(
+				`resultType "${resultType}" has a duplicate key "${dupe}" — give one of the colliding inputs an explicit "id".`,
+			);
+		}
+
 		return [Object.fromEntries(keys.map((key, i) => [key, elements[i]]))];
 	}
 
