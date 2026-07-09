@@ -290,6 +290,40 @@ export default {
 					expect: { replicas: 2, batchesPerReplica: 3 },
 				},
 				{
+					name: "force propagates from parent to fan-out subtasks",
+					description:
+						"Mirrors Task.fromPath, which passes force as a dedicated constructor arg rather than inside options.",
+					run: () => {
+						let task = Task.create(
+							{
+								type: "data",
+								options: { target: { multiple: true, present: true } },
+								input: [{ contents: {}, filename: "in.json" }],
+							},
+							{ info: () => {}, force: true, options: { target: ["a", "b"] } },
+						);
+						return task.computedSubtasks.map(t => t.force);
+					},
+					expect: [true, true],
+				},
+				{
+					name: "Task-declared force overrides an external -f",
+					description:
+						"E.g. a task declaring force: false to guard an output it never wants overwritten.",
+					run: () => {
+						let task = Task.create(
+							{
+								type: "data",
+								force: false,
+								input: [{ contents: {}, filename: "in.json" }],
+							},
+							{ info: () => {}, force: true },
+						);
+						return task.force;
+					},
+					expect: false,
+				},
+				{
 					name: "Explicit subtasks win over option-driven fan-out",
 					run: () => {
 						let task = Task.create(
