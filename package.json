@@ -1,0 +1,32 @@
+{
+	"name": "qualve-monorepo",
+	"private": true,
+	"version": "0.6.0",
+	"type": "module",
+	"engines": {
+		"node": ">=24"
+	},
+	"workspaces": [
+		"core",
+		"ai",
+		"ai/llm",
+		"ai/providers/*",
+		"graphql",
+		"formats",
+		"formats/csv",
+		"formats/yaml"
+	],
+	"scripts": {
+		"test": "npm test --workspaces --if-present",
+		"release": "npm whoami >/dev/null 2>&1 || npm login && release-it"
+	},
+	"devDependencies": {
+		"@release-it-plugins/workspaces": "^6.0.0",
+		"htest.dev": "^0.0.24",
+		"prettier": "^3.8.3",
+		"prettier-plugin-brace-style": "^0.10.1",
+		"prettier-plugin-merge": "^0.10.1",
+		"prettier-plugin-space-before-function-paren": "^0.1.0",
+		"release-it": "^19.0.0"
+	}
+}

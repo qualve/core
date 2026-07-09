@@ -1,48 +1,47 @@
 {
-  "name": "qualve",
-  "version": "0.6.0",
-  "description": "Pluggable data processing framework",
-  "type": "module",
-  "engines": {
-    "node": ">=24"
-  },
-  "main": "src/index.js",
-  "exports": {
-    ".": "./src/index.js",
-    "./cli": "./bin/qualve.js",
-    "./options": "./src/options.js",
-    "./util": "./src/util.js",
-    "./format": "./src/formats.js",
-    "./file": "./src/file.js",
-    "./task": "./src/task.js",
-    "./task/data": "./src/types/data.js",
-    "./entity": "./src/entity.js"
-  },
-  "bin": {
-    "qualve": "bin/qualve.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/qualve/core.git"
-  },
-  "author": "Lea Verou",
-  "contributors": [
-    "Dmitry Sharabin"
-  ],
-  "scripts": {
-    "test": "npx htest test",
-    "release": "npm whoami >/dev/null 2>&1 || npm login && release-it"
-  },
-  "devDependencies": {
-    "htest.dev": "^0.0.24",
-    "prettier": "^3.8.3",
-    "prettier-plugin-brace-style": "^0.10.1",
-    "prettier-plugin-merge": "^0.10.1",
-    "prettier-plugin-space-before-function-paren": "^0.1.0",
-    "release-it": "^20.0.0"
-  },
-  "dependencies": {
-    "log-update": "^6.1.0",
-    "minimist": "^1.2.8"
-  }
+	"name": "qualve",
+	"version": "0.6.0",
+	"description": "Pluggable data processing framework",
+	"type": "module",
+	"engines": {
+		"node": ">=24"
+	},
+	"main": "src/index.js",
+	"exports": {
+		".": "./src/index.js",
+		"./cli": "./bin/qualve.js",
+		"./options": "./src/options.js",
+		"./util": "./src/util.js",
+		"./format": "./src/formats.js",
+		"./file": "./src/file.js",
+		"./task": "./src/task.js",
+		"./task/data": "./src/types/data.js",
+		"./entity": "./src/entity.js"
+	},
+	"bin": {
+		"qualve": "bin/qualve.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/qualve/core.git"
+	},
+	"author": "Lea Verou",
+	"contributors": [
+		"Dmitry Sharabin"
+	],
+	"scripts": {
+		"test": "npx htest test"
+	},
+	"devDependencies": {
+		"htest.dev": "^0.0.24",
+		"prettier": "^3.8.3",
+		"prettier-plugin-brace-style": "^0.10.1",
+		"prettier-plugin-merge": "^0.10.1",
+		"prettier-plugin-space-before-function-paren": "^0.1.0",
+		"release-it": "^20.0.0"
+	},
+	"dependencies": {
+		"log-update": "^6.1.0",
+		"minimist": "^1.2.8"
+	}
 }
