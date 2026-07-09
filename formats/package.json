@@ -14,7 +14,8 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/qualve/formats.git"
+		"url": "git+https://github.com/qualve/qualve.git",
+		"directory": "formats"
 	},
 	"author": "Lea Verou",
 	"contributors": [

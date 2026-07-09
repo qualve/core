@@ -1,35 +1,35 @@
 {
-  "name": "@qualve/openai",
-  "version": "0.2.0",
-  "description": "OpenAI provider for Qualve LLM tasks.",
-  "type": "module",
-  "engines": {
-    "node": ">=23"
-  },
-  "main": "src/index.js",
-  "files": [
-    "src"
-  ],
-  "exports": {
-    ".": "./src/index.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/qualve/ai.git",
-    "directory": "providers/openai"
-  },
-  "contributors": [
-    "Dmitry Sharabin",
-    "Lea Verou"
-  ],
-  "scripts": {
-    "test": "npx htest test"
-  },
-  "peerDependencies": {
-    "qualve": "*"
-  },
-  "dependencies": {
-    "@qualve/llm": "*",
-    "openai": "^6.45.0"
-  }
+	"name": "@qualve/openai",
+	"version": "0.2.0",
+	"description": "OpenAI provider for Qualve LLM tasks.",
+	"type": "module",
+	"engines": {
+		"node": ">=23"
+	},
+	"main": "src/index.js",
+	"files": [
+		"src"
+	],
+	"exports": {
+		".": "./src/index.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/qualve/qualve.git",
+		"directory": "ai/providers/openai"
+	},
+	"contributors": [
+		"Dmitry Sharabin",
+		"Lea Verou"
+	],
+	"scripts": {
+		"test": "npx htest test"
+	},
+	"peerDependencies": {
+		"qualve": "*"
+	},
+	"dependencies": {
+		"@qualve/llm": "*",
+		"openai": "^6.45.0"
+	}
 }

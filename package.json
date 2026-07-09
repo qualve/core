@@ -28,5 +28,9 @@
 		"prettier-plugin-merge": "^0.10.1",
 		"prettier-plugin-space-before-function-paren": "^0.1.0",
 		"release-it": "^19.0.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/qualve/qualve.git"
 	}
 }

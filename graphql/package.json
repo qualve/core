@@ -12,7 +12,8 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/qualve/graphql.git"
+		"url": "git+https://github.com/qualve/qualve.git",
+		"directory": "graphql"
 	},
 	"author": "Lea Verou",
 	"contributors": [

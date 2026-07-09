@@ -19,7 +19,8 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/qualve/ai.git"
+		"url": "git+https://github.com/qualve/qualve.git",
+		"directory": "ai"
 	},
 	"contributors": [
 		"Dmitry Sharabin",

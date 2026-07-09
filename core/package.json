@@ -23,7 +23,8 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/qualve/core.git"
+		"url": "git+https://github.com/qualve/qualve.git",
+		"directory": "core"
 	},
 	"author": "Lea Verou",
 	"contributors": [

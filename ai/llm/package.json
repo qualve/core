@@ -1,38 +1,38 @@
 {
-  "name": "@qualve/llm",
-  "version": "0.2.0",
-  "description": "Core LLM task framework for Qualve.",
-  "type": "module",
-  "engines": {
-    "node": ">=23"
-  },
-  "main": "src/index.js",
-  "files": [
-    "src"
-  ],
-  "exports": {
-    ".": "./src/index.js",
-    "./file": "./src/file.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/qualve/ai.git",
-    "directory": "core"
-  },
-  "author": "Lea Verou",
-  "contributors": [
-    "Dmitry Sharabin"
-  ],
-  "scripts": {
-    "test": "npx htest test"
-  },
-  "peerDependencies": {
-    "qualve": "*"
-  },
-  "dependencies": {
-    "dedent": "^1.7.2"
-  },
-  "devDependencies": {
-    "htest.dev": "^0.0.24"
-  }
+	"name": "@qualve/llm",
+	"version": "0.2.0",
+	"description": "Core LLM task framework for Qualve.",
+	"type": "module",
+	"engines": {
+		"node": ">=23"
+	},
+	"main": "src/index.js",
+	"files": [
+		"src"
+	],
+	"exports": {
+		".": "./src/index.js",
+		"./file": "./src/file.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/qualve/qualve.git",
+		"directory": "ai/llm"
+	},
+	"author": "Lea Verou",
+	"contributors": [
+		"Dmitry Sharabin"
+	],
+	"scripts": {
+		"test": "npx htest test"
+	},
+	"peerDependencies": {
+		"qualve": "*"
+	},
+	"dependencies": {
+		"dedent": "^1.7.2"
+	},
+	"devDependencies": {
+		"htest.dev": "^0.0.24"
+	}
 }
