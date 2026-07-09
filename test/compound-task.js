@@ -292,7 +292,7 @@ export default {
 				{
 					name: "force propagates from parent to fan-out subtasks",
 					description:
-						"force is stripped from rawOptions by Task.fromPath and passed as a dedicated constructor arg (mirrored here), so subtasks must inherit it via this.parent.force rather than re-resolving their own default.",
+						"Mirrors Task.fromPath, which passes force as a dedicated constructor arg rather than inside options.",
 					run: () => {
 						let task = Task.create(
 							{
@@ -305,6 +305,23 @@ export default {
 						return task.computedSubtasks.map(t => t.force);
 					},
 					expect: [true, true],
+				},
+				{
+					name: "Task-declared force overrides an external -f",
+					description:
+						"E.g. a task declaring force: false to guard an output it never wants overwritten.",
+					run: () => {
+						let task = Task.create(
+							{
+								type: "data",
+								force: false,
+								input: [{ contents: {}, filename: "in.json" }],
+							},
+							{ info: () => {}, force: true },
+						);
+						return task.force;
+					},
+					expect: false,
 				},
 				{
 					name: "Explicit subtasks win over option-driven fan-out",

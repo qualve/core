@@ -72,9 +72,12 @@ export default class Task {
 
 		Object.assign(this, resolved);
 
-		// Framework controls: explicit args take precedence; parent inheritance fills gaps.
-		// (resolution may have set defaults like force=false; explicit set wins.)
-		this.force = force ?? this.force ?? this.parent?.force ?? false;
+		// Framework controls: this task's own resolved value (from its own rawOptions or a
+		// literal `force` field on the task def, e.g. protecting a human-edited output) takes
+		// precedence — it's an explicit decision made for this exact task. Otherwise fall
+		// through to the constructor arg (only set for the direct CLI target), then parent
+		// inheritance, so -f still reaches fanned-out subtasks that have no opinion of their own.
+		this.force = this.force ?? force ?? this.parent?.force ?? false;
 		this.dryRun = dryRun ?? this.parent?.dryRun ?? false;
 
 		// Unclaimed keys both apply as task-field overrides (preserving today's escape-hatch
