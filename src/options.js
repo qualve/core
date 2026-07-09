@@ -62,7 +62,6 @@ const availableOptions = Object.freeze({
 		description: "Path to config file",
 	},
 	force: {
-		default: false,
 		short: "f",
 		description: "Force overwrite of existing output",
 	},

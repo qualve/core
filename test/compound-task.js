@@ -290,6 +290,23 @@ export default {
 					expect: { replicas: 2, batchesPerReplica: 3 },
 				},
 				{
+					name: "force propagates from parent to fan-out subtasks",
+					description:
+						"force is stripped from rawOptions by Task.fromPath and passed as a dedicated constructor arg (mirrored here), so subtasks must inherit it via this.parent.force rather than re-resolving their own default.",
+					run: () => {
+						let task = Task.create(
+							{
+								type: "data",
+								options: { target: { multiple: true, present: true } },
+								input: [{ contents: {}, filename: "in.json" }],
+							},
+							{ info: () => {}, force: true, options: { target: ["a", "b"] } },
+						);
+						return task.computedSubtasks.map(t => t.force);
+					},
+					expect: [true, true],
+				},
+				{
 					name: "Explicit subtasks win over option-driven fan-out",
 					run: () => {
 						let task = Task.create(
