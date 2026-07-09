@@ -1,0 +1,35 @@
+{
+  "name": "@qualve/anthropic",
+  "version": "0.2.0",
+  "description": "Anthropic Claude provider for Qualve LLM tasks.",
+  "type": "module",
+  "engines": {
+    "node": ">=23"
+  },
+  "main": "src/index.js",
+  "files": [
+    "src"
+  ],
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qualve/ai.git",
+    "directory": "providers/anthropic"
+  },
+  "contributors": [
+    "Dmitry Sharabin",
+    "Lea Verou"
+  ],
+  "scripts": {
+    "test": "npx htest test"
+  },
+  "peerDependencies": {
+    "qualve": "*"
+  },
+  "dependencies": {
+    "@qualve/llm": "*",
+    "@anthropic-ai/sdk": "^0.106.0"
+  }
+}

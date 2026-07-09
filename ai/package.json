@@ -1,0 +1,52 @@
+{
+  "name": "@qualve/ai",
+  "version": "0.2.0",
+  "description": "LLM task plugin for Qualve, with adapters for Gemini, OpenAI, and Claude.",
+  "type": "module",
+  "engines": {
+    "node": ">=23"
+  },
+  "main": "src/index.js",
+  "files": [
+    "src"
+  ],
+  "workspaces": [
+    "core",
+    "providers/*"
+  ],
+  "exports": {
+    ".": "./src/index.js",
+    "./anthropic": "./src/anthropic.js",
+    "./openai": "./src/openai.js",
+    "./googleai": "./src/googleai.js",
+    "./core": "./src/core.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qualve/ai.git"
+  },
+  "contributors": [
+    "Dmitry Sharabin",
+    "Lea Verou"
+  ],
+  "scripts": {
+    "release": "npm whoami >/dev/null 2>&1 || npm login && release-it"
+  },
+  "peerDependencies": {
+    "qualve": "*"
+  },
+  "devDependencies": {
+    "@release-it-plugins/workspaces": "^6.0.0",
+    "prettier": "^3.8.1",
+    "prettier-plugin-brace-style": "^0.10.0",
+    "prettier-plugin-merge": "^0.10.0",
+    "prettier-plugin-space-before-function-paren": "^0.1.0",
+    "release-it": "^19.0.0"
+  },
+  "dependencies": {
+    "@qualve/llm": "*",
+    "@qualve/anthropic": "*",
+    "@qualve/openai": "*",
+    "@qualve/googleai": "*"
+  }
+}

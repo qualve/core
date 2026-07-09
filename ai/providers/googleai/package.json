@@ -1,0 +1,35 @@
+{
+  "name": "@qualve/googleai",
+  "version": "0.2.0",
+  "description": "Google Gemini provider for Qualve LLM tasks.",
+  "type": "module",
+  "engines": {
+    "node": ">=23"
+  },
+  "main": "src/index.js",
+  "files": [
+    "src"
+  ],
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qualve/ai.git",
+    "directory": "providers/googleai"
+  },
+  "contributors": [
+    "Dmitry Sharabin",
+    "Lea Verou"
+  ],
+  "scripts": {
+    "test": "npx htest test"
+  },
+  "peerDependencies": {
+    "qualve": "*"
+  },
+  "dependencies": {
+    "@qualve/llm": "*",
+    "@google/genai": "^2.10.0"
+  }
+}
